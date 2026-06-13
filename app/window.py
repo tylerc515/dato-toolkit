@@ -20,7 +20,7 @@ from PyQt6.QtWidgets import (
 )
 
 from app import __version__
-from app.logo import get_pixmap
+from app.logo import get_icon, get_pixmap
 from app.pages.generate_page import GeneratePage
 from app.pages.generate_page import STATUS_HINT as GENERATE_STATUS_HINT
 from app.pages.import_page import ImportPage
@@ -72,6 +72,7 @@ class MainWindow(QMainWindow):
     def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
         self.setWindowTitle(APP_NAME)
+        self.setWindowIcon(get_icon())
         self.setMinimumSize(WINDOW_MIN_WIDTH, WINDOW_MIN_HEIGHT)
 
         self._completed_steps: set[int] = set()
