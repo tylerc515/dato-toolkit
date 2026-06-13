@@ -20,6 +20,7 @@ from PyQt6.QtWidgets import (
 )
 
 from app import __version__
+from app.logo import get_pixmap
 from app.pages.generate_page import GeneratePage
 from app.pages.generate_page import STATUS_HINT as GENERATE_STATUS_HINT
 from app.pages.import_page import ImportPage
@@ -128,6 +129,13 @@ class MainWindow(QMainWindow):
         header.setStyleSheet(f"background-color: {COLOR_SURFACE};")
         layout = QHBoxLayout(header)
         layout.setContentsMargins(16, 10, 16, 10)
+
+        logo_label = QLabel()
+        logo_label.setPixmap(get_pixmap(160, 93))
+        logo_label.setMinimumWidth(160)
+        layout.addWidget(logo_label)
+
+        layout.addSpacing(12)
 
         name_label = QLabel(APP_NAME)
         name_label.setProperty("role", "heading")

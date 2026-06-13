@@ -6,7 +6,7 @@ import logging
 from pathlib import Path
 from typing import Optional
 
-from PyQt6.QtCore import QThread, QUrl, pyqtSignal
+from PyQt6.QtCore import Qt, QThread, QUrl, pyqtSignal
 from PyQt6.QtGui import QDesktopServices
 from PyQt6.QtWidgets import (
     QCheckBox,
@@ -23,6 +23,7 @@ from PyQt6.QtWidgets import (
 )
 
 from app.builder import TrackerData, TrackerSection, build_tracker
+from app.logo import get_pixmap
 from app.pdf_export import export_tracker_pdf
 from app.project import ProjectConfig, sanitize_filename
 from app.styles import apply_card_shadow
@@ -169,6 +170,10 @@ class GeneratePage(QWidget):
         success_heading = QLabel(SUCCESS_TITLE)
         success_heading.setProperty("role", "heading")
         success_layout.addWidget(success_heading)
+        success_logo = QLabel()
+        success_logo.setPixmap(get_pixmap(180, 105))
+        success_logo.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        success_layout.addWidget(success_logo)
         success_text = QLabel(SUCCESS_TEXT)
         success_layout.addWidget(success_text)
         success_buttons = QHBoxLayout()

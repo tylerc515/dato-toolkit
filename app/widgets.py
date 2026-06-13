@@ -13,6 +13,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from app.logo import get_pixmap
 from app.styles import COLOR_BORDER, COLOR_HIGHLIGHT, COLOR_MUTED_TEXT, COLOR_SUCCESS, COLOR_SURFACE, COLOR_TEXT
 
 HELP_PANEL_WIDTH = 320
@@ -139,6 +140,12 @@ class OnboardingDialog(QDialog):
         self.setModal(True)
 
         layout = QVBoxLayout(self)
+
+        logo_label = QLabel()
+        logo_label.setPixmap(get_pixmap(240, 140))
+        logo_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(logo_label)
+        layout.addSpacing(16)
 
         heading = QLabel(ONBOARDING_TITLE)
         heading.setProperty("role", "heading")
