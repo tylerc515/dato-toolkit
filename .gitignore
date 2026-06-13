@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+.venv/
+venv/
+env/
+
+# PyInstaller
+build/
+dist/
+*.spec
+
+# Project artifacts
+scratch/
+output/
+.pytest_cache/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor/tooling
+.claude/

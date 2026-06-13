@@ -1,0 +1,27 @@
+[project]
+name = "trace-tracker-builder"
+version = "1.0.0"
+description = "Generate formatted Excel trackers from TRACE UT inspection export files."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [
+    { name = "tylerc515" }
+]
+dependencies = [
+    "PyQt6>=6.6.0",
+    "openpyxl>=3.1.0",
+    "pandas>=2.0.0",
+    "requests>=2.31.0",
+    "reportlab>=4.0.0",
+]
+
+[project.optional-dependencies]
+build = ["pyinstaller>=6.0.0"]
+
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["app", "app.pages"]
