@@ -27,6 +27,8 @@ from app.pages.dashboard_page import DashboardPage
 from app.pages.dashboard_page import STATUS_HINT as DASHBOARD_STATUS_HINT
 from app.pages.generate_page import GeneratePage
 from app.pages.generate_page import STATUS_HINT as GENERATE_STATUS_HINT
+from app.pages.history_page import HistoryPage
+from app.pages.history_page import STATUS_HINT as HISTORY_STATUS_HINT
 from app.pages.import_page import ImportPage
 from app.pages.import_page import STATUS_HINT as IMPORT_STATUS_HINT
 from app.pages.reorder_page import ReorderPage
@@ -53,7 +55,14 @@ INDICATOR_COLOR_UP_TO_DATE = COLOR_SUCCESS
 INDICATOR_COLOR_UPDATE_AVAILABLE = COLOR_WARNING
 INDICATOR_COLOR_UNKNOWN = "#5a6178"
 
-STATUS_HINTS = [DASHBOARD_STATUS_HINT, IMPORT_STATUS_HINT, REORDER_STATUS_HINT, GENERATE_STATUS_HINT]
+STATUS_HINTS = [
+    DASHBOARD_STATUS_HINT,
+    IMPORT_STATUS_HINT,
+    REORDER_STATUS_HINT,
+    GENERATE_STATUS_HINT,
+    HISTORY_STATUS_HINT,
+]
+HISTORY_PAGE_INDEX = 4
 HOME_BUTTON_TEXT = "⌂ Dashboard"
 
 # --- Window chrome ---------------------------------------------------------
@@ -178,20 +187,24 @@ class MainWindow(QMainWindow):
         self.import_page = ImportPage()
         self.reorder_page = ReorderPage()
         self.generate_page = GeneratePage()
+        self.history_page = HistoryPage()
         self.stack.addWidget(self.dashboard_page)
         self.stack.addWidget(self.import_page)
         self.stack.addWidget(self.reorder_page)
         self.stack.addWidget(self.generate_page)
+        self.stack.addWidget(self.history_page)
         layout.addWidget(self.stack, 1)
 
         self.dashboard_page.new_tracker_requested.connect(self._on_new_project)
         self.dashboard_page.project_selected.connect(self._on_project_load_requested)
+        self.dashboard_page.view_history_requested.connect(self._go_to_history)
         self.import_page.files_ready.connect(self._on_files_ready)
         self.import_page.project_load_requested.connect(self._on_project_load_requested)
         self.reorder_page.back_requested.connect(lambda: self._go_to_step(0))
         self.reorder_page.continue_requested.connect(self._on_reorder_continue)
         self.generate_page.back_requested.connect(lambda: self._go_to_step(1))
         self.generate_page.new_project_requested.connect(self._on_new_project)
+        self.history_page.back_requested.connect(self._go_to_dashboard)
 
         self.setCentralWidget(central)
 
@@ -344,12 +357,17 @@ class MainWindow(QMainWindow):
     def _go_to_dashboard(self) -> None:
         self.stack.setCurrentIndex(0)
 
+    def _go_to_history(self) -> None:
+        self.stack.setCurrentIndex(HISTORY_PAGE_INDEX)
+
     def _on_page_changed(self, index: int) -> None:
         if 0 <= index < len(STATUS_HINTS):
             self.status_bar.showMessage(STATUS_HINTS[index])
-        self.step_container.setVisible(index > 0)
+        self.step_container.setVisible(0 < index < HISTORY_PAGE_INDEX)
         if index == 0:
             self.dashboard_page.refresh()
+        elif index == HISTORY_PAGE_INDEX:
+            self.history_page.refresh()
 
     def _on_files_ready(self, files: list[TraceFileData]) -> None:
         self.reorder_page.set_files(files)

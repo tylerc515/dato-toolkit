@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-from datetime import datetime
 from pathlib import Path
 
 from PyQt6.QtCore import QUrl, Qt, pyqtSignal
 from PyQt6.QtGui import QDesktopServices
 from PyQt6.QtWidgets import QFrame, QHBoxLayout, QLabel, QLayout, QPushButton, QVBoxLayout, QWidget
 
-from app.history import HistoryEntry, load_history
+from app.history import HistoryEntry, NEVER_TEXT, format_timestamp, load_history
 from app.project import ProjectConfig, ProjectError, get_projects_dir, load_project
 from app.styles import COLOR_HIGHLIGHT, COLOR_MUTED_TEXT, apply_card_shadow
 
@@ -29,20 +28,11 @@ NO_HISTORY_TEXT = "No trackers generated yet."
 OPEN_TEXT = "Open"
 OPEN_FILE_TEXT = "Open File"
 OPEN_FOLDER_TEXT = "Open Folder"
-NEVER_TEXT = "—"
+VIEW_ALL_TEXT = "View All"
 STATUS_HINT = "Tip: Start a new tracker, or pick up where you left off below."
 
 RECENT_PROJECTS_LIMIT = 5
 RECENT_EXPORTS_LIMIT = 5
-
-
-def _format_timestamp(value: str) -> str:
-    if not value:
-        return NEVER_TEXT
-    try:
-        return datetime.fromisoformat(value).strftime("%b %d, %Y %I:%M %p")
-    except ValueError:
-        return value
 
 
 def _clear_layout(layout: QLayout) -> None:
@@ -62,6 +52,7 @@ class DashboardPage(QWidget):
 
     new_tracker_requested = pyqtSignal()
     project_selected = pyqtSignal(Path)
+    view_history_requested = pyqtSignal()
 
     def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
@@ -93,19 +84,30 @@ class DashboardPage(QWidget):
         lists_row = QHBoxLayout()
         self.recent_projects_card, self.recent_projects_layout = self._build_list_card(RECENT_PROJECTS_TITLE)
         lists_row.addWidget(self.recent_projects_card, 1)
-        self.recent_exports_card, self.recent_exports_layout = self._build_list_card(RECENT_EXPORTS_TITLE)
+
+        self.view_history_button = QPushButton(VIEW_ALL_TEXT)
+        self.view_history_button.setProperty("flat", "true")
+        self.view_history_button.clicked.connect(self.view_history_requested.emit)
+        self.recent_exports_card, self.recent_exports_layout = self._build_list_card(
+            RECENT_EXPORTS_TITLE, action_button=self.view_history_button
+        )
         lists_row.addWidget(self.recent_exports_card, 1)
         outer.addLayout(lists_row, 1)
 
-    def _build_list_card(self, title_text: str) -> tuple[QFrame, QVBoxLayout]:
+    def _build_list_card(self, title_text: str, action_button: QPushButton | None = None) -> tuple[QFrame, QVBoxLayout]:
         card = QFrame()
         card.setProperty("card", "true")
         apply_card_shadow(card)
 
         outer_layout = QVBoxLayout(card)
+        heading_row = QHBoxLayout()
         heading = QLabel(title_text)
         heading.setProperty("role", "heading")
-        outer_layout.addWidget(heading)
+        heading_row.addWidget(heading)
+        heading_row.addStretch(1)
+        if action_button is not None:
+            heading_row.addWidget(action_button)
+        outer_layout.addLayout(heading_row)
 
         rows_layout = QVBoxLayout()
         rows_layout.setSpacing(6)
@@ -158,7 +160,7 @@ class DashboardPage(QWidget):
         _clear_layout(self.stats_row)
 
         total_elevations = sum(entry.elevation_count for entry in history)
-        last_generated = _format_timestamp(history[0].generated_at) if history else NEVER_TEXT
+        last_generated = format_timestamp(history[0].generated_at) if history else NEVER_TEXT
 
         stats = [
             (str(total_projects), STAT_PROJECTS_LABEL),
@@ -220,7 +222,7 @@ class DashboardPage(QWidget):
 
         info = QLabel(
             f"<b>{entry.title or '(Untitled)'}</b><br>"
-            f"<span style='color:{COLOR_MUTED_TEXT};'>{_format_timestamp(entry.generated_at)}</span>"
+            f"<span style='color:{COLOR_MUTED_TEXT};'>{format_timestamp(entry.generated_at)}</span>"
         )
         info.setTextFormat(Qt.TextFormat.RichText)
         layout.addWidget(info, 1)

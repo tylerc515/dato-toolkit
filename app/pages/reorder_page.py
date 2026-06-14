@@ -11,7 +11,6 @@ from PyQt6.QtWidgets import (
     QListWidget,
     QListWidgetItem,
     QPushButton,
-    QTextEdit,
     QVBoxLayout,
     QWidget,
 )
@@ -20,6 +19,7 @@ from app.parser import TraceFileData
 from app.project import ProjectConfig, ProjectSection
 from app.titlegen import generate_title
 from app.widgets import HelpPanel
+from app.widgets.tracker_preview import TrackerPreview
 
 # --- UI text -------------------------------------------------------------
 
@@ -108,8 +108,7 @@ class ReorderPage(QWidget):
         preview_column = QVBoxLayout()
         preview_label = QLabel(PREVIEW_LABEL)
         preview_column.addWidget(preview_label)
-        self.preview = QTextEdit()
-        self.preview.setReadOnly(True)
+        self.preview = TrackerPreview()
         preview_column.addWidget(self.preview, 1)
         split_row.addLayout(preview_column, 1)
 
@@ -199,14 +198,15 @@ class ReorderPage(QWidget):
         self._autosave_timer.start()
 
     def _refresh_preview(self) -> None:
-        title = self.title_edit.text()
-        lines = [f"<p><b>{title}</b></p>"]
-        for section, _item in self._iter_sections():
-            lines.append(f"<p><b>{section.display_name}</b></p><ul>")
-            for elevation in section.elevations:
-                lines.append(f"<li>{elevation}</li>")
-            lines.append("</ul>")
-        self.preview.setHtml("".join(lines))
+        sections = [section for section, _item in self._iter_sections()]
+        self.preview.set_data(
+            self.title_edit.text(),
+            self._customer,
+            self._location,
+            self._equipment,
+            self._date,
+            sections,
+        )
 
     def _iter_sections(self) -> list[tuple[ProjectSection, QListWidgetItem]]:
         result = []

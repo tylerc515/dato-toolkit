@@ -5,12 +5,14 @@ from __future__ import annotations
 import json
 import logging
 from dataclasses import asdict, dataclass
+from datetime import datetime
 from pathlib import Path
 
 from app.project import get_app_data_dir
 
 HISTORY_FILENAME = "history.json"
 MAX_HISTORY_ENTRIES = 200
+NEVER_TEXT = "—"
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +47,16 @@ class HistoryEntry:
             pdf_path=data.get("pdf_path", ""),
             generated_at=data.get("generated_at", ""),
         )
+
+
+def format_timestamp(value: str) -> str:
+    """Format an ISO timestamp for display, or return a placeholder if empty/invalid."""
+    if not value:
+        return NEVER_TEXT
+    try:
+        return datetime.fromisoformat(value).strftime("%b %d, %Y %I:%M %p")
+    except ValueError:
+        return value
 
 
 def _history_path() -> Path:
