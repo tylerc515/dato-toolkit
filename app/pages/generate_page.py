@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
@@ -23,6 +24,7 @@ from PyQt6.QtWidgets import (
 )
 
 from app.builder import TrackerData, TrackerSection, build_tracker
+from app.history import HistoryEntry, add_history_entry
 from app.logo import get_pixmap
 from app.pdf_export import export_tracker_pdf
 from app.project import ProjectConfig, sanitize_filename
@@ -298,6 +300,22 @@ class GeneratePage(QWidget):
         self.generate_button.setEnabled(True)
         self.back_button.setEnabled(True)
         self.success_card.setVisible(True)
+
+        if self._config is not None:
+            elevation_count = sum(len(section.elevations) for section in self._config.sections)
+            add_history_entry(
+                HistoryEntry(
+                    title=self._config.title,
+                    customer=self._config.customer,
+                    location=self._config.location,
+                    equipment=self._config.equipment,
+                    date=self._config.date,
+                    elevation_count=elevation_count,
+                    output_path=str(xlsx_path),
+                    pdf_path=str(pdf_path) if pdf_path else "",
+                    generated_at=datetime.now().isoformat(),
+                )
+            )
 
     def _on_generate_failed(self, message: str) -> None:
         self.progress_bar.setVisible(False)

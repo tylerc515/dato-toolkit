@@ -23,6 +23,8 @@ from PyQt6.QtWidgets import (
 
 from app import __version__
 from app.logo import get_icon, get_pixmap
+from app.pages.dashboard_page import DashboardPage
+from app.pages.dashboard_page import STATUS_HINT as DASHBOARD_STATUS_HINT
 from app.pages.generate_page import GeneratePage
 from app.pages.generate_page import STATUS_HINT as GENERATE_STATUS_HINT
 from app.pages.import_page import ImportPage
@@ -51,7 +53,8 @@ INDICATOR_COLOR_UP_TO_DATE = COLOR_SUCCESS
 INDICATOR_COLOR_UPDATE_AVAILABLE = COLOR_WARNING
 INDICATOR_COLOR_UNKNOWN = "#5a6178"
 
-STATUS_HINTS = [IMPORT_STATUS_HINT, REORDER_STATUS_HINT, GENERATE_STATUS_HINT]
+STATUS_HINTS = [DASHBOARD_STATUS_HINT, IMPORT_STATUS_HINT, REORDER_STATUS_HINT, GENERATE_STATUS_HINT]
+HOME_BUTTON_TEXT = "⌂ Dashboard"
 
 # --- Window chrome ---------------------------------------------------------
 
@@ -162,23 +165,27 @@ class MainWindow(QMainWindow):
         self.update_banner = self._build_update_banner()
         layout.addWidget(self.update_banner)
 
-        step_container = QWidget()
-        step_layout = QHBoxLayout(step_container)
+        self.step_container = QWidget()
+        step_layout = QHBoxLayout(self.step_container)
         step_layout.setContentsMargins(16, 12, 16, 12)
         self.step_indicator = StepIndicator(STEP_LABELS)
         self.step_indicator.step_clicked.connect(self._go_to_step)
         step_layout.addWidget(self.step_indicator)
-        layout.addWidget(step_container)
+        layout.addWidget(self.step_container)
 
         self.stack = QStackedWidget()
+        self.dashboard_page = DashboardPage()
         self.import_page = ImportPage()
         self.reorder_page = ReorderPage()
         self.generate_page = GeneratePage()
+        self.stack.addWidget(self.dashboard_page)
         self.stack.addWidget(self.import_page)
         self.stack.addWidget(self.reorder_page)
         self.stack.addWidget(self.generate_page)
         layout.addWidget(self.stack, 1)
 
+        self.dashboard_page.new_tracker_requested.connect(self._on_new_project)
+        self.dashboard_page.project_selected.connect(self._on_project_load_requested)
         self.import_page.files_ready.connect(self._on_files_ready)
         self.import_page.project_load_requested.connect(self._on_project_load_requested)
         self.reorder_page.back_requested.connect(lambda: self._go_to_step(0))
@@ -193,8 +200,8 @@ class MainWindow(QMainWindow):
         self.size_grip.raise_()
 
         self.status_bar = self.statusBar()
-        self.stack.currentChanged.connect(self._update_status_hint)
-        self._update_status_hint(0)
+        self.stack.currentChanged.connect(self._on_page_changed)
+        self._on_page_changed(self.stack.currentIndex())
 
     def _build_header(self) -> QFrame:
         header = _DragHeader(self)
@@ -217,28 +224,36 @@ class MainWindow(QMainWindow):
         version_label.setProperty("role", "muted")
         layout.addWidget(version_label)
 
+        layout.addSpacing(12)
+
+        self.home_button = QPushButton(HOME_BUTTON_TEXT)
+        self.home_button.setProperty("flat", "true")
+        self.home_button.setToolTip("Go to dashboard")
+        self.home_button.clicked.connect(self._go_to_dashboard)
+        layout.addWidget(self.home_button)
+
         layout.addStretch(1)
 
         self.update_indicator = _UpdateIndicator()
         self.update_indicator.setToolTip("Checking for updates…")
-        layout.addWidget(self.update_indicator)
+        layout.addWidget(self.update_indicator, 0, Qt.AlignmentFlag.AlignTop)
 
         layout.addSpacing(12)
 
         self.minimize_button = self._make_window_button("−", WINDOW_BUTTON_HOVER)
         self.minimize_button.setToolTip("Minimize")
         self.minimize_button.clicked.connect(self.showMinimized)
-        layout.addWidget(self.minimize_button)
+        layout.addWidget(self.minimize_button, 0, Qt.AlignmentFlag.AlignTop)
 
         self.maximize_button = self._make_window_button("□", WINDOW_BUTTON_HOVER)
         self.maximize_button.setToolTip("Maximize")
         self.maximize_button.clicked.connect(self._toggle_maximize_restore)
-        layout.addWidget(self.maximize_button)
+        layout.addWidget(self.maximize_button, 0, Qt.AlignmentFlag.AlignTop)
 
         self.close_button = self._make_window_button("×", WINDOW_CLOSE_HOVER)
         self.close_button.setToolTip("Close")
         self.close_button.clicked.connect(self.close)
-        layout.addWidget(self.close_button)
+        layout.addWidget(self.close_button, 0, Qt.AlignmentFlag.AlignTop)
 
         return header
 
@@ -323,12 +338,18 @@ class MainWindow(QMainWindow):
     # --- Step navigation -------------------------------------------------
 
     def _go_to_step(self, index: int) -> None:
-        self.stack.setCurrentIndex(index)
+        self.stack.setCurrentIndex(index + 1)
         self.step_indicator.set_current_step(index, self._completed_steps)
 
-    def _update_status_hint(self, index: int) -> None:
+    def _go_to_dashboard(self) -> None:
+        self.stack.setCurrentIndex(0)
+
+    def _on_page_changed(self, index: int) -> None:
         if 0 <= index < len(STATUS_HINTS):
             self.status_bar.showMessage(STATUS_HINTS[index])
+        self.step_container.setVisible(index > 0)
+        if index == 0:
+            self.dashboard_page.refresh()
 
     def _on_files_ready(self, files: list[TraceFileData]) -> None:
         self.reorder_page.set_files(files)
@@ -459,14 +480,9 @@ class MainWindow(QMainWindow):
     def _restore_geometry(self) -> None:
         settings = QSettings(APP_DIR_NAME, APP_DIR_NAME)
         geometry = settings.value(GEOMETRY_SETTINGS_KEY)
-        if isinstance(geometry, QByteArray) and self.restoreGeometry(geometry) and self._is_on_screen():
-            return
-        self.resize(*DEFAULT_WINDOW_SIZE)
+        if not (isinstance(geometry, QByteArray) and self.restoreGeometry(geometry)):
+            self.resize(*DEFAULT_WINDOW_SIZE)
         self._center_on_screen()
-
-    def _is_on_screen(self) -> bool:
-        frame = self.frameGeometry()
-        return any(screen.geometry().intersects(frame) for screen in QApplication.screens())
 
     def _center_on_screen(self) -> None:
         screen = QApplication.primaryScreen()
