@@ -35,6 +35,8 @@ from app.pages.history_page import HistoryPage
 from app.pages.history_page import STATUS_HINT as HISTORY_STATUS_HINT
 from app.pages.import_page import ImportPage
 from app.pages.import_page import STATUS_HINT as IMPORT_STATUS_HINT
+from app.pages.projects_page import ProjectsPage
+from app.pages.projects_page import STATUS_HINT as PROJECTS_STATUS_HINT
 from app.pages.reorder_page import ReorderPage
 from app.pages.reorder_page import STATUS_HINT as REORDER_STATUS_HINT
 from app.pages.settings_page import SettingsPage
@@ -73,10 +75,12 @@ STATUS_HINTS = [
     HISTORY_STATUS_HINT,
     SETTINGS_STATUS_HINT,
     BATCH_STATUS_HINT,
+    PROJECTS_STATUS_HINT,
 ]
 HISTORY_PAGE_INDEX = 4
 SETTINGS_PAGE_INDEX = 5
 BATCH_PAGE_INDEX = 6
+PROJECTS_PAGE_INDEX = 7
 HOME_BUTTON_TEXT = "⌂ Dashboard"
 SETTINGS_BUTTON_TEXT = "⚙ Settings"
 
@@ -205,6 +209,7 @@ class MainWindow(QMainWindow):
         self.history_page = HistoryPage()
         self.settings_page = SettingsPage()
         self.batch_page = BatchPage()
+        self.projects_page = ProjectsPage()
         self.stack.addWidget(self.dashboard_page)
         self.stack.addWidget(self.import_page)
         self.stack.addWidget(self.reorder_page)
@@ -212,11 +217,13 @@ class MainWindow(QMainWindow):
         self.stack.addWidget(self.history_page)
         self.stack.addWidget(self.settings_page)
         self.stack.addWidget(self.batch_page)
+        self.stack.addWidget(self.projects_page)
         layout.addWidget(self.stack, 1)
 
         self.dashboard_page.new_tracker_requested.connect(self._on_new_project)
         self.dashboard_page.project_selected.connect(self._on_project_load_requested)
         self.dashboard_page.view_history_requested.connect(self._go_to_history)
+        self.dashboard_page.view_projects_requested.connect(self._go_to_projects)
         self.dashboard_page.batch_requested.connect(self._go_to_batch)
         self.import_page.files_ready.connect(self._on_files_ready)
         self.import_page.project_load_requested.connect(self._on_project_load_requested)
@@ -228,6 +235,8 @@ class MainWindow(QMainWindow):
         self.history_page.back_requested.connect(self._go_to_dashboard)
         self.settings_page.back_requested.connect(self._go_to_dashboard)
         self.batch_page.back_requested.connect(self._go_to_dashboard)
+        self.projects_page.back_requested.connect(self._go_to_dashboard)
+        self.projects_page.project_selected.connect(self._on_project_load_requested)
 
         self.setCentralWidget(central)
 
@@ -436,6 +445,9 @@ class MainWindow(QMainWindow):
     def _go_to_batch(self) -> None:
         self.stack.setCurrentIndex(BATCH_PAGE_INDEX)
 
+    def _go_to_projects(self) -> None:
+        self.stack.setCurrentIndex(PROJECTS_PAGE_INDEX)
+
     def _on_page_changed(self, index: int) -> None:
         if 0 <= index < len(STATUS_HINTS):
             self.status_bar.showMessage(STATUS_HINTS[index])
@@ -444,6 +456,8 @@ class MainWindow(QMainWindow):
             self.dashboard_page.refresh()
         elif index == HISTORY_PAGE_INDEX:
             self.history_page.refresh()
+        elif index == PROJECTS_PAGE_INDEX:
+            self.projects_page.refresh()
 
     def _on_files_ready(self, files: list[TraceFileData]) -> None:
         self.reorder_page.set_files(files)
@@ -507,7 +521,7 @@ class MainWindow(QMainWindow):
             self.reorder_page.back_button.click()
         elif index == 3:
             self.generate_page.back_button.click()
-        elif index in (HISTORY_PAGE_INDEX, SETTINGS_PAGE_INDEX, BATCH_PAGE_INDEX):
+        elif index in (HISTORY_PAGE_INDEX, SETTINGS_PAGE_INDEX, BATCH_PAGE_INDEX, PROJECTS_PAGE_INDEX):
             self._go_to_dashboard()
 
     def _toggle_current_help(self) -> None:

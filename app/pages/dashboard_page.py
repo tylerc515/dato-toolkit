@@ -9,7 +9,7 @@ from PyQt6.QtGui import QDesktopServices
 from PyQt6.QtWidgets import QFrame, QHBoxLayout, QLabel, QLayout, QPushButton, QVBoxLayout, QWidget
 
 from app.history import HistoryEntry, NEVER_TEXT, format_timestamp, load_history
-from app.project import ProjectConfig, ProjectError, get_projects_dir, load_project
+from app.project import ProjectConfig, list_projects
 from app.styles import apply_card_shadow, color
 
 # --- UI text -------------------------------------------------------------
@@ -54,6 +54,7 @@ class DashboardPage(QWidget):
     new_tracker_requested = pyqtSignal()
     project_selected = pyqtSignal(Path)
     view_history_requested = pyqtSignal()
+    view_projects_requested = pyqtSignal()
     batch_requested = pyqtSignal()
 
     def __init__(self, parent: QWidget | None = None):
@@ -90,7 +91,12 @@ class DashboardPage(QWidget):
         outer.addLayout(self.stats_row)
 
         lists_row = QHBoxLayout()
-        self.recent_projects_card, self.recent_projects_layout = self._build_list_card(RECENT_PROJECTS_TITLE)
+        self.view_projects_button = QPushButton(VIEW_ALL_TEXT)
+        self.view_projects_button.setProperty("flat", "true")
+        self.view_projects_button.clicked.connect(self.view_projects_requested.emit)
+        self.recent_projects_card, self.recent_projects_layout = self._build_list_card(
+            RECENT_PROJECTS_TITLE, action_button=self.view_projects_button
+        )
         lists_row.addWidget(self.recent_projects_card, 1)
 
         self.view_history_button = QPushButton(VIEW_ALL_TEXT)
@@ -143,14 +149,7 @@ class DashboardPage(QWidget):
     # --- Data loading ------------------------------------------------------
 
     def _load_recent_projects(self) -> tuple[list[tuple[Path, ProjectConfig]], int]:
-        results: list[tuple[Path, ProjectConfig]] = []
-        for path in get_projects_dir().glob("*.json"):
-            try:
-                config = load_project(path)
-            except ProjectError:
-                continue
-            results.append((path, config))
-        results.sort(key=lambda item: item[1].last_modified, reverse=True)
+        results = list_projects()
         return results[:RECENT_PROJECTS_LIMIT], len(results)
 
     # --- Refresh -------------------------------------------------------------

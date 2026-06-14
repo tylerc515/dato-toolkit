@@ -4,6 +4,7 @@ from app.project import (
     ProjectConfig,
     find_project_for_metadata,
     find_similar_project_for_metadata,
+    list_projects,
 )
 
 
@@ -59,3 +60,20 @@ def test_find_similar_project_for_metadata_unrelated_returns_none(tmp_path, monk
 
     found = find_similar_project_for_metadata("Acme Corp", "Plant Nine", "Unit 7", "2030")
     assert found is None
+
+
+def test_list_projects_sorted_most_recent_first(tmp_path, monkeypatch):
+    import json
+
+    monkeypatch.setattr("app.project.get_app_data_dir", lambda: tmp_path)
+    projects_dir = tmp_path / "projects"
+    projects_dir.mkdir(parents=True)
+
+    older = _config(title="Older Project", last_modified="2026-01-01T00:00:00")
+    newer = _config(title="Newer Project", last_modified="2026-06-01T00:00:00")
+    (projects_dir / "older.json").write_text(json.dumps(older.to_dict()), encoding="utf-8")
+    (projects_dir / "newer.json").write_text(json.dumps(newer.to_dict()), encoding="utf-8")
+
+    results = list_projects()
+
+    assert [config.title for _, config in results] == ["Newer Project", "Older Project"]

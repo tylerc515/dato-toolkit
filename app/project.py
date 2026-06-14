@@ -125,6 +125,19 @@ def load_project(path: Path) -> ProjectConfig:
     return ProjectConfig.from_dict(data)
 
 
+def list_projects() -> list[tuple[Path, "ProjectConfig"]]:
+    """Return all saved projects with their file paths, most recently modified first."""
+    results: list[tuple[Path, ProjectConfig]] = []
+    for path in get_projects_dir().glob("*.json"):
+        try:
+            config = load_project(path)
+        except ProjectError:
+            continue
+        results.append((path, config))
+    results.sort(key=lambda item: item[1].last_modified, reverse=True)
+    return results
+
+
 def find_project_for_metadata(customer: str, location: str, equipment: str, date: str) -> Optional[Path]:
     """Return the path of a saved project matching the given metadata, if any."""
     for path in get_projects_dir().glob("*.json"):

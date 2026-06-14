@@ -1,37 +1,37 @@
-"""Full export history log: every generated tracker, most recent first."""
+"""Full list of saved projects, most recently modified first."""
 
 from __future__ import annotations
 
 from pathlib import Path
 
-from PyQt6.QtCore import QUrl, Qt, pyqtSignal
-from PyQt6.QtGui import QDesktopServices
+from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtWidgets import QFrame, QHBoxLayout, QLabel, QLineEdit, QPushButton, QScrollArea, QVBoxLayout, QWidget
 
-from app.history import HistoryEntry, format_timestamp, load_history
+from app.history import format_timestamp
+from app.project import ProjectConfig, list_projects
 from app.search import matches_search
 from app.styles import apply_card_shadow, color
 
 # --- UI text -------------------------------------------------------------
 
-TITLE_TEXT = "Export History"
+TITLE_TEXT = "All Projects"
 BACK_TEXT = "← Back"
-NO_HISTORY_TEXT = "No trackers generated yet."
-NO_MATCHES_TEXT = "No exports match your search."
-OPEN_FILE_TEXT = "Open File"
-OPEN_FOLDER_TEXT = "Open Folder"
-SEARCH_PLACEHOLDER = "Search by title, customer, location, equipment, or date…"
-STATUS_HINT = "Tip: Browse every tracker you've generated and reopen its file or folder."
+NO_PROJECTS_TEXT = "No saved projects yet."
+NO_MATCHES_TEXT = "No projects match your search."
+OPEN_TEXT = "Open"
+SEARCH_PLACEHOLDER = "Search by title, customer, location, or equipment…"
+STATUS_HINT = "Tip: Search your saved projects and reopen one to continue editing."
 
 
-class HistoryPage(QWidget):
-    """Full export history log: every generated tracker, most recent first."""
+class ProjectsPage(QWidget):
+    """Full list of saved projects, most recently modified first."""
 
     back_requested = pyqtSignal()
+    project_selected = pyqtSignal(Path)
 
     def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
-        self._entries: list[HistoryEntry] = []
+        self._projects: list[tuple[Path, ProjectConfig]] = []
         self._build_ui()
 
     def _build_ui(self) -> None:
@@ -68,8 +68,8 @@ class HistoryPage(QWidget):
         outer.addWidget(scroll_area, 1)
 
     def refresh(self) -> None:
-        """Reload the full history list from disk."""
-        self._entries = load_history()
+        """Reload the full project list from disk."""
+        self._projects = list_projects()
         self._apply_filter()
 
     def _apply_filter(self) -> None:
@@ -81,48 +81,41 @@ class HistoryPage(QWidget):
                 widget.deleteLater()
 
         query = self.search_edit.text()
-        entries = [
-            entry
-            for entry in self._entries
-            if matches_search(query, entry.title, entry.customer, entry.location, entry.equipment, entry.date)
+        projects = [
+            (path, config)
+            for path, config in self._projects
+            if matches_search(query, config.title, config.customer, config.location, config.equipment, config.date)
         ]
 
-        if not entries:
-            empty_label = QLabel(NO_HISTORY_TEXT if not self._entries else NO_MATCHES_TEXT)
+        if not projects:
+            empty_label = QLabel(NO_PROJECTS_TEXT if not self._projects else NO_MATCHES_TEXT)
             empty_label.setProperty("role", "muted")
             self._list_layout.addWidget(empty_label)
         else:
-            for entry in entries:
-                self._list_layout.addWidget(self._make_export_row(entry))
+            for path, config in projects:
+                self._list_layout.addWidget(self._make_project_row(path, config))
 
         self._list_layout.addStretch(1)
 
-    def _make_export_row(self, entry: HistoryEntry) -> QWidget:
+    def _make_project_row(self, path: Path, config: ProjectConfig) -> QWidget:
         row = QFrame()
         row.setProperty("card", "true")
         apply_card_shadow(row)
         layout = QHBoxLayout(row)
 
+        subtitle = " — ".join(part for part in (config.customer, config.location, config.equipment, config.date) if part)
         info = QLabel(
-            f"<b>{entry.title or '(Untitled)'}</b><br>"
+            f"<b>{config.title or '(Untitled)'}</b><br>"
             f"<span style='color:{color('muted_text')};'>"
-            f"{entry.customer} — {entry.location} &nbsp;&middot;&nbsp; "
-            f"{entry.elevation_count} elevations &nbsp;&middot;&nbsp; "
-            f"{format_timestamp(entry.generated_at)}</span>"
+            f"{subtitle} &nbsp;&middot;&nbsp; "
+            f"Last modified {format_timestamp(config.last_modified)}</span>"
         )
         info.setTextFormat(Qt.TextFormat.RichText)
         layout.addWidget(info, 1)
 
-        open_file_button = QPushButton(OPEN_FILE_TEXT)
-        open_file_button.setProperty("flat", "true")
-        open_file_button.clicked.connect(lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(entry.output_path)))
-        layout.addWidget(open_file_button)
-
-        open_folder_button = QPushButton(OPEN_FOLDER_TEXT)
-        open_folder_button.setProperty("flat", "true")
-        open_folder_button.clicked.connect(
-            lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(str(Path(entry.output_path).parent)))
-        )
-        layout.addWidget(open_folder_button)
+        open_button = QPushButton(OPEN_TEXT)
+        open_button.setProperty("flat", "true")
+        open_button.clicked.connect(lambda: self.project_selected.emit(path))
+        layout.addWidget(open_button)
 
         return row
