@@ -70,15 +70,20 @@ class _DropZone(QFrame):
     invalid_drop = pyqtSignal()
     clicked = pyqtSignal()
 
+    _BASE_STYLE = (
+        "QFrame { border: 2px dashed #2c3759; border-radius: 12px; background-color: #16213e; }"
+        "QFrame:hover { border-color: #e94560; }"
+    )
+    _DRAG_ACTIVE_STYLE = (
+        "QFrame { border: 2px dashed #e94560; border-radius: 12px; background-color: #1f2c4d; }"
+    )
+
     def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
         self.setAcceptDrops(True)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setMinimumHeight(180)
-        self.setStyleSheet(
-            "QFrame { border: 2px dashed #2c3759; border-radius: 12px; background-color: #16213e; }"
-            "QFrame:hover { border-color: #e94560; }"
-        )
+        self.setStyleSheet(self._BASE_STYLE)
 
         layout = QVBoxLayout(self)
         layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -103,8 +108,13 @@ class _DropZone(QFrame):
     def dragEnterEvent(self, event):
         if event.mimeData().hasUrls():
             event.acceptProposedAction()
+            self.setStyleSheet(self._DRAG_ACTIVE_STYLE)
+
+    def dragLeaveEvent(self, event):
+        self.setStyleSheet(self._BASE_STYLE)
 
     def dropEvent(self, event):
+        self.setStyleSheet(self._BASE_STYLE)
         paths = [url.toLocalFile() for url in event.mimeData().urls() if url.isLocalFile()]
         csv_paths = [p for p in paths if p.lower().endswith(".csv")]
         if not csv_paths:
