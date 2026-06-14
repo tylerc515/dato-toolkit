@@ -7,7 +7,7 @@ from PyQt6.QtGui import QBrush, QColor, QFont, QLinearGradient, QPainter, QPixma
 from PyQt6.QtWidgets import QApplication, QSplashScreen
 
 from app.logo import get_pixmap
-from app.styles import COLOR_BACKGROUND, COLOR_BORDER, COLOR_MUTED_TEXT, COLOR_TEXT
+from app.styles import color
 
 SPLASH_WIDTH = 480
 SPLASH_HEIGHT = 280
@@ -96,7 +96,7 @@ class SplashScreen(QSplashScreen):
         rect = QRectF(self.rect())
 
         painter.setPen(Qt.PenStyle.NoPen)
-        painter.setBrush(QColor(COLOR_BACKGROUND))
+        painter.setBrush(QColor(color("background")))
         painter.drawRoundedRect(rect, SPLASH_CORNER_RADIUS, SPLASH_CORNER_RADIUS)
 
         width = self.width()
@@ -109,7 +109,7 @@ class SplashScreen(QSplashScreen):
         painter.drawPixmap(logo_x, logo_y, logo)
 
         painter.setFont(QFont("Segoe UI", 16, QFont.Weight.Bold))
-        painter.setPen(QColor(COLOR_TEXT))
+        painter.setPen(QColor(color("text")))
         title_rect = QRectF(0, logo_area_height, width, 30)
         painter.drawText(title_rect, Qt.AlignmentFlag.AlignCenter, APP_TITLE_TEXT)
 
@@ -117,7 +117,7 @@ class SplashScreen(QSplashScreen):
         bar_width = width - 2 * BAR_MARGIN
 
         painter.setPen(Qt.PenStyle.NoPen)
-        painter.setBrush(QColor(COLOR_BORDER))
+        painter.setBrush(QColor(color("border")))
         painter.drawRect(BAR_MARGIN, bar_y, bar_width, BAR_HEIGHT)
 
         filled_width = int(bar_width * self._progress)
@@ -129,6 +129,6 @@ class SplashScreen(QSplashScreen):
             painter.drawRect(BAR_MARGIN, bar_y, filled_width, BAR_HEIGHT)
 
         painter.setFont(QFont("Segoe UI", 9))
-        painter.setPen(QColor(COLOR_MUTED_TEXT))
+        painter.setPen(QColor(color("muted_text")))
         status_rect = QRectF(0, bar_y + 12, width, 24)
         painter.drawText(status_rect, Qt.AlignmentFlag.AlignCenter, STATUS_MESSAGES[self._status_index])

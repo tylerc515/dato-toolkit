@@ -22,7 +22,7 @@ from PyQt6.QtWidgets import (
 
 from app.parser import TraceFileData, TraceParseError, parse_trace_csv
 from app.project import find_project_for_metadata
-from app.styles import COLOR_ERROR, COLOR_WARNING, apply_card_shadow
+from app.styles import apply_card_shadow, color
 from app.widgets import HelpPanel
 
 # --- UI text -------------------------------------------------------------
@@ -70,20 +70,21 @@ class _DropZone(QFrame):
     invalid_drop = pyqtSignal()
     clicked = pyqtSignal()
 
-    _BASE_STYLE = (
-        "QFrame { border: 2px dashed #2c3759; border-radius: 12px; background-color: #16213e; }"
-        "QFrame:hover { border-color: #e94560; }"
-    )
-    _DRAG_ACTIVE_STYLE = (
-        "QFrame { border: 2px dashed #e94560; border-radius: 12px; background-color: #1f2c4d; }"
-    )
-
     def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
+        self._base_style = (
+            f"QFrame {{ border: 2px dashed {color('border')}; border-radius: 12px; "
+            f"background-color: {color('surface')}; }}"
+            f"QFrame:hover {{ border-color: {color('highlight')}; }}"
+        )
+        self._drag_active_style = (
+            f"QFrame {{ border: 2px dashed {color('highlight')}; border-radius: 12px; "
+            f"background-color: {color('accent')}; }}"
+        )
         self.setAcceptDrops(True)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setMinimumHeight(180)
-        self.setStyleSheet(self._BASE_STYLE)
+        self.setStyleSheet(self._base_style)
 
         layout = QVBoxLayout(self)
         layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -108,13 +109,13 @@ class _DropZone(QFrame):
     def dragEnterEvent(self, event):
         if event.mimeData().hasUrls():
             event.acceptProposedAction()
-            self.setStyleSheet(self._DRAG_ACTIVE_STYLE)
+            self.setStyleSheet(self._drag_active_style)
 
     def dragLeaveEvent(self, event):
-        self.setStyleSheet(self._BASE_STYLE)
+        self.setStyleSheet(self._base_style)
 
     def dropEvent(self, event):
-        self.setStyleSheet(self._BASE_STYLE)
+        self.setStyleSheet(self._base_style)
         paths = [url.toLocalFile() for url in event.mimeData().urls() if url.isLocalFile()]
         csv_paths = [p for p in paths if p.lower().endswith(".csv")]
         if not csv_paths:
@@ -145,9 +146,9 @@ class _FileCard(QFrame):
         filename = Path(result.path).name
 
         if result.error:
-            self.setStyleSheet(f"QFrame {{ border: 1px solid {COLOR_ERROR}; border-radius: 12px; }}")
+            self.setStyleSheet(f"QFrame {{ border: 1px solid {color('error')}; border-radius: 12px; }}")
             name_label = QLabel(f"⚠ {filename}")
-            name_label.setStyleSheet(f"color: {COLOR_ERROR}; font-weight: 600;")
+            name_label.setStyleSheet(f"color: {color('error')}; font-weight: 600;")
             info_layout.addWidget(name_label)
             error_label = QLabel(result.error)
             error_label.setWordWrap(True)
@@ -208,7 +209,7 @@ class ImportPage(QWidget):
         self.warning_banner = QLabel(WARNING_BANNER_TEXT)
         self.warning_banner.setWordWrap(True)
         self.warning_banner.setStyleSheet(
-            f"background-color: {COLOR_WARNING}; color: #1a1a2e; border-radius: 8px; padding: 10px;"
+            f"background-color: {color('warning')}; color: #1a1a2e; border-radius: 8px; padding: 10px;"
         )
         self.warning_banner.setVisible(False)
         content_layout.addWidget(self.warning_banner)

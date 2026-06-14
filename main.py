@@ -9,8 +9,9 @@ from PyQt6.QtWidgets import QApplication
 
 from app.logging_config import setup_logging
 from app.logo import get_icon
+from app.settings import get_theme
 from app.splash import SPLASH_MIN_DURATION_MS, SplashScreen
-from app.styles import STYLESHEET
+from app.styles import build_stylesheet, set_active_theme
 from app.window import MainWindow
 
 SPLASH_FADE_DURATION_MS = 200
@@ -20,7 +21,9 @@ def main() -> int:
     setup_logging()
 
     app = QApplication(sys.argv)
-    app.setStyleSheet(STYLESHEET)
+    theme = get_theme()
+    set_active_theme(theme)
+    app.setStyleSheet(build_stylesheet(theme))
     app.setWindowIcon(get_icon())
 
     splash = SplashScreen()

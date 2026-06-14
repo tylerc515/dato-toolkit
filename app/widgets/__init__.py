@@ -14,7 +14,7 @@ from PyQt6.QtWidgets import (
 )
 
 from app.logo import get_pixmap
-from app.styles import COLOR_BORDER, COLOR_HIGHLIGHT, COLOR_MUTED_TEXT, COLOR_SUCCESS, COLOR_SURFACE, COLOR_TEXT
+from app.styles import color
 
 HELP_PANEL_WIDTH = 320
 ONBOARDING_TITLE = "Welcome to TRACE Tracker Builder"
@@ -55,7 +55,7 @@ class StepIndicator(QWidget):
             if index > 0:
                 connector = QFrame()
                 connector.setFixedHeight(2)
-                connector.setStyleSheet(f"background-color: {COLOR_BORDER};")
+                connector.setStyleSheet(f"background-color: {color('border')};")
                 layout.addWidget(connector, 1)
 
             button = QPushButton(f"{index + 1}. {label}")
@@ -73,22 +73,22 @@ class StepIndicator(QWidget):
             if index == current_index:
                 button.setText(f"{index + 1}. {self._labels[index]}")
                 button.setStyleSheet(
-                    f"background-color: {COLOR_HIGHLIGHT}; color: {COLOR_TEXT}; "
+                    f"background-color: {color('highlight')}; color: {color('text')}; "
                     f"font-weight: 600; border-radius: 8px; padding: 8px 16px;"
                 )
                 button.setEnabled(index < current_index or index in completed or index == current_index)
             elif index in completed or index < current_index:
                 button.setText(f"✓ {self._labels[index]}")
                 button.setStyleSheet(
-                    f"background-color: {COLOR_SURFACE}; color: {COLOR_SUCCESS}; "
-                    f"border: 1px solid {COLOR_SUCCESS}; border-radius: 8px; padding: 8px 16px;"
+                    f"background-color: {color('surface')}; color: {color('success')}; "
+                    f"border: 1px solid {color('success')}; border-radius: 8px; padding: 8px 16px;"
                 )
                 button.setEnabled(True)
             else:
                 button.setText(f"{index + 1}. {self._labels[index]}")
                 button.setStyleSheet(
-                    f"background-color: {COLOR_SURFACE}; color: {COLOR_MUTED_TEXT}; "
-                    f"border: 1px solid {COLOR_BORDER}; border-radius: 8px; padding: 8px 16px;"
+                    f"background-color: {color('surface')}; color: {color('muted_text')}; "
+                    f"border: 1px solid {color('border')}; border-radius: 8px; padding: 8px 16px;"
                 )
                 button.setEnabled(False)
 

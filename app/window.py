@@ -33,9 +33,11 @@ from app.pages.import_page import ImportPage
 from app.pages.import_page import STATUS_HINT as IMPORT_STATUS_HINT
 from app.pages.reorder_page import ReorderPage
 from app.pages.reorder_page import STATUS_HINT as REORDER_STATUS_HINT
+from app.pages.settings_page import SettingsPage
+from app.pages.settings_page import STATUS_HINT as SETTINGS_STATUS_HINT
 from app.parser import TraceFileData
 from app.project import APP_DIR_NAME, ProjectConfig, ProjectError, get_app_data_dir, load_project
-from app.styles import COLOR_SUCCESS, COLOR_SURFACE, COLOR_TEXT, COLOR_WARNING
+from app.styles import color
 from app.updater import GITHUB_RELEASES_PAGE_URL, UpdateCheckResult, UpdateCheckWorker
 from app.widgets import OnboardingDialog, StepIndicator
 
@@ -51,8 +53,6 @@ UPDATE_BANNER_TEXT = "A new version ({version}) is available."
 DOWNLOAD_UPDATE_TEXT = "Download Update"
 DISMISS_TEXT = "Dismiss"
 
-INDICATOR_COLOR_UP_TO_DATE = COLOR_SUCCESS
-INDICATOR_COLOR_UPDATE_AVAILABLE = COLOR_WARNING
 INDICATOR_COLOR_UNKNOWN = "#5a6178"
 
 STATUS_HINTS = [
@@ -61,9 +61,12 @@ STATUS_HINTS = [
     REORDER_STATUS_HINT,
     GENERATE_STATUS_HINT,
     HISTORY_STATUS_HINT,
+    SETTINGS_STATUS_HINT,
 ]
 HISTORY_PAGE_INDEX = 4
+SETTINGS_PAGE_INDEX = 5
 HOME_BUTTON_TEXT = "⌂ Dashboard"
+SETTINGS_BUTTON_TEXT = "⚙ Settings"
 
 # --- Window chrome ---------------------------------------------------------
 
@@ -71,9 +74,7 @@ GEOMETRY_SETTINGS_KEY = "geometry"
 DEFAULT_WINDOW_SIZE = (1100, 750)
 RESIZE_MARGIN = 8
 WINDOW_BUTTON_SIZE = 32
-WINDOW_BUTTON_HOVER = "#2a2a4a"
 WINDOW_CLOSE_HOVER = "#e94560"
-WINDOW_BORDER_COLOR = "#2f3650"
 
 _CURSOR_BY_DIRECTION = {
     "left": Qt.CursorShape.SizeHorCursor,
@@ -164,7 +165,7 @@ class MainWindow(QMainWindow):
     def _build_ui(self) -> None:
         central = QFrame()
         central.setObjectName("AppFrame")
-        central.setStyleSheet(f"QFrame#AppFrame {{ border: 1px solid {WINDOW_BORDER_COLOR}; }}")
+        central.setStyleSheet(f"QFrame#AppFrame {{ border: 1px solid {color('border')}; }}")
         layout = QVBoxLayout(central)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
@@ -188,11 +189,13 @@ class MainWindow(QMainWindow):
         self.reorder_page = ReorderPage()
         self.generate_page = GeneratePage()
         self.history_page = HistoryPage()
+        self.settings_page = SettingsPage()
         self.stack.addWidget(self.dashboard_page)
         self.stack.addWidget(self.import_page)
         self.stack.addWidget(self.reorder_page)
         self.stack.addWidget(self.generate_page)
         self.stack.addWidget(self.history_page)
+        self.stack.addWidget(self.settings_page)
         layout.addWidget(self.stack, 1)
 
         self.dashboard_page.new_tracker_requested.connect(self._on_new_project)
@@ -205,6 +208,7 @@ class MainWindow(QMainWindow):
         self.generate_page.back_requested.connect(lambda: self._go_to_step(1))
         self.generate_page.new_project_requested.connect(self._on_new_project)
         self.history_page.back_requested.connect(self._go_to_dashboard)
+        self.settings_page.back_requested.connect(self._go_to_dashboard)
 
         self.setCentralWidget(central)
 
@@ -218,7 +222,7 @@ class MainWindow(QMainWindow):
 
     def _build_header(self) -> QFrame:
         header = _DragHeader(self)
-        header.setStyleSheet(f"background-color: {COLOR_SURFACE};")
+        header.setStyleSheet(f"background-color: {color('surface')};")
         layout = QHBoxLayout(header)
         layout.setContentsMargins(16, 10, 16, 10)
 
@@ -245,6 +249,12 @@ class MainWindow(QMainWindow):
         self.home_button.clicked.connect(self._go_to_dashboard)
         layout.addWidget(self.home_button)
 
+        self.settings_button = QPushButton(SETTINGS_BUTTON_TEXT)
+        self.settings_button.setProperty("flat", "true")
+        self.settings_button.setToolTip("Open settings")
+        self.settings_button.clicked.connect(self._go_to_settings)
+        layout.addWidget(self.settings_button)
+
         layout.addStretch(1)
 
         self.update_indicator = _UpdateIndicator()
@@ -253,12 +263,12 @@ class MainWindow(QMainWindow):
 
         layout.addSpacing(12)
 
-        self.minimize_button = self._make_window_button("−", WINDOW_BUTTON_HOVER)
+        self.minimize_button = self._make_window_button("−", color("chrome_hover"))
         self.minimize_button.setToolTip("Minimize")
         self.minimize_button.clicked.connect(self.showMinimized)
         layout.addWidget(self.minimize_button, 0, Qt.AlignmentFlag.AlignTop)
 
-        self.maximize_button = self._make_window_button("□", WINDOW_BUTTON_HOVER)
+        self.maximize_button = self._make_window_button("□", color("chrome_hover"))
         self.maximize_button.setToolTip("Maximize")
         self.maximize_button.clicked.connect(self._toggle_maximize_restore)
         layout.addWidget(self.maximize_button, 0, Qt.AlignmentFlag.AlignTop)
@@ -280,7 +290,7 @@ class MainWindow(QMainWindow):
             "border-radius: 6px;"
             "padding: 0px;"
             "font-size: 14px;"
-            f"color: {COLOR_TEXT};"
+            f"color: {color('text')};"
             "}"
             "QPushButton:hover {"
             f"background-color: {hover_color};"
@@ -290,7 +300,7 @@ class MainWindow(QMainWindow):
 
     def _build_update_banner(self) -> QFrame:
         banner = QFrame()
-        banner.setStyleSheet(f"background-color: {COLOR_WARNING}; color: #1a1a2e;")
+        banner.setStyleSheet(f"background-color: {color('warning')}; color: #1a1a2e;")
         banner.setVisible(False)
         layout = QHBoxLayout(banner)
         layout.setContentsMargins(16, 8, 16, 8)
@@ -337,12 +347,12 @@ class MainWindow(QMainWindow):
             return
 
         if result.update_available:
-            self.update_indicator.set_color(INDICATOR_COLOR_UPDATE_AVAILABLE)
+            self.update_indicator.set_color(color("warning"))
             self.update_indicator.setToolTip(f"Update available: v{result.latest_version}")
             self.update_banner_label.setText(UPDATE_BANNER_TEXT.format(version=f"v{result.latest_version}"))
             self.update_banner.setVisible(True)
         else:
-            self.update_indicator.set_color(INDICATOR_COLOR_UP_TO_DATE)
+            self.update_indicator.set_color(color("success"))
             self.update_indicator.setToolTip("You're using the latest version")
 
     def _open_releases_page(self) -> None:
@@ -359,6 +369,9 @@ class MainWindow(QMainWindow):
 
     def _go_to_history(self) -> None:
         self.stack.setCurrentIndex(HISTORY_PAGE_INDEX)
+
+    def _go_to_settings(self) -> None:
+        self.stack.setCurrentIndex(SETTINGS_PAGE_INDEX)
 
     def _on_page_changed(self, index: int) -> None:
         if 0 <= index < len(STATUS_HINTS):

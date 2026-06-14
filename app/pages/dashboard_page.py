@@ -10,7 +10,7 @@ from PyQt6.QtWidgets import QFrame, QHBoxLayout, QLabel, QLayout, QPushButton, Q
 
 from app.history import HistoryEntry, NEVER_TEXT, format_timestamp, load_history
 from app.project import ProjectConfig, ProjectError, get_projects_dir, load_project
-from app.styles import COLOR_HIGHLIGHT, COLOR_MUTED_TEXT, apply_card_shadow
+from app.styles import apply_card_shadow, color
 
 # --- UI text -------------------------------------------------------------
 
@@ -123,7 +123,7 @@ class DashboardPage(QWidget):
 
         layout = QVBoxLayout(card)
         value_label = QLabel(value)
-        value_label.setStyleSheet(f"font-size: 24px; font-weight: 700; color: {COLOR_HIGHLIGHT};")
+        value_label.setStyleSheet(f"font-size: 24px; font-weight: 700; color: {color('highlight')};")
         layout.addWidget(value_label)
 
         text_label = QLabel(label)
@@ -191,7 +191,7 @@ class DashboardPage(QWidget):
         subtitle = " — ".join(part for part in (config.customer, config.location) if part)
         info = QLabel(
             f"<b>{config.title or '(Untitled)'}</b><br>"
-            f"<span style='color:{COLOR_MUTED_TEXT};'>{subtitle}</span>"
+            f"<span style='color:{color('muted_text')};'>{subtitle}</span>"
         )
         info.setTextFormat(Qt.TextFormat.RichText)
         layout.addWidget(info, 1)
@@ -222,7 +222,7 @@ class DashboardPage(QWidget):
 
         info = QLabel(
             f"<b>{entry.title or '(Untitled)'}</b><br>"
-            f"<span style='color:{COLOR_MUTED_TEXT};'>{format_timestamp(entry.generated_at)}</span>"
+            f"<span style='color:{color('muted_text')};'>{format_timestamp(entry.generated_at)}</span>"
         )
         info.setTextFormat(Qt.TextFormat.RichText)
         layout.addWidget(info, 1)

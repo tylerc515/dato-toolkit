@@ -9,7 +9,7 @@ from PyQt6.QtGui import QDesktopServices
 from PyQt6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton, QScrollArea, QVBoxLayout, QWidget
 
 from app.history import HistoryEntry, format_timestamp, load_history
-from app.styles import COLOR_MUTED_TEXT, apply_card_shadow
+from app.styles import apply_card_shadow, color
 
 # --- UI text -------------------------------------------------------------
 
@@ -85,7 +85,7 @@ class HistoryPage(QWidget):
 
         info = QLabel(
             f"<b>{entry.title or '(Untitled)'}</b><br>"
-            f"<span style='color:{COLOR_MUTED_TEXT};'>"
+            f"<span style='color:{color('muted_text')};'>"
             f"{entry.customer} — {entry.location} &nbsp;&middot;&nbsp; "
             f"{entry.elevation_count} elevations &nbsp;&middot;&nbsp; "
             f"{format_timestamp(entry.generated_at)}</span>"
