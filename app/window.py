@@ -6,14 +6,16 @@ import logging
 from pathlib import Path
 from typing import Optional
 
-from PyQt6.QtCore import QUrl
+from PyQt6.QtCore import QByteArray, QEvent, QPoint, QRect, QSettings, Qt, QUrl
 from PyQt6.QtGui import QDesktopServices
 from PyQt6.QtWidgets import (
+    QApplication,
     QFrame,
     QHBoxLayout,
     QLabel,
     QMainWindow,
     QPushButton,
+    QSizeGrip,
     QStackedWidget,
     QVBoxLayout,
     QWidget,
@@ -28,8 +30,8 @@ from app.pages.import_page import STATUS_HINT as IMPORT_STATUS_HINT
 from app.pages.reorder_page import ReorderPage
 from app.pages.reorder_page import STATUS_HINT as REORDER_STATUS_HINT
 from app.parser import TraceFileData
-from app.project import ProjectConfig, ProjectError, get_app_data_dir, load_project
-from app.styles import COLOR_SUCCESS, COLOR_SURFACE, COLOR_WARNING
+from app.project import APP_DIR_NAME, ProjectConfig, ProjectError, get_app_data_dir, load_project
+from app.styles import COLOR_SUCCESS, COLOR_SURFACE, COLOR_TEXT, COLOR_WARNING
 from app.updater import GITHUB_RELEASES_PAGE_URL, UpdateCheckResult, UpdateCheckWorker
 from app.widgets import OnboardingDialog, StepIndicator
 
@@ -51,7 +53,63 @@ INDICATOR_COLOR_UNKNOWN = "#5a6178"
 
 STATUS_HINTS = [IMPORT_STATUS_HINT, REORDER_STATUS_HINT, GENERATE_STATUS_HINT]
 
+# --- Window chrome ---------------------------------------------------------
+
+GEOMETRY_SETTINGS_KEY = "geometry"
+DEFAULT_WINDOW_SIZE = (1100, 750)
+RESIZE_MARGIN = 8
+WINDOW_BUTTON_SIZE = 32
+WINDOW_BUTTON_HOVER = "#2a2a4a"
+WINDOW_CLOSE_HOVER = "#e94560"
+WINDOW_BORDER_COLOR = "#2f3650"
+
+_CURSOR_BY_DIRECTION = {
+    "left": Qt.CursorShape.SizeHorCursor,
+    "right": Qt.CursorShape.SizeHorCursor,
+    "top": Qt.CursorShape.SizeVerCursor,
+    "bottom": Qt.CursorShape.SizeVerCursor,
+    "top-left": Qt.CursorShape.SizeFDiagCursor,
+    "bottom-right": Qt.CursorShape.SizeFDiagCursor,
+    "top-right": Qt.CursorShape.SizeBDiagCursor,
+    "bottom-left": Qt.CursorShape.SizeBDiagCursor,
+}
+
 logger = logging.getLogger(__name__)
+
+
+class _DragHeader(QFrame):
+    """Header bar that doubles as the custom title bar's drag handle."""
+
+    def __init__(self, window: "MainWindow", parent: QWidget | None = None):
+        super().__init__(parent)
+        self._window = window
+        self._drag_offset: Optional[QPoint] = None
+
+    def mousePressEvent(self, event) -> None:
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._drag_offset = event.globalPosition().toPoint() - self._window.frameGeometry().topLeft()
+            event.accept()
+        super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event) -> None:
+        if self._drag_offset is not None and event.buttons() & Qt.MouseButton.LeftButton:
+            global_pos = event.globalPosition().toPoint()
+            if self._window.isMaximized():
+                ratio = event.position().x() / max(self.width(), 1)
+                self._window._toggle_maximize_restore()
+                self._drag_offset = QPoint(int(self._window.width() * ratio), self._drag_offset.y())
+            self._window.move(global_pos - self._drag_offset)
+            event.accept()
+        super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event) -> None:
+        self._drag_offset = None
+        super().mouseReleaseEvent(event)
+
+    def mouseDoubleClickEvent(self, event) -> None:
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._window._toggle_maximize_restore()
+        super().mouseDoubleClickEvent(event)
 
 
 class _UpdateIndicator(QLabel):
@@ -74,18 +132,27 @@ class MainWindow(QMainWindow):
         self.setWindowTitle(APP_NAME)
         self.setWindowIcon(get_icon())
         self.setMinimumSize(WINDOW_MIN_WIDTH, WINDOW_MIN_HEIGHT)
+        self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowMinimizeButtonHint)
+        self.setMouseTracking(True)
 
         self._completed_steps: set[int] = set()
         self._update_worker: Optional[UpdateCheckWorker] = None
+        self._resize_direction: Optional[str] = None
+        self._resize_start_geometry: Optional[QRect] = None
+        self._resize_start_pos: Optional[QPoint] = None
 
         self._build_ui()
+        QApplication.instance().installEventFilter(self)
+        self._restore_geometry()
         self._run_update_check()
         self._maybe_show_onboarding()
 
     # --- UI construction -------------------------------------------------
 
     def _build_ui(self) -> None:
-        central = QWidget()
+        central = QFrame()
+        central.setObjectName("AppFrame")
+        central.setStyleSheet(f"QFrame#AppFrame {{ border: 1px solid {WINDOW_BORDER_COLOR}; }}")
         layout = QVBoxLayout(central)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
@@ -121,12 +188,16 @@ class MainWindow(QMainWindow):
 
         self.setCentralWidget(central)
 
+        self.size_grip = QSizeGrip(self)
+        self.size_grip.setStyleSheet("background: transparent;")
+        self.size_grip.raise_()
+
         self.status_bar = self.statusBar()
         self.stack.currentChanged.connect(self._update_status_hint)
         self._update_status_hint(0)
 
     def _build_header(self) -> QFrame:
-        header = QFrame()
+        header = _DragHeader(self)
         header.setStyleSheet(f"background-color: {COLOR_SURFACE};")
         layout = QHBoxLayout(header)
         layout.setContentsMargins(16, 10, 16, 10)
@@ -152,7 +223,42 @@ class MainWindow(QMainWindow):
         self.update_indicator.setToolTip("Checking for updates…")
         layout.addWidget(self.update_indicator)
 
+        layout.addSpacing(12)
+
+        self.minimize_button = self._make_window_button("−", WINDOW_BUTTON_HOVER)
+        self.minimize_button.setToolTip("Minimize")
+        self.minimize_button.clicked.connect(self.showMinimized)
+        layout.addWidget(self.minimize_button)
+
+        self.maximize_button = self._make_window_button("□", WINDOW_BUTTON_HOVER)
+        self.maximize_button.setToolTip("Maximize")
+        self.maximize_button.clicked.connect(self._toggle_maximize_restore)
+        layout.addWidget(self.maximize_button)
+
+        self.close_button = self._make_window_button("×", WINDOW_CLOSE_HOVER)
+        self.close_button.setToolTip("Close")
+        self.close_button.clicked.connect(self.close)
+        layout.addWidget(self.close_button)
+
         return header
+
+    def _make_window_button(self, text: str, hover_color: str) -> QPushButton:
+        button = QPushButton(text)
+        button.setFixedSize(WINDOW_BUTTON_SIZE, WINDOW_BUTTON_SIZE)
+        button.setStyleSheet(
+            "QPushButton {"
+            "background-color: transparent;"
+            "border: none;"
+            "border-radius: 6px;"
+            "padding: 0px;"
+            "font-size: 14px;"
+            f"color: {COLOR_TEXT};"
+            "}"
+            "QPushButton:hover {"
+            f"background-color: {hover_color};"
+            "}"
+        )
+        return button
 
     def _build_update_banner(self) -> QFrame:
         banner = QFrame()
@@ -248,3 +354,135 @@ class MainWindow(QMainWindow):
         self.import_page.clear_all()
         self._completed_steps.clear()
         self._go_to_step(0)
+
+    # --- Window chrome -----------------------------------------------------
+
+    def _toggle_maximize_restore(self) -> None:
+        if self.isMaximized():
+            self.showNormal()
+            self.maximize_button.setText("□")
+            self.maximize_button.setToolTip("Maximize")
+        else:
+            self.showMaximized()
+            self.maximize_button.setText("❐")
+            self.maximize_button.setToolTip("Restore")
+
+    def resizeEvent(self, event) -> None:
+        super().resizeEvent(event)
+        grip_size = self.size_grip.sizeHint()
+        self.size_grip.move(self.width() - grip_size.width(), self.height() - grip_size.height())
+
+    def eventFilter(self, obj, event) -> bool:
+        if isinstance(obj, QWidget) and obj.window() is self:
+            event_type = event.type()
+            if event_type == QEvent.Type.MouseMove:
+                global_pos = event.globalPosition().toPoint()
+                if event.buttons() == Qt.MouseButton.NoButton:
+                    self._update_resize_cursor(global_pos)
+                elif self._resize_direction is not None:
+                    self._perform_resize(global_pos)
+                    return True
+            elif event_type == QEvent.Type.MouseButtonPress:
+                if event.button() == Qt.MouseButton.LeftButton:
+                    global_pos = event.globalPosition().toPoint()
+                    direction = self._resize_direction_at(global_pos)
+                    if direction is not None:
+                        self._resize_direction = direction
+                        self._resize_start_geometry = self.geometry()
+                        self._resize_start_pos = global_pos
+                        return True
+            elif event_type == QEvent.Type.MouseButtonRelease:
+                if self._resize_direction is not None:
+                    self._resize_direction = None
+                    self._resize_start_geometry = None
+                    self._resize_start_pos = None
+                    return True
+        return super().eventFilter(obj, event)
+
+    def _resize_direction_at(self, global_pos: QPoint) -> Optional[str]:
+        if self.isMaximized():
+            return None
+        pos = self.mapFromGlobal(global_pos)
+        rect = self.rect()
+        margin = RESIZE_MARGIN
+
+        left = -margin <= pos.x() <= margin
+        right = rect.width() - margin <= pos.x() <= rect.width() + margin
+        top = -margin <= pos.y() <= margin
+        bottom = rect.height() - margin <= pos.y() <= rect.height() + margin
+
+        if top and left:
+            return "top-left"
+        if top and right:
+            return "top-right"
+        if bottom and left:
+            return "bottom-left"
+        if bottom and right:
+            return "bottom-right"
+        if left:
+            return "left"
+        if right:
+            return "right"
+        if top:
+            return "top"
+        if bottom:
+            return "bottom"
+        return None
+
+    def _update_resize_cursor(self, global_pos: QPoint) -> None:
+        direction = self._resize_direction_at(global_pos)
+        if direction is not None:
+            self.setCursor(_CURSOR_BY_DIRECTION[direction])
+        else:
+            self.unsetCursor()
+
+    def _perform_resize(self, global_pos: QPoint) -> None:
+        if self._resize_start_geometry is None or self._resize_start_pos is None:
+            return
+        delta = global_pos - self._resize_start_pos
+        geo = QRect(self._resize_start_geometry)
+        direction = self._resize_direction
+
+        if "left" in direction:
+            geo.setLeft(min(geo.left() + delta.x(), geo.right() - self.minimumWidth()))
+        if "right" in direction:
+            geo.setRight(max(geo.right() + delta.x(), geo.left() + self.minimumWidth()))
+        if "top" in direction:
+            geo.setTop(min(geo.top() + delta.y(), geo.bottom() - self.minimumHeight()))
+        if "bottom" in direction:
+            geo.setBottom(max(geo.bottom() + delta.y(), geo.top() + self.minimumHeight()))
+
+        self.setGeometry(geo)
+
+    # --- Geometry persistence -----------------------------------------------
+
+    def _restore_geometry(self) -> None:
+        settings = QSettings(APP_DIR_NAME, APP_DIR_NAME)
+        geometry = settings.value(GEOMETRY_SETTINGS_KEY)
+        if isinstance(geometry, QByteArray) and self.restoreGeometry(geometry) and self._is_on_screen():
+            return
+        self.resize(*DEFAULT_WINDOW_SIZE)
+        self._center_on_screen()
+
+    def _is_on_screen(self) -> bool:
+        frame = self.frameGeometry()
+        return any(screen.geometry().intersects(frame) for screen in QApplication.screens())
+
+    def _center_on_screen(self) -> None:
+        screen = QApplication.primaryScreen()
+        if screen is None:
+            return
+        available = screen.availableGeometry()
+        width = min(self.width(), available.width())
+        height = min(self.height(), available.height())
+        self.resize(width, height)
+        self.move(
+            available.x() + (available.width() - width) // 2,
+            available.y() + (available.height() - height) // 2,
+        )
+
+    def closeEvent(self, event) -> None:
+        settings = QSettings(APP_DIR_NAME, APP_DIR_NAME)
+        settings.setValue(GEOMETRY_SETTINGS_KEY, self.saveGeometry())
+        QApplication.instance().removeEventFilter(self)
+        super().closeEvent(event)
