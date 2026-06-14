@@ -71,8 +71,14 @@ def test_sheet_name_and_freeze_panes(generated_workbook):
 def test_column_widths_match_reference(generated_workbook):
     ref = openpyxl.load_workbook(REFERENCE)["Tracker"]
     gen = generated_workbook["Tracker"]
-    for letter in ("A", "B", "C", "D", "E", "J"):
+    for letter in ("A", "J"):
         assert gen.column_dimensions[letter].width == pytest.approx(ref.column_dimensions[letter].width)
+
+
+def test_columns_b_through_i_are_150px(generated_workbook):
+    gen = generated_workbook["Tracker"]
+    for letter in ("B", "C", "D", "E", "F", "G", "H", "I"):
+        assert gen.column_dimensions[letter].width == pytest.approx(20.71)
 
 
 def test_merged_cells(generated_workbook):
@@ -95,11 +101,27 @@ def test_header_block_values(generated_workbook):
     assert ws["D4"].value == "Project Date:"
     assert ws["E4"].value == "June 2026"
     assert ws["E4"].number_format == "@"
-    assert ws["D5"].value == "s"
+    assert ws["D5"].value is None
     assert ws["E5"].value == "Started"
-    assert ws["D6"].value == "c"
+    assert ws["D6"].value is None
     assert ws["E6"].value == "Complete"
     assert ws["A7"].value == "EP ANYTOWN RB2 — 2026 OUTAGE NDE TRACKSHEET"
+
+
+def test_legend_cell_styling(generated_workbook):
+    ws = generated_workbook["Tracker"]
+
+    started = ws["E5"]
+    assert started.font.bold is True
+    assert started.font.color.rgb == "FF000000"
+    assert started.fill.fill_type == "solid"
+    assert started.fill.fgColor.rgb == "00FFFF00"
+
+    complete = ws["E6"]
+    assert complete.font.bold is True
+    assert complete.font.color.rgb == "FF000000"
+    assert complete.fill.fill_type == "solid"
+    assert complete.fill.fgColor.rgb == "0000B050"
 
 
 def test_column_headers_row8(generated_workbook):

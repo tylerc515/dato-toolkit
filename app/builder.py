@@ -7,10 +7,12 @@ and are reproduced here so generated workbooks match it exactly.
 
 from __future__ import annotations
 
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
 from openpyxl import Workbook
+from openpyxl.drawing.image import Image as XLImage
 from openpyxl.styles import Alignment, Border, Color, Font, PatternFill, Side
 from openpyxl.worksheet.worksheet import Worksheet
 
@@ -23,10 +25,14 @@ LAST_COLUMN_LETTER = "J"
 
 COLUMN_WIDTHS = {
     "A": 44.1796875,
-    "B": 9.81640625,
-    "C": 13.1796875,
-    "D": 14.453125,
-    "E": 12.1796875,
+    "B": 20.71,
+    "C": 20.71,
+    "D": 20.71,
+    "E": 20.71,
+    "F": 20.71,
+    "G": 20.71,
+    "H": 20.71,
+    "I": 20.71,
     "J": 65.1796875,
 }
 
@@ -41,6 +47,7 @@ _TEXT_COLOR = Color(theme=1, tint=0.0)
 LABEL_FONT = Font(name="Calibri", size=12, bold=True, color=_TEXT_COLOR)
 VALUE_FONT = Font(name="Calibri", size=12, bold=False, color=_TEXT_COLOR)
 LEGEND_FONT = Font(name="Calibri", size=11, bold=False, color=_TEXT_COLOR)
+LEGEND_FONT_BOLD = Font(name="Calibri", size=11, bold=True, color=Color(rgb="FF000000"))
 TITLE_FONT = Font(name="Calibri", size=14, bold=True, color=_TEXT_COLOR)
 HEADER_FONT = Font(name="Calibri", size=12, bold=True, color=_TEXT_COLOR)
 SECTION_FONT = Font(name="Calibri", size=16, bold=True, color=_TEXT_COLOR)
@@ -59,6 +66,14 @@ PLACEHOLDER_ALIGNMENT = Alignment(horizontal="center")
 # --- Fill ------------------------------------------------------------------
 
 SECTION_FILL = PatternFill(fill_type="solid", fgColor=Color(theme=0, tint=-0.249977111117893))
+LEGEND_STARTED_FILL = PatternFill(fill_type="solid", fgColor="FFFF00")
+LEGEND_COMPLETE_FILL = PatternFill(fill_type="solid", fgColor="00B050")
+
+# --- BSI logo ----------------------------------------------------------
+
+BSI_LOGO_FILENAME = "bsi_logo.jpg"
+BSI_LOGO_MAX_WIDTH = 130
+BSI_LOGO_MAX_HEIGHT = 60
 
 # --- Borders -----------------------------------------------------------
 
@@ -123,17 +138,19 @@ def _write_header_block(ws: Worksheet, data: TrackerData) -> None:
             ws.cell(row=row, column=col).border = value_border
 
     # Started / Complete legend
-    ws.cell(row=5, column=4, value="s").font = LEGEND_FONT
-    legend_started = ws.cell(row=5, column=5, value="Started")
-    legend_started.font = LEGEND_FONT
     for col in range(5, 11):
         ws.cell(row=5, column=col).border = _border(bottom="thin")
+    legend_started = ws.cell(row=5, column=5, value="Started")
+    legend_started.font = LEGEND_FONT_BOLD
+    legend_started.fill = LEGEND_STARTED_FILL
+    legend_started.border = _border(left="thin", right="thin", top="thin", bottom="thin")
 
-    ws.cell(row=6, column=4, value="c").font = LEGEND_FONT
-    legend_complete = ws.cell(row=6, column=5, value="Complete")
-    legend_complete.font = LEGEND_FONT
     for col in range(5, 11):
         ws.cell(row=6, column=col).border = _border(top="thin")
+    legend_complete = ws.cell(row=6, column=5, value="Complete")
+    legend_complete.font = LEGEND_FONT_BOLD
+    legend_complete.fill = LEGEND_COMPLETE_FILL
+    legend_complete.border = _border(left="thin", right="thin", top="thin", bottom="thin")
 
     # Title row
     ws.merge_cells(start_row=7, start_column=1, end_row=7, end_column=10)
@@ -207,6 +224,28 @@ def _apply_column_widths(ws: Worksheet) -> None:
         ws.column_dimensions[letter].width = width
 
 
+def _bsi_logo_path() -> Path:
+    """Return the path to bsi_logo.jpg, whether running from source or frozen."""
+    if getattr(sys, "frozen", False):
+        base_dir = Path(sys._MEIPASS)  # type: ignore[attr-defined]
+    else:
+        base_dir = Path(__file__).resolve().parent.parent
+    return base_dir / BSI_LOGO_FILENAME
+
+
+def _add_bsi_logo(ws: Worksheet) -> None:
+    """Embed the BSI logo in the top-left of the worksheet, anchored to A1."""
+    logo_path = _bsi_logo_path()
+    if not logo_path.exists():
+        return
+
+    image = XLImage(str(logo_path))
+    scale = min(BSI_LOGO_MAX_WIDTH / image.width, BSI_LOGO_MAX_HEIGHT / image.height)
+    image.width = image.width * scale
+    image.height = image.height * scale
+    ws.add_image(image, "A1")
+
+
 def build_tracker(data: TrackerData, output_path: str | Path) -> Path:
     """Generate the Tracker workbook for the given data and save it to output_path."""
     wb = Workbook()
@@ -214,6 +253,7 @@ def build_tracker(data: TrackerData, output_path: str | Path) -> Path:
     ws.title = TRACKER_SHEET_NAME
 
     _write_header_block(ws, data)
+    _add_bsi_logo(ws)
     last_row = _write_sections(ws, data.sections)
 
     # Close the table with a medium bottom border on the final row.
