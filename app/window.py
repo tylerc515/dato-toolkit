@@ -25,6 +25,8 @@ from PyQt6.QtWidgets import (
 
 from app import __version__
 from app.logo import get_icon, get_pixmap
+from app.pages.batch_page import BatchPage
+from app.pages.batch_page import STATUS_HINT as BATCH_STATUS_HINT
 from app.pages.dashboard_page import DashboardPage
 from app.pages.dashboard_page import STATUS_HINT as DASHBOARD_STATUS_HINT
 from app.pages.generate_page import GeneratePage
@@ -70,9 +72,11 @@ STATUS_HINTS = [
     GENERATE_STATUS_HINT,
     HISTORY_STATUS_HINT,
     SETTINGS_STATUS_HINT,
+    BATCH_STATUS_HINT,
 ]
 HISTORY_PAGE_INDEX = 4
 SETTINGS_PAGE_INDEX = 5
+BATCH_PAGE_INDEX = 6
 HOME_BUTTON_TEXT = "⌂ Dashboard"
 SETTINGS_BUTTON_TEXT = "⚙ Settings"
 
@@ -200,17 +204,20 @@ class MainWindow(QMainWindow):
         self.generate_page = GeneratePage()
         self.history_page = HistoryPage()
         self.settings_page = SettingsPage()
+        self.batch_page = BatchPage()
         self.stack.addWidget(self.dashboard_page)
         self.stack.addWidget(self.import_page)
         self.stack.addWidget(self.reorder_page)
         self.stack.addWidget(self.generate_page)
         self.stack.addWidget(self.history_page)
         self.stack.addWidget(self.settings_page)
+        self.stack.addWidget(self.batch_page)
         layout.addWidget(self.stack, 1)
 
         self.dashboard_page.new_tracker_requested.connect(self._on_new_project)
         self.dashboard_page.project_selected.connect(self._on_project_load_requested)
         self.dashboard_page.view_history_requested.connect(self._go_to_history)
+        self.dashboard_page.batch_requested.connect(self._go_to_batch)
         self.import_page.files_ready.connect(self._on_files_ready)
         self.import_page.project_load_requested.connect(self._on_project_load_requested)
         self.reorder_page.back_requested.connect(lambda: self._go_to_step(0))
@@ -220,6 +227,7 @@ class MainWindow(QMainWindow):
         self.generate_page.tracker_generated.connect(self._on_tracker_generated)
         self.history_page.back_requested.connect(self._go_to_dashboard)
         self.settings_page.back_requested.connect(self._go_to_dashboard)
+        self.batch_page.back_requested.connect(self._go_to_dashboard)
 
         self.setCentralWidget(central)
 
@@ -425,6 +433,9 @@ class MainWindow(QMainWindow):
     def _go_to_settings(self) -> None:
         self.stack.setCurrentIndex(SETTINGS_PAGE_INDEX)
 
+    def _go_to_batch(self) -> None:
+        self.stack.setCurrentIndex(BATCH_PAGE_INDEX)
+
     def _on_page_changed(self, index: int) -> None:
         if 0 <= index < len(STATUS_HINTS):
             self.status_bar.showMessage(STATUS_HINTS[index])
@@ -466,6 +477,7 @@ class MainWindow(QMainWindow):
         self._add_shortcut("Ctrl+D", self._go_to_dashboard)
         self._add_shortcut("Ctrl+H", self._go_to_history)
         self._add_shortcut("Ctrl+,", self._go_to_settings)
+        self._add_shortcut("Ctrl+B", self._go_to_batch)
         self._add_shortcut("Ctrl+Right", self._activate_primary_action)
         self._add_shortcut("Ctrl+Return", self._activate_primary_action)
         self._add_shortcut("Ctrl+Left", self._activate_back_action)
@@ -484,6 +496,8 @@ class MainWindow(QMainWindow):
             self._click_if_enabled(self.reorder_page.continue_button)
         elif index == 3:
             self._click_if_enabled(self.generate_page.generate_button)
+        elif index == BATCH_PAGE_INDEX:
+            self._click_if_enabled(self.batch_page.generate_button)
 
     def _activate_back_action(self) -> None:
         index = self.stack.currentIndex()
@@ -493,11 +507,16 @@ class MainWindow(QMainWindow):
             self.reorder_page.back_button.click()
         elif index == 3:
             self.generate_page.back_button.click()
-        elif index in (HISTORY_PAGE_INDEX, SETTINGS_PAGE_INDEX):
+        elif index in (HISTORY_PAGE_INDEX, SETTINGS_PAGE_INDEX, BATCH_PAGE_INDEX):
             self._go_to_dashboard()
 
     def _toggle_current_help(self) -> None:
-        page = {1: self.import_page, 2: self.reorder_page, 3: self.generate_page}.get(self.stack.currentIndex())
+        page = {
+            1: self.import_page,
+            2: self.reorder_page,
+            3: self.generate_page,
+            BATCH_PAGE_INDEX: self.batch_page,
+        }.get(self.stack.currentIndex())
         if page is not None:
             page.help_panel.toggle()
 

@@ -40,6 +40,7 @@ KEYBOARD_SHORTCUTS = [
     ("Ctrl+N", "Start a new tracker"),
     ("Ctrl+D", "Go to the dashboard"),
     ("Ctrl+H", "View export history"),
+    ("Ctrl+B", "Open batch generation"),
     ("Ctrl+,", "Open settings"),
     ("Ctrl+→ / Ctrl+Enter", "Continue to the next step / Generate"),
     ("Ctrl+←", "Go back a step"),

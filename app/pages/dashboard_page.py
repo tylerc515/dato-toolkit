@@ -17,6 +17,7 @@ from app.styles import apply_card_shadow, color
 TITLE_TEXT = "Dashboard"
 SUBTITLE_TEXT = "Pick up a recent project or start a new tracker."
 NEW_TRACKER_TEXT = "+ New Tracker"
+BATCH_GENERATE_TEXT = "Batch Generate"
 STAT_PROJECTS_LABEL = "Saved Projects"
 STAT_GENERATED_LABEL = "Trackers Generated"
 STAT_ELEVATIONS_LABEL = "Elevations Tracked"
@@ -53,6 +54,7 @@ class DashboardPage(QWidget):
     new_tracker_requested = pyqtSignal()
     project_selected = pyqtSignal(Path)
     view_history_requested = pyqtSignal()
+    batch_requested = pyqtSignal()
 
     def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
@@ -71,6 +73,12 @@ class DashboardPage(QWidget):
         title_column.addWidget(subtitle)
         header_row.addLayout(title_column)
         header_row.addStretch(1)
+
+        self.batch_button = QPushButton(BATCH_GENERATE_TEXT)
+        self.batch_button.setProperty("flat", "true")
+        self.batch_button.setToolTip("Generate trackers for multiple projects from a folder of CSVs")
+        self.batch_button.clicked.connect(self.batch_requested.emit)
+        header_row.addWidget(self.batch_button)
 
         self.new_tracker_button = QPushButton(NEW_TRACKER_TEXT)
         self.new_tracker_button.setProperty("accent", "true")
