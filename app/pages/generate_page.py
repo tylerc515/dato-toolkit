@@ -28,7 +28,8 @@ from app.history import HistoryEntry, add_history_entry
 from app.logo import get_pixmap
 from app.pdf_export import export_tracker_pdf
 from app.project import ProjectConfig, sanitize_filename
-from app.styles import apply_card_shadow
+from app.styles import apply_card_shadow, color
+from app.validation import validate_tracker_output
 from app.widgets import HelpPanel
 
 # --- UI text -------------------------------------------------------------
@@ -52,6 +53,7 @@ MISSING_OUTPUT_FOLDER_TEXT = "Please choose an output folder before generating t
 MISSING_OUTPUT_FILENAME_TITLE = "Output Filename Required"
 MISSING_OUTPUT_FILENAME_TEXT = "Please enter a filename for the generated tracker."
 GENERATION_FAILED_TITLE = "Generation Failed"
+VALIDATION_WARNING_PREFIX = "⚠ The generated file may be incomplete:<br>"
 HELP_TITLE = "Generating Your Tracker"
 HELP_BODY = """
 <p>Review the summary, then choose where to save the generated tracker and
@@ -72,7 +74,7 @@ logger = logging.getLogger(__name__)
 class GenerateWorker(QThread):
     """Builds the Excel tracker (and optionally a PDF) on a background thread."""
 
-    finished_ok = pyqtSignal(Path, object)  # xlsx_path, Optional[Path] pdf_path
+    finished_ok = pyqtSignal(Path, object, list)  # xlsx_path, Optional[Path] pdf_path, warnings
     failed = pyqtSignal(str)
 
     def __init__(self, data: TrackerData, xlsx_path: Path, pdf_path: Optional[Path], parent=None):
@@ -91,7 +93,8 @@ class GenerateWorker(QThread):
             logger.exception("Tracker generation failed")
             self.failed.emit(str(exc))
             return
-        self.finished_ok.emit(self._xlsx_path, pdf_result)
+        warnings = validate_tracker_output(self._data, self._xlsx_path, pdf_result)
+        self.finished_ok.emit(self._xlsx_path, pdf_result, warnings)
 
 
 class GeneratePage(QWidget):
@@ -178,6 +181,11 @@ class GeneratePage(QWidget):
         success_layout.addWidget(success_logo)
         success_text = QLabel(SUCCESS_TEXT)
         success_layout.addWidget(success_text)
+        self.validation_warning_label = QLabel("")
+        self.validation_warning_label.setWordWrap(True)
+        self.validation_warning_label.setStyleSheet(f"color: {color('warning')};")
+        self.validation_warning_label.setVisible(False)
+        success_layout.addWidget(self.validation_warning_label)
         success_buttons = QHBoxLayout()
         self.open_file_button = QPushButton(OPEN_FILE_TEXT)
         self.open_file_button.clicked.connect(self._open_file)
@@ -293,13 +301,21 @@ class GeneratePage(QWidget):
         self._worker.failed.connect(self._on_generate_failed)
         self._worker.start()
 
-    def _on_generate_finished(self, xlsx_path: Path, pdf_path: Optional[Path]) -> None:
+    def _on_generate_finished(self, xlsx_path: Path, pdf_path: Optional[Path], warnings: list[str]) -> None:
         self._last_xlsx_path = xlsx_path
         self._last_pdf_path = pdf_path
         self.progress_bar.setVisible(False)
         self.generate_button.setEnabled(True)
         self.back_button.setEnabled(True)
         self.success_card.setVisible(True)
+
+        if warnings:
+            self.validation_warning_label.setText(
+                VALIDATION_WARNING_PREFIX + "<br>".join(f"• {message}" for message in warnings)
+            )
+            self.validation_warning_label.setVisible(True)
+        else:
+            self.validation_warning_label.setVisible(False)
 
         if self._config is not None:
             elevation_count = sum(len(section.elevations) for section in self._config.sections)

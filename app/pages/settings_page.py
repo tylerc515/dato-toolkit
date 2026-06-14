@@ -3,7 +3,17 @@
 from __future__ import annotations
 
 from PyQt6.QtCore import pyqtSignal
-from PyQt6.QtWidgets import QApplication, QComboBox, QFrame, QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import (
+    QApplication,
+    QComboBox,
+    QFrame,
+    QGridLayout,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QVBoxLayout,
+    QWidget,
+)
 
 from app.settings import get_theme, set_theme
 from app.styles import THEME_DARK, THEME_LIGHT, apply_card_shadow, build_stylesheet, set_active_theme
@@ -18,12 +28,23 @@ THEME_RESTART_HINT = (
     "Some elements (the title bar, step indicator, and splash screen) will pick up "
     "the new theme's colors after you restart the app."
 )
+SHORTCUTS_TITLE = "Keyboard Shortcuts"
 STATUS_HINT = "Tip: Adjust application appearance settings here."
 
 _THEME_DISPLAY_NAMES = {
     THEME_DARK: "Dark",
     THEME_LIGHT: "Light",
 }
+
+KEYBOARD_SHORTCUTS = [
+    ("Ctrl+N", "Start a new tracker"),
+    ("Ctrl+D", "Go to the dashboard"),
+    ("Ctrl+H", "View export history"),
+    ("Ctrl+,", "Open settings"),
+    ("Ctrl+→ / Ctrl+Enter", "Continue to the next step / Generate"),
+    ("Ctrl+←", "Go back a step"),
+    ("F1", "Show or hide help for the current step"),
+]
 
 
 class SettingsPage(QWidget):
@@ -79,6 +100,26 @@ class SettingsPage(QWidget):
         card_layout.addWidget(hint)
 
         outer.addWidget(card)
+
+        shortcuts_card = QFrame()
+        shortcuts_card.setProperty("card", "true")
+        apply_card_shadow(shortcuts_card)
+        shortcuts_layout = QVBoxLayout(shortcuts_card)
+
+        shortcuts_heading = QLabel(SHORTCUTS_TITLE)
+        shortcuts_heading.setProperty("role", "heading")
+        shortcuts_layout.addWidget(shortcuts_heading)
+
+        shortcuts_grid = QGridLayout()
+        shortcuts_grid.setColumnStretch(1, 1)
+        for row, (keys, description) in enumerate(KEYBOARD_SHORTCUTS):
+            keys_label = QLabel(keys)
+            keys_label.setStyleSheet("font-weight: 600;")
+            shortcuts_grid.addWidget(keys_label, row, 0)
+            shortcuts_grid.addWidget(QLabel(description), row, 1)
+        shortcuts_layout.addLayout(shortcuts_grid)
+
+        outer.addWidget(shortcuts_card)
         outer.addStretch(1)
 
     def _on_theme_changed(self, index: int) -> None:

@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Optional
 
 from PyQt6.QtCore import QByteArray, QEvent, QPoint, QRect, QSettings, Qt, QUrl
-from PyQt6.QtGui import QDesktopServices
+from PyQt6.QtGui import QDesktopServices, QKeySequence, QShortcut
 from PyQt6.QtWidgets import (
     QApplication,
     QFrame,
@@ -220,6 +220,8 @@ class MainWindow(QMainWindow):
         self.stack.currentChanged.connect(self._on_page_changed)
         self._on_page_changed(self.stack.currentIndex())
 
+        self._setup_shortcuts()
+
     def _build_header(self) -> QFrame:
         header = _DragHeader(self)
         header.setStyleSheet(f"background-color: {color('surface')};")
@@ -406,6 +408,53 @@ class MainWindow(QMainWindow):
         self.import_page.clear_all()
         self._completed_steps.clear()
         self._go_to_step(0)
+
+    # --- Keyboard shortcuts --------------------------------------------------
+
+    def _setup_shortcuts(self) -> None:
+        self._add_shortcut("Ctrl+N", self._on_new_project)
+        self._add_shortcut("Ctrl+D", self._go_to_dashboard)
+        self._add_shortcut("Ctrl+H", self._go_to_history)
+        self._add_shortcut("Ctrl+,", self._go_to_settings)
+        self._add_shortcut("Ctrl+Right", self._activate_primary_action)
+        self._add_shortcut("Ctrl+Return", self._activate_primary_action)
+        self._add_shortcut("Ctrl+Left", self._activate_back_action)
+        self._add_shortcut("F1", self._toggle_current_help)
+
+    def _add_shortcut(self, sequence: str, handler) -> QShortcut:
+        shortcut = QShortcut(QKeySequence(sequence), self)
+        shortcut.activated.connect(handler)
+        return shortcut
+
+    def _activate_primary_action(self) -> None:
+        index = self.stack.currentIndex()
+        if index == 1:
+            self._click_if_enabled(self.import_page.continue_button)
+        elif index == 2:
+            self._click_if_enabled(self.reorder_page.continue_button)
+        elif index == 3:
+            self._click_if_enabled(self.generate_page.generate_button)
+
+    def _activate_back_action(self) -> None:
+        index = self.stack.currentIndex()
+        if index == 1:
+            self._go_to_dashboard()
+        elif index == 2:
+            self.reorder_page.back_button.click()
+        elif index == 3:
+            self.generate_page.back_button.click()
+        elif index in (HISTORY_PAGE_INDEX, SETTINGS_PAGE_INDEX):
+            self._go_to_dashboard()
+
+    def _toggle_current_help(self) -> None:
+        page = {1: self.import_page, 2: self.reorder_page, 3: self.generate_page}.get(self.stack.currentIndex())
+        if page is not None:
+            page.help_panel.toggle()
+
+    @staticmethod
+    def _click_if_enabled(button: QPushButton) -> None:
+        if button.isEnabled():
+            button.click()
 
     # --- Window chrome -----------------------------------------------------
 
