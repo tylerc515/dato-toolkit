@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import difflib
 import json
 import os
 import re
@@ -12,6 +13,7 @@ from typing import Optional
 
 APP_DIR_NAME = "TraceTrackerBuilder"
 PROJECT_CONFIG_VERSION = "1.0"
+FUZZY_MATCH_THRESHOLD = 0.6
 
 
 class ProjectError(Exception):
@@ -132,4 +134,34 @@ def find_project_for_metadata(customer: str, location: str, equipment: str, date
             continue
         if (config.customer, config.location, config.equipment, config.date) == (customer, location, equipment, date):
             return path
+    return None
+
+
+def _metadata_key(customer: str, location: str, equipment: str, date: str) -> str:
+    return "|".join((customer, location, equipment, date)).strip().lower()
+
+
+def find_similar_project_for_metadata(customer: str, location: str, equipment: str, date: str) -> Optional[Path]:
+    """Return the path of a saved project with similar (but not identical) metadata, if any.
+
+    Useful when a TRACE export has minor differences from a previous run (e.g. a typo
+    fix or reformatted date) but is otherwise the same project.
+    """
+    target = _metadata_key(customer, location, equipment, date)
+    best_path: Optional[Path] = None
+    best_ratio = 0.0
+    for path in get_projects_dir().glob("*.json"):
+        try:
+            config = load_project(path)
+        except ProjectError:
+            continue
+        key = _metadata_key(config.customer, config.location, config.equipment, config.date)
+        if key == target:
+            continue
+        ratio = difflib.SequenceMatcher(None, target, key).ratio()
+        if ratio > best_ratio:
+            best_ratio = ratio
+            best_path = path
+    if best_ratio >= FUZZY_MATCH_THRESHOLD:
+        return best_path
     return None

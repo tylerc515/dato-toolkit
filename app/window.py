@@ -7,16 +7,18 @@ from pathlib import Path
 from typing import Optional
 
 from PyQt6.QtCore import QByteArray, QEvent, QPoint, QRect, QSettings, Qt, QUrl
-from PyQt6.QtGui import QDesktopServices, QKeySequence, QShortcut
+from PyQt6.QtGui import QAction, QDesktopServices, QKeySequence, QShortcut
 from PyQt6.QtWidgets import (
     QApplication,
     QFrame,
     QHBoxLayout,
     QLabel,
     QMainWindow,
+    QMenu,
     QPushButton,
     QSizeGrip,
     QStackedWidget,
+    QSystemTrayIcon,
     QVBoxLayout,
     QWidget,
 )
@@ -54,6 +56,12 @@ DOWNLOAD_UPDATE_TEXT = "Download Update"
 DISMISS_TEXT = "Dismiss"
 
 INDICATOR_COLOR_UNKNOWN = "#5a6178"
+
+TRAY_SHOW_TEXT = "Show TRACE Tracker Builder"
+TRAY_EXIT_TEXT = "Exit"
+TRAY_NOTIFICATION_TITLE = "Tracker Generated"
+TRAY_NOTIFICATION_BODY = "'{title}' was generated successfully."
+TRAY_NOTIFICATION_DURATION_MS = 5000
 
 STATUS_HINTS = [
     DASHBOARD_STATUS_HINT,
@@ -153,8 +161,10 @@ class MainWindow(QMainWindow):
         self._resize_direction: Optional[str] = None
         self._resize_start_geometry: Optional[QRect] = None
         self._resize_start_pos: Optional[QPoint] = None
+        self.tray_icon: Optional[QSystemTrayIcon] = None
 
         self._build_ui()
+        self._setup_tray_icon()
         QApplication.instance().installEventFilter(self)
         self._restore_geometry()
         self._run_update_check()
@@ -207,6 +217,7 @@ class MainWindow(QMainWindow):
         self.reorder_page.continue_requested.connect(self._on_reorder_continue)
         self.generate_page.back_requested.connect(lambda: self._go_to_step(1))
         self.generate_page.new_project_requested.connect(self._on_new_project)
+        self.generate_page.tracker_generated.connect(self._on_tracker_generated)
         self.history_page.back_requested.connect(self._go_to_dashboard)
         self.settings_page.back_requested.connect(self._go_to_dashboard)
 
@@ -359,6 +370,45 @@ class MainWindow(QMainWindow):
 
     def _open_releases_page(self) -> None:
         QDesktopServices.openUrl(QUrl(GITHUB_RELEASES_PAGE_URL))
+
+    # --- System tray ---------------------------------------------------------
+
+    def _setup_tray_icon(self) -> None:
+        if not QSystemTrayIcon.isSystemTrayAvailable():
+            return
+
+        self.tray_icon = QSystemTrayIcon(get_icon(), self)
+        self.tray_icon.setToolTip(APP_NAME)
+
+        menu = QMenu()
+        show_action = QAction(TRAY_SHOW_TEXT, self)
+        show_action.triggered.connect(self._show_from_tray)
+        menu.addAction(show_action)
+        exit_action = QAction(TRAY_EXIT_TEXT, self)
+        exit_action.triggered.connect(self.close)
+        menu.addAction(exit_action)
+        self.tray_icon.setContextMenu(menu)
+
+        self.tray_icon.activated.connect(self._on_tray_activated)
+        self.tray_icon.show()
+
+    def _on_tray_activated(self, reason: QSystemTrayIcon.ActivationReason) -> None:
+        if reason == QSystemTrayIcon.ActivationReason.Trigger:
+            self._show_from_tray()
+
+    def _show_from_tray(self) -> None:
+        self.showNormal()
+        self.activateWindow()
+        self.raise_()
+
+    def _on_tracker_generated(self, title: str) -> None:
+        if self.tray_icon is not None:
+            self.tray_icon.showMessage(
+                TRAY_NOTIFICATION_TITLE,
+                TRAY_NOTIFICATION_BODY.format(title=title),
+                QSystemTrayIcon.MessageIcon.Information,
+                TRAY_NOTIFICATION_DURATION_MS,
+            )
 
     # --- Step navigation -------------------------------------------------
 
@@ -580,5 +630,7 @@ class MainWindow(QMainWindow):
     def closeEvent(self, event) -> None:
         settings = QSettings(APP_DIR_NAME, APP_DIR_NAME)
         settings.setValue(GEOMETRY_SETTINGS_KEY, self.saveGeometry())
+        if self.tray_icon is not None:
+            self.tray_icon.hide()
         QApplication.instance().removeEventFilter(self)
         super().closeEvent(event)

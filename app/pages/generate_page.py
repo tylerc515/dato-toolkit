@@ -6,13 +6,15 @@ import logging
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
+from urllib.parse import quote
 
-from PyQt6.QtCore import Qt, QThread, QUrl, pyqtSignal
+from PyQt6.QtCore import QEasingCurve, QPropertyAnimation, Qt, QThread, QUrl, pyqtSignal
 from PyQt6.QtGui import QDesktopServices
 from PyQt6.QtWidgets import (
     QCheckBox,
     QFileDialog,
     QFrame,
+    QGraphicsOpacityEffect,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -47,7 +49,12 @@ SUCCESS_TITLE = "Tracker Generated"
 SUCCESS_TEXT = "Your tracker was generated successfully."
 OPEN_FILE_TEXT = "Open File"
 OPEN_FOLDER_TEXT = "Open Folder"
+EMAIL_TEXT = "Email Tracker"
 NEW_PROJECT_TEXT = "Start New Project"
+EMAIL_SUBJECT_TEXT = "Tracker: {title}"
+EMAIL_BODY_TEXT = 'The tracker "{title}" has been generated and is saved at:\n{xlsx_path}\n'
+EMAIL_BODY_PDF_LINE = "\nA PDF copy is also available at:\n{pdf_path}\n"
+EMAIL_BODY_ATTACH_HINT = "\nPlease attach the file(s) above before sending."
 MISSING_OUTPUT_FOLDER_TITLE = "Output Folder Required"
 MISSING_OUTPUT_FOLDER_TEXT = "Please choose an output folder before generating the tracker."
 MISSING_OUTPUT_FILENAME_TITLE = "Output Filename Required"
@@ -67,6 +74,7 @@ open it directly, open its folder, or start a new project.</p>
 XLSX_SUFFIX = ".xlsx"
 PDF_SUFFIX = ".pdf"
 STATUS_HINT = "Tip: Choose an output folder and filename, then click Generate Tracker."
+SUCCESS_FADE_DURATION_MS = 300
 
 logger = logging.getLogger(__name__)
 
@@ -102,6 +110,7 @@ class GeneratePage(QWidget):
 
     back_requested = pyqtSignal()
     new_project_requested = pyqtSignal()
+    tracker_generated = pyqtSignal(str)  # title
 
     def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
@@ -194,6 +203,11 @@ class GeneratePage(QWidget):
         self.open_folder_button.setProperty("flat", "true")
         self.open_folder_button.clicked.connect(self._open_folder)
         success_buttons.addWidget(self.open_folder_button)
+        self.email_button = QPushButton(EMAIL_TEXT)
+        self.email_button.setProperty("flat", "true")
+        self.email_button.setToolTip("Open your email client with the tracker details")
+        self.email_button.clicked.connect(self._email_tracker)
+        success_buttons.addWidget(self.email_button)
         self.new_project_button = QPushButton(NEW_PROJECT_TEXT)
         self.new_project_button.setProperty("flat", "true")
         self.new_project_button.clicked.connect(self.new_project_requested.emit)
@@ -201,6 +215,15 @@ class GeneratePage(QWidget):
         success_layout.addLayout(success_buttons)
         self.success_card.setVisible(False)
         content_layout.addWidget(self.success_card)
+
+        self._success_opacity_effect = QGraphicsOpacityEffect(self.success_card)
+        self._success_opacity_effect.setOpacity(1.0)
+        self.success_card.setGraphicsEffect(self._success_opacity_effect)
+        self._success_animation = QPropertyAnimation(self._success_opacity_effect, b"opacity", self)
+        self._success_animation.setDuration(SUCCESS_FADE_DURATION_MS)
+        self._success_animation.setStartValue(0.0)
+        self._success_animation.setEndValue(1.0)
+        self._success_animation.setEasingCurve(QEasingCurve.Type.InOutCubic)
 
         content_layout.addStretch(1)
 
@@ -308,6 +331,8 @@ class GeneratePage(QWidget):
         self.generate_button.setEnabled(True)
         self.back_button.setEnabled(True)
         self.success_card.setVisible(True)
+        self._success_animation.stop()
+        self._success_animation.start()
 
         if warnings:
             self.validation_warning_label.setText(
@@ -332,6 +357,7 @@ class GeneratePage(QWidget):
                     generated_at=datetime.now().isoformat(),
                 )
             )
+            self.tracker_generated.emit(self._config.title)
 
     def _on_generate_failed(self, message: str) -> None:
         self.progress_bar.setVisible(False)
@@ -346,3 +372,14 @@ class GeneratePage(QWidget):
     def _open_folder(self) -> None:
         if self._last_xlsx_path is not None:
             QDesktopServices.openUrl(QUrl.fromLocalFile(str(self._last_xlsx_path.parent)))
+
+    def _email_tracker(self) -> None:
+        if self._last_xlsx_path is None or self._config is None:
+            return
+        title = self._config.title
+        body = EMAIL_BODY_TEXT.format(title=title, xlsx_path=self._last_xlsx_path)
+        if self._last_pdf_path is not None:
+            body += EMAIL_BODY_PDF_LINE.format(pdf_path=self._last_pdf_path)
+        body += EMAIL_BODY_ATTACH_HINT
+        subject = EMAIL_SUBJECT_TEXT.format(title=title)
+        QDesktopServices.openUrl(QUrl(f"mailto:?subject={quote(subject)}&body={quote(body)}"))

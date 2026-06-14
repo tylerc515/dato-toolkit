@@ -21,7 +21,7 @@ from PyQt6.QtWidgets import (
 )
 
 from app.parser import TraceFileData, TraceParseError, parse_trace_csv
-from app.project import find_project_for_metadata
+from app.project import find_project_for_metadata, find_similar_project_for_metadata
 from app.styles import apply_card_shadow, color
 from app.widgets import HelpPanel
 
@@ -50,6 +50,7 @@ name and how many elevations were found.</p>
 STATUS_HINT = "Tip: Drag and drop multiple TRACE export CSV files at once."
 PROJECT_FOUND_TITLE = "Saved Project Found"
 PROJECT_FOUND_TEXT = "A saved project for '{title}' was found. Load it?"
+PROJECT_SIMILAR_FOUND_TEXT = "A similar saved project, '{title}', was found. Load it?"
 
 logger = logging.getLogger(__name__)
 
@@ -324,6 +325,12 @@ class ImportPage(QWidget):
         project_path = find_project_for_metadata(
             data.company_name, data.mill_location, data.boiler_name, data.inspection_date
         )
+        message = PROJECT_FOUND_TEXT
+        if project_path is None:
+            project_path = find_similar_project_for_metadata(
+                data.company_name, data.mill_location, data.boiler_name, data.inspection_date
+            )
+            message = PROJECT_SIMILAR_FOUND_TEXT
         if project_path is None:
             return
 
@@ -331,7 +338,7 @@ class ImportPage(QWidget):
         reply = QMessageBox.question(
             self,
             PROJECT_FOUND_TITLE,
-            PROJECT_FOUND_TEXT.format(title=title),
+            message.format(title=title),
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
         if reply == QMessageBox.StandardButton.Yes:
