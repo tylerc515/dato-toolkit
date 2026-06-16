@@ -16,9 +16,10 @@ from PyQt6.QtWidgets import (
 )
 
 from app.parser import TraceFileData
-from app.project import ProjectConfig, ProjectSection
+from app.project import AuxItem, ProjectConfig, ProjectSection
 from app.titlegen import generate_title
 from app.widgets import HelpPanel
+from app.widgets.item_editor import ItemEditorWidget
 from app.widgets.tracker_preview import TrackerPreview
 
 # --- UI text -------------------------------------------------------------
@@ -31,6 +32,9 @@ BACK_TEXT = "← Back"
 CONTINUE_TEXT = "Continue →"
 AUTOSAVE_DELAY_MS = 600
 STATUS_HINT = "Tip: Drag sections to reorder them, or double-click to rename."
+ADDITIONAL_SECTIONS_LABEL = "Additional Sections"
+AUX_EDITOR_TITLE = "Auxiliary Scope Items"
+PUNCH_EDITOR_TITLE = "Punchlist Items"
 HELP_TITLE = "Arranging Sections"
 HELP_BODY = """
 <p>Drag sections in the list to change the order they'll appear in the
@@ -40,6 +44,10 @@ generated tracker.</p>
 files, but you can edit it to match how your company names trackers.</p>
 <p>The preview on the right updates as you make changes. Your progress is
 saved automatically.</p>
+<p><b>Auxiliary Scope Items</b> are additional inspection tasks not part of
+the standard tube sections (e.g. RT of economizer, SWUT sootblower welds).
+<b>Punchlist Items</b> are carry-over action items from previous inspections.
+Both sections are optional and will only appear in the tracker if you add items.</p>
 """
 
 
@@ -58,6 +66,9 @@ class ReorderPage(QWidget):
         self._output_directory = ""
         self._output_filename = ""
         self._export_pdf = False
+
+        self._auxiliary_items: list[dict] = []
+        self._punchlist_items: list[dict] = []
 
         self._autosave_timer = QTimer(self)
         self._autosave_timer.setSingleShot(True)
@@ -114,6 +125,8 @@ class ReorderPage(QWidget):
 
         content_layout.addLayout(split_row, 1)
 
+        content_layout.addWidget(self._build_additional_panel())
+
         button_row = QHBoxLayout()
         self.back_button = QPushButton(BACK_TEXT)
         self.back_button.setProperty("flat", "true")
@@ -135,6 +148,51 @@ class ReorderPage(QWidget):
     def _toggle_help(self) -> None:
         self.help_panel.toggle()
 
+    def _build_additional_panel(self) -> QWidget:
+        container = QWidget()
+        layout = QVBoxLayout(container)
+        layout.setContentsMargins(0, 4, 0, 4)
+        layout.setSpacing(4)
+
+        toggle_row = QHBoxLayout()
+        self._additional_toggle = QPushButton(f"▶  {ADDITIONAL_SECTIONS_LABEL}")
+        self._additional_toggle.setProperty("flat", "true")
+        self._additional_toggle.setCheckable(True)
+        self._additional_toggle.toggled.connect(self._on_additional_toggle)
+        toggle_row.addWidget(self._additional_toggle)
+        toggle_row.addStretch(1)
+        layout.addLayout(toggle_row)
+
+        self._additional_body = QWidget()
+        body_layout = QVBoxLayout(self._additional_body)
+        body_layout.setContentsMargins(12, 8, 0, 8)
+        body_layout.setSpacing(16)
+
+        self._aux_editor = ItemEditorWidget(AUX_EDITOR_TITLE)
+        self._aux_editor.items_changed.connect(self._on_aux_changed)
+        body_layout.addWidget(self._aux_editor)
+
+        self._punch_editor = ItemEditorWidget(PUNCH_EDITOR_TITLE)
+        self._punch_editor.items_changed.connect(self._on_punch_changed)
+        body_layout.addWidget(self._punch_editor)
+
+        self._additional_body.setVisible(False)
+        layout.addWidget(self._additional_body)
+        return container
+
+    def _on_additional_toggle(self, checked: bool) -> None:
+        self._additional_body.setVisible(checked)
+        arrow = "▼" if checked else "▶"
+        self._additional_toggle.setText(f"{arrow}  {ADDITIONAL_SECTIONS_LABEL}")
+
+    def _on_aux_changed(self, items: list[dict]) -> None:
+        self._auxiliary_items = items
+        self._on_changed()
+
+    def _on_punch_changed(self, items: list[dict]) -> None:
+        self._punchlist_items = items
+        self._on_changed()
+
     def set_files(self, files: list[TraceFileData]) -> None:
         """Populate the page from freshly imported TRACE files."""
         if not files:
@@ -147,6 +205,10 @@ class ReorderPage(QWidget):
         self._output_directory = ""
         self._output_filename = ""
         self._export_pdf = False
+        self._auxiliary_items = []
+        self._punchlist_items = []
+        self._aux_editor.set_items([])
+        self._punch_editor.set_items([])
 
         sections = [
             ProjectSection(
@@ -174,6 +236,10 @@ class ReorderPage(QWidget):
         self._output_directory = config.output_directory
         self._output_filename = config.output_filename
         self._export_pdf = config.export_pdf
+        self._auxiliary_items = [{"id": i.id, "description": i.description, "notes": i.notes} for i in config.auxiliary_items]
+        self._punchlist_items = [{"id": i.id, "description": i.description, "notes": i.notes} for i in config.punchlist_items]
+        self._aux_editor.set_items(self._auxiliary_items)
+        self._punch_editor.set_items(self._punchlist_items)
 
         self.title_edit.blockSignals(True)
         self.title_edit.setText(config.title)
@@ -229,6 +295,14 @@ class ReorderPage(QWidget):
             output_directory=self._output_directory,
             output_filename=self._output_filename,
             export_pdf=self._export_pdf,
+            auxiliary_items=[
+                AuxItem(id=i["id"], description=i["description"], notes=i.get("notes", ""))
+                for i in self._auxiliary_items
+            ],
+            punchlist_items=[
+                AuxItem(id=i["id"], description=i["description"], notes=i.get("notes", ""))
+                for i in self._punchlist_items
+            ],
         )
 
     def _autosave(self) -> None:

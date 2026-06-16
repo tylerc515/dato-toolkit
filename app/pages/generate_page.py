@@ -25,7 +25,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from app.builder import TrackerData, TrackerSection, build_tracker
+from app.builder import TrackerData, TrackerItem, TrackerSection, build_tracker
 from app.history import HistoryEntry, add_history_entry
 from app.logo import get_pixmap
 from app.pdf_export import export_tracker_pdf
@@ -310,6 +310,14 @@ class GeneratePage(QWidget):
             sections=[
                 TrackerSection(name=section.display_name, elevations=list(section.elevations))
                 for section in self._config.sections
+            ],
+            auxiliary_items=[
+                TrackerItem(description=i.description, notes=i.notes)
+                for i in self._config.auxiliary_items
+            ],
+            punchlist_items=[
+                TrackerItem(description=i.description, notes=i.notes)
+                for i in self._config.punchlist_items
             ],
         )
 

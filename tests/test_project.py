@@ -1,10 +1,12 @@
 """Tests for project save/load and fuzzy project matching."""
 
 from app.project import (
+    AuxItem,
     ProjectConfig,
     find_project_for_metadata,
     find_similar_project_for_metadata,
     list_projects,
+    load_project,
 )
 
 
@@ -77,3 +79,42 @@ def test_list_projects_sorted_most_recent_first(tmp_path, monkeypatch):
     results = list_projects()
 
     assert [config.title for _, config in results] == ["Newer Project", "Older Project"]
+
+
+def test_aux_items_round_trip(tmp_path, monkeypatch):
+    monkeypatch.setattr("app.project.get_app_data_dir", lambda: tmp_path)
+    items = [
+        AuxItem(id="a1", description="PT OF COMPOSITE PORTS", notes=""),
+        AuxItem(id="a2", description="RT OF ECONOMIZER", notes="Complete"),
+    ]
+    config = _config(auxiliary_items=items)
+    path = config.save()
+    loaded = load_project(path)
+    assert len(loaded.auxiliary_items) == 2
+    assert loaded.auxiliary_items[0].description == "PT OF COMPOSITE PORTS"
+    assert loaded.auxiliary_items[1].notes == "Complete"
+
+
+def test_punchlist_items_round_trip(tmp_path, monkeypatch):
+    monkeypatch.setattr("app.project.get_app_data_dir", lambda: tmp_path)
+    items = [AuxItem(id="p1", description="ITEM 37\nUT spout 2 tube 38", notes='Reading: .286"')]
+    config = _config(punchlist_items=items)
+    path = config.save()
+    loaded = load_project(path)
+    assert loaded.punchlist_items[0].notes == 'Reading: .286"'
+
+
+def test_project_without_aux_fields_loads_fine(tmp_path, monkeypatch):
+    """Existing project JSON without auxiliary_items/punchlist_items loads as empty lists."""
+    import json
+    monkeypatch.setattr("app.project.get_app_data_dir", lambda: tmp_path)
+    projects_dir = tmp_path / "projects"
+    projects_dir.mkdir(parents=True)
+    old_data = _config().to_dict()
+    old_data.pop("auxiliary_items", None)
+    old_data.pop("punchlist_items", None)
+    path = projects_dir / "old.json"
+    path.write_text(json.dumps(old_data), encoding="utf-8")
+    loaded = load_project(path)
+    assert loaded.auxiliary_items == []
+    assert loaded.punchlist_items == []

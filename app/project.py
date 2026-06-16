@@ -12,6 +12,7 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
+from uuid import uuid4
 
 APP_DIR_NAME = "DATOToolkit"
 _LEGACY_DIR_NAME = "TraceTrackerBuilder"
@@ -19,6 +20,15 @@ PROJECT_CONFIG_VERSION = "1.0"
 FUZZY_MATCH_THRESHOLD = 0.6
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class AuxItem:
+    """A single auxiliary scope or punchlist item."""
+
+    id: str
+    description: str
+    notes: str = ""
 
 
 class ProjectError(Exception):
@@ -99,6 +109,8 @@ class ProjectConfig:
     output_filename: str = ""
     export_pdf: bool = False
     last_modified: str = ""
+    auxiliary_items: list[AuxItem] = field(default_factory=list)
+    punchlist_items: list[AuxItem] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -114,6 +126,22 @@ class ProjectConfig:
             )
             for s in data.get("sections", [])
         ]
+        auxiliary_items = [
+            AuxItem(
+                id=i.get("id", str(uuid4())),
+                description=i.get("description", ""),
+                notes=i.get("notes", ""),
+            )
+            for i in data.get("auxiliary_items", [])
+        ]
+        punchlist_items = [
+            AuxItem(
+                id=i.get("id", str(uuid4())),
+                description=i.get("description", ""),
+                notes=i.get("notes", ""),
+            )
+            for i in data.get("punchlist_items", [])
+        ]
         return cls(
             version=data.get("version", PROJECT_CONFIG_VERSION),
             title=data.get("title", ""),
@@ -126,6 +154,8 @@ class ProjectConfig:
             output_filename=data.get("output_filename", ""),
             export_pdf=bool(data.get("export_pdf", False)),
             last_modified=data.get("last_modified", ""),
+            auxiliary_items=auxiliary_items,
+            punchlist_items=punchlist_items,
         )
 
     def save(self, path: Optional[Path] = None) -> Path:

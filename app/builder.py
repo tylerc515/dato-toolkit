@@ -101,6 +101,14 @@ class TrackerSection:
 
 
 @dataclass
+class TrackerItem:
+    """A single auxiliary scope or punchlist entry."""
+
+    description: str
+    notes: str = ""
+
+
+@dataclass
 class TrackerData:
     """Everything needed to render the Tracker sheet."""
 
@@ -110,6 +118,8 @@ class TrackerData:
     equipment: str
     date: str
     sections: list[TrackerSection] = field(default_factory=list)
+    auxiliary_items: list[TrackerItem] = field(default_factory=list)
+    punchlist_items: list[TrackerItem] = field(default_factory=list)
 
 
 def _write_header_block(ws: Worksheet, data: TrackerData) -> None:
@@ -219,6 +229,42 @@ def _write_sections(ws: Worksheet, sections: list[TrackerSection]) -> int:
     return row - 1
 
 
+def _write_extra_sections(ws: Worksheet, label: str, items: list[TrackerItem], start_row: int) -> int:
+    """Write an AUXILIARY SCOPE ITEMS or PUNCHLIST block. Returns the last row written."""
+    row = start_row
+
+    ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=TRACKER_COLUMN_COUNT)
+    for col in range(1, TRACKER_COLUMN_COUNT + 1):
+        cell = ws.cell(row=row, column=col)
+        if col == 1:
+            cell.value = label
+        cell.font = SECTION_FONT
+        cell.fill = SECTION_FILL
+        left = "medium" if col == 1 else "thin"
+        right = "medium" if col == TRACKER_COLUMN_COUNT else "thin"
+        cell.border = _border(left=left, right=right, top="medium", bottom="medium")
+    ws.row_dimensions[row].height = SECTION_ROW_HEIGHT
+    row += 1
+
+    for item in items:
+        for col in range(1, TRACKER_COLUMN_COUNT + 1):
+            cell = ws.cell(row=row, column=col)
+            cell.font = ELEVATION_FONT
+            left = "medium" if col == 1 else "thin"
+            right = "medium" if col == TRACKER_COLUMN_COUNT else "thin"
+            cell.border = _border(left=left, right=right, top="thin", bottom="thin")
+            if col == 1:
+                cell.value = item.description
+                cell.alignment = Alignment(horizontal="left", vertical="top", wrap_text=True)
+            elif col == TRACKER_COLUMN_COUNT:
+                cell.value = item.notes if item.notes else None
+                cell.alignment = Alignment(horizontal="left", vertical="top", wrap_text=True)
+        ws.row_dimensions[row].height = 30
+        row += 1
+
+    return row - 1
+
+
 def _apply_column_widths(ws: Worksheet) -> None:
     for letter, width in COLUMN_WIDTHS.items():
         ws.column_dimensions[letter].width = width
@@ -255,6 +301,11 @@ def build_tracker(data: TrackerData, output_path: str | Path) -> Path:
     _write_header_block(ws, data)
     _add_bsi_logo(ws)
     last_row = _write_sections(ws, data.sections)
+
+    if data.auxiliary_items:
+        last_row = _write_extra_sections(ws, "AUXILIARY SCOPE ITEMS", data.auxiliary_items, last_row + 1)
+    if data.punchlist_items:
+        last_row = _write_extra_sections(ws, "PUNCHLIST", data.punchlist_items, last_row + 1)
 
     # Close the table with a medium bottom border on the final row.
     if last_row >= 9:

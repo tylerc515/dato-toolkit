@@ -5,7 +5,7 @@ from pathlib import Path
 import openpyxl
 import pytest
 
-from app.builder import TrackerData, TrackerSection, build_tracker
+from app.builder import TrackerData, TrackerItem, TrackerSection, build_tracker
 from app.parser import parse_trace_csv
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -179,3 +179,90 @@ def test_closing_border_on_last_row(generated_workbook):
     for col in range(1, 11):
         cell = ws.cell(row=last_row, column=col)
         assert cell.border.bottom.style == "medium"
+
+
+def _minimal_data(**overrides):
+    base = dict(
+        title="Test Tracker",
+        customer="Test Co",
+        location="Plant A",
+        equipment="Boiler 1",
+        date="June 2026",
+        sections=[TrackerSection(name="FLOOR", elevations=["EL 1", "EL 2"])],
+    )
+    base.update(overrides)
+    return TrackerData(**base)
+
+
+def test_builder_omits_aux_section_when_empty(tmp_path):
+    data = _minimal_data()
+    out = build_tracker(data, tmp_path / "t.xlsx")
+    wb = openpyxl.load_workbook(out)
+    ws = wb["Tracker"]
+    values = [ws.cell(row=r, column=1).value for r in range(9, ws.max_row + 1)]
+    assert "AUXILIARY SCOPE ITEMS" not in values
+    assert "PUNCHLIST" not in values
+
+
+def test_builder_writes_aux_section_header(tmp_path):
+    data = _minimal_data(
+        auxiliary_items=[TrackerItem(description="PT OF COMPOSITE PORTS", notes="")]
+    )
+    out = build_tracker(data, tmp_path / "t.xlsx")
+    wb = openpyxl.load_workbook(out)
+    ws = wb["Tracker"]
+    values = [ws.cell(row=r, column=1).value for r in range(9, ws.max_row + 1)]
+    assert "AUXILIARY SCOPE ITEMS" in values
+
+
+def test_builder_writes_punchlist_section_header(tmp_path):
+    data = _minimal_data(
+        punchlist_items=[TrackerItem(description='ITEM 37\nUT spout', notes='Reading: .286"')]
+    )
+    out = build_tracker(data, tmp_path / "t.xlsx")
+    wb = openpyxl.load_workbook(out)
+    ws = wb["Tracker"]
+    values = [ws.cell(row=r, column=1).value for r in range(9, ws.max_row + 1)]
+    assert "PUNCHLIST" in values
+
+
+def test_builder_aux_item_description_and_notes(tmp_path):
+    data = _minimal_data(
+        auxiliary_items=[TrackerItem(description="RT OF ECONOMIZER", notes="Complete")]
+    )
+    out = build_tracker(data, tmp_path / "t.xlsx")
+    wb = openpyxl.load_workbook(out)
+    ws = wb["Tracker"]
+    aux_row = next(
+        r for r in range(9, ws.max_row + 1)
+        if ws.cell(row=r, column=1).value == "AUXILIARY SCOPE ITEMS"
+    )
+    item_row = aux_row + 1
+    assert ws.cell(row=item_row, column=1).value == "RT OF ECONOMIZER"
+    assert ws.cell(row=item_row, column=10).value == "Complete"
+
+
+def test_builder_closing_border_after_aux_and_punchlist(tmp_path):
+    data = _minimal_data(
+        auxiliary_items=[TrackerItem(description="AUX ITEM", notes="")],
+        punchlist_items=[TrackerItem(description="PUNCH ITEM", notes="")],
+    )
+    out = build_tracker(data, tmp_path / "t.xlsx")
+    wb = openpyxl.load_workbook(out)
+    ws = wb["Tracker"]
+    last_row = ws.max_row
+    for col in range(1, 11):
+        assert ws.cell(row=last_row, column=col).border.bottom.style == "medium"
+
+
+def test_builder_aux_before_punchlist(tmp_path):
+    data = _minimal_data(
+        auxiliary_items=[TrackerItem(description="AUX ITEM", notes="")],
+        punchlist_items=[TrackerItem(description="PUNCH ITEM", notes="")],
+    )
+    out = build_tracker(data, tmp_path / "t.xlsx")
+    wb = openpyxl.load_workbook(out)
+    ws = wb["Tracker"]
+    aux_row = next(r for r in range(9, ws.max_row + 1) if ws.cell(row=r, column=1).value == "AUXILIARY SCOPE ITEMS")
+    punch_row = next(r for r in range(9, ws.max_row + 1) if ws.cell(row=r, column=1).value == "PUNCHLIST")
+    assert aux_row < punch_row
