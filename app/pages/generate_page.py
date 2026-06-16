@@ -51,6 +51,7 @@ OPEN_FILE_TEXT = "Open File"
 OPEN_FOLDER_TEXT = "Open Folder"
 EMAIL_TEXT = "Email Tracker"
 NEW_PROJECT_TEXT = "Start New Project"
+GEN_EMAIL_TEXT = "Generate Update Email →"
 EMAIL_SUBJECT_TEXT = "Tracker: {title}"
 EMAIL_BODY_TEXT = 'The tracker "{title}" has been generated and is saved at:\n{xlsx_path}\n'
 EMAIL_BODY_PDF_LINE = "\nA PDF copy is also available at:\n{pdf_path}\n"
@@ -111,6 +112,7 @@ class GeneratePage(QWidget):
     back_requested = pyqtSignal()
     new_project_requested = pyqtSignal()
     tracker_generated = pyqtSignal(str)  # title
+    email_requested = pyqtSignal(object)  # ProjectConfig
 
     def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
@@ -212,6 +214,11 @@ class GeneratePage(QWidget):
         self.new_project_button.setProperty("flat", "true")
         self.new_project_button.clicked.connect(self.new_project_requested.emit)
         success_buttons.addWidget(self.new_project_button)
+        self.gen_email_button = QPushButton(GEN_EMAIL_TEXT)
+        self.gen_email_button.setProperty("accent", "true")
+        self.gen_email_button.setToolTip("Generate a formatted status update email for this project")
+        self.gen_email_button.clicked.connect(self._on_email_requested)
+        success_buttons.addWidget(self.gen_email_button)
         success_layout.addLayout(success_buttons)
         self.success_card.setVisible(False)
         content_layout.addWidget(self.success_card)
@@ -372,6 +379,10 @@ class GeneratePage(QWidget):
         self.generate_button.setEnabled(True)
         self.back_button.setEnabled(True)
         QMessageBox.critical(self, GENERATION_FAILED_TITLE, message)
+
+    def _on_email_requested(self) -> None:
+        if self._config is not None:
+            self.email_requested.emit(self._config)
 
     def _open_file(self) -> None:
         if self._last_xlsx_path is not None:
