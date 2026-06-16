@@ -6,9 +6,7 @@ import logging
 import os
 import re
 import shutil
-import subprocess
 import sys
-import tempfile
 from pathlib import Path
 from typing import Optional
 
@@ -465,14 +463,14 @@ class UpdateDialog(QDialog):
                 current_exe=current_exe,
                 remove_old=remove_old,
             )
-        except OSError as exc:
-            QMessageBox.critical(self, "Error", f"Could not write update launcher:\n{exc}")
+            launch_update_bat(bat_path)
+        except Exception as exc:
+            QMessageBox.critical(self, "Error", f"Could not launch update installer:\n{exc}")
             return
 
         logger.info(
             "Launching update bat: %s → %s (remove_old=%s)", self._downloaded_path, new_exe_dest, remove_old
         )
-        launch_update_bat(bat_path)
         QApplication.quit()
 
     def _on_install_later(self) -> None:
