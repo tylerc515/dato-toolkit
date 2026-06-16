@@ -11,12 +11,14 @@ from PyQt6.QtCore import QThread, Qt, QUrl, pyqtSignal
 from PyQt6.QtGui import QDesktopServices
 from PyQt6.QtWidgets import (
     QComboBox,
+    QDialog,
     QFileDialog,
     QFrame,
     QHBoxLayout,
     QLabel,
     QLineEdit,
     QListWidget,
+    QListWidgetItem,
     QPlainTextEdit,
     QProgressBar,
     QPushButton,
@@ -27,7 +29,7 @@ from PyQt6.QtWidgets import (
 
 from app.email_export import EmailData, OtherItem, ScopeSection, build_email_doc
 from app.history import HistoryEntry, add_history_entry
-from app.project import ProjectConfig, sanitize_filename
+from app.project import ProjectConfig, ProjectError, get_projects_dir, list_projects, load_project, sanitize_filename
 from app.styles import apply_card_shadow, color
 from app.widgets import HelpPanel
 
@@ -46,6 +48,19 @@ GENERATE_ANOTHER_TEXT = "Generate Another"
 BROWSE_TEXT = "Browse…"
 DOCX_SUFFIX = ".docx"
 STATUS_HINT = "Tip: Load a tracker project first so sections are pre-filled automatically."
+
+LINK_BAR_BG = "#1a3a2a"
+LINK_BAR_BORDER = "#00B050"
+LINKED_PREFIX = "✓ Linked to: "
+UNLINK_TEXT = "Unlink"
+NO_PROJECT_HEADING = "No tracker project linked"
+NO_PROJECT_SUBTEXT = (
+    "Link a saved tracker project to pre-fill scope of work, "
+    "auxiliary items, and punchlist automatically."
+)
+LOAD_FILE_TEXT = "📂  Load Project File"
+BROWSE_RECENT_TEXT = "🔗  Browse Recent Projects"
+RECENT_PROJECTS_COUNT = 5
 
 STATUS_OPTIONS = [
     "No initial data received.",
@@ -238,6 +253,7 @@ class EmailPage(QWidget):
         self._section_rows: list[_SectionStatusRow] = []
         self._aux_rows: list[_OtherItemRow] = []
         self._punch_rows: list[_OtherItemRow] = []
+        self._linked_project: Optional[ProjectConfig] = None
         self._build_ui()
 
     # --- UI construction ------------------------------------------------------
@@ -266,6 +282,25 @@ class EmailPage(QWidget):
         header_row.addWidget(help_btn)
         content_wrapper_layout.addLayout(header_row)
 
+        # Slim link bar (shown when a project is linked)
+        self._link_bar = QFrame()
+        self._link_bar.setStyleSheet(
+            f"QFrame {{ background-color: {LINK_BAR_BG}; border-left: 4px solid {LINK_BAR_BORDER}; }}"
+        )
+        self._link_bar.setFixedHeight(44)
+        self._link_bar.setVisible(False)
+        link_bar_layout = QHBoxLayout(self._link_bar)
+        link_bar_layout.setContentsMargins(16, 0, 16, 0)
+        self._link_label = QLabel("")
+        self._link_label.setStyleSheet("color: #eaeaea; font-weight: 600;")
+        link_bar_layout.addWidget(self._link_label, 1)
+        unlink_btn = QPushButton(UNLINK_TEXT)
+        unlink_btn.setProperty("flat", "true")
+        unlink_btn.setStyleSheet("color: #9aa0b4;")
+        unlink_btn.clicked.connect(self._unlink)
+        link_bar_layout.addWidget(unlink_btn)
+        content_wrapper_layout.addWidget(self._link_bar)
+
         # Scroll area
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
@@ -276,6 +311,7 @@ class EmailPage(QWidget):
         scroll.setWidget(scroll_content)
         content_wrapper_layout.addWidget(scroll, 1)
 
+        self._build_no_project_card()
         self._build_project_info()
         self._build_overall_status()
         self._build_findings_section("Discovery Based on Scope Work", "scope_work")
@@ -373,6 +409,39 @@ class EmailPage(QWidget):
         self._punch_container.addWidget(no_lbl)
         self._form_layout.addWidget(card)
 
+    def _build_no_project_card(self) -> None:
+        self._no_project_card = QFrame()
+        self._no_project_card.setProperty("card", "true")
+        apply_card_shadow(self._no_project_card)
+        np_layout = QVBoxLayout(self._no_project_card)
+        np_layout.setSpacing(8)
+
+        heading_row = QHBoxLayout()
+        heading_row.addWidget(QLabel("🔗"))
+        heading_lbl = QLabel(NO_PROJECT_HEADING)
+        heading_lbl.setProperty("role", "heading")
+        heading_row.addWidget(heading_lbl)
+        heading_row.addStretch(1)
+        np_layout.addLayout(heading_row)
+
+        sub_lbl = QLabel(NO_PROJECT_SUBTEXT)
+        sub_lbl.setWordWrap(True)
+        sub_lbl.setProperty("role", "muted")
+        np_layout.addWidget(sub_lbl)
+
+        btn_row = QHBoxLayout()
+        load_file_btn = QPushButton(LOAD_FILE_TEXT)
+        load_file_btn.clicked.connect(self._load_from_file)
+        btn_row.addWidget(load_file_btn)
+        browse_recent_btn = QPushButton(BROWSE_RECENT_TEXT)
+        browse_recent_btn.setProperty("flat", "true")
+        browse_recent_btn.clicked.connect(self._browse_recent)
+        btn_row.addWidget(browse_recent_btn)
+        btn_row.addStretch(1)
+        np_layout.addLayout(btn_row)
+
+        self._form_layout.addWidget(self._no_project_card)
+
     def _build_output_section(self) -> None:
         card, layout = self._section_card("Output")
 
@@ -433,7 +502,12 @@ class EmailPage(QWidget):
     # --- Public API -----------------------------------------------------------
 
     def set_project(self, config: ProjectConfig) -> None:
-        """Pre-fill from a loaded ProjectConfig (linked mode)."""
+        """Link a ProjectConfig: pre-fill fields and show the green info bar."""
+        self._linked_project = config
+        title = config.title or config.equipment or "Project"
+        self._link_label.setText(f"{LINKED_PREFIX}{title}")
+        self._link_bar.setVisible(True)
+        self._no_project_card.setVisible(False)
         self._boiler_edit.setText(config.equipment or config.title)
         self._populate_scope_sections(config.sections)
         self._populate_aux_items(config.auxiliary_items)
@@ -441,7 +515,10 @@ class EmailPage(QWidget):
         self._update_filename()
 
     def clear_project(self) -> None:
-        """Reset to standalone (blank) mode."""
+        """Unlink project: reset fields and show the manual load card."""
+        self._linked_project = None
+        self._link_bar.setVisible(False)
+        self._no_project_card.setVisible(True)
         self._boiler_edit.clear()
         self._populate_scope_sections([])
         self._populate_aux_items([])
@@ -452,6 +529,71 @@ class EmailPage(QWidget):
 
     def _toggle_help(self) -> None:
         self.help_panel.toggle()
+
+    def _unlink(self) -> None:
+        self.clear_project()
+
+    def _load_from_file(self) -> None:
+        start_dir = str(get_projects_dir())
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Load Tracker Project", start_dir, "Project files (*.json)"
+        )
+        if not path:
+            return
+        try:
+            config = load_project(Path(path))
+            self.set_project(config)
+        except ProjectError as exc:
+            logger.error("Could not load project from file: %s", exc)
+
+    def _browse_recent(self) -> None:
+        projects = list_projects()[:RECENT_PROJECTS_COUNT]
+        if not projects:
+            return
+
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Recent Projects")
+        dialog.setFixedSize(500, 260)
+        layout = QVBoxLayout(dialog)
+        layout.setSpacing(12)
+
+        lbl = QLabel("Select a project to link:")
+        layout.addWidget(lbl)
+
+        list_widget = QListWidget()
+        for path, config in projects:
+            display = f"{config.title}  —  {config.date}" if config.date else config.title
+            item = QListWidgetItem(display)
+            item.setData(Qt.ItemDataRole.UserRole, path)
+            list_widget.addItem(item)
+        if list_widget.count():
+            list_widget.setCurrentRow(0)
+        list_widget.doubleClicked.connect(dialog.accept)
+        layout.addWidget(list_widget)
+
+        btn_row = QHBoxLayout()
+        btn_row.addStretch(1)
+        cancel_btn = QPushButton("Cancel")
+        cancel_btn.setProperty("flat", "true")
+        cancel_btn.clicked.connect(dialog.reject)
+        btn_row.addWidget(cancel_btn)
+        load_btn = QPushButton("Load")
+        load_btn.setProperty("accent", "true")
+        load_btn.clicked.connect(dialog.accept)
+        btn_row.addWidget(load_btn)
+        layout.addLayout(btn_row)
+
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        selected = list_widget.currentItem()
+        if selected is None:
+            return
+        path = selected.data(Qt.ItemDataRole.UserRole)
+        try:
+            config = load_project(path)
+            self.set_project(config)
+        except ProjectError as exc:
+            logger.error("Could not load recent project: %s", exc)
 
     def _populate_scope_sections(self, sections) -> None:
         self._section_rows.clear()

@@ -650,6 +650,7 @@ class MainWindow(QMainWindow):
     def _on_new_project(self) -> None:
         self.import_page.clear_all()
         self._completed_steps.clear()
+        self.email_page.clear_project()
         self._go_to_step(0)
 
     # --- Keyboard shortcuts --------------------------------------------------
