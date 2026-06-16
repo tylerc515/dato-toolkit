@@ -35,6 +35,8 @@ from app.pages.history_page import HistoryPage
 from app.pages.history_page import STATUS_HINT as HISTORY_STATUS_HINT
 from app.pages.import_page import ImportPage
 from app.pages.import_page import STATUS_HINT as IMPORT_STATUS_HINT
+from app.pages.email_page import EmailPage
+from app.pages.email_page import STATUS_HINT as EMAIL_STATUS_HINT
 from app.pages.projects_page import ProjectsPage
 from app.pages.projects_page import STATUS_HINT as PROJECTS_STATUS_HINT
 from app.pages.reorder_page import ReorderPage
@@ -76,13 +78,16 @@ STATUS_HINTS = [
     SETTINGS_STATUS_HINT,
     BATCH_STATUS_HINT,
     PROJECTS_STATUS_HINT,
+    EMAIL_STATUS_HINT,
 ]
 HISTORY_PAGE_INDEX = 4
 SETTINGS_PAGE_INDEX = 5
 BATCH_PAGE_INDEX = 6
 PROJECTS_PAGE_INDEX = 7
+EMAIL_PAGE_INDEX = 8
 HOME_BUTTON_TEXT = "⌂ Dashboard"
 SETTINGS_BUTTON_TEXT = "⚙ Settings"
+EMAIL_BUTTON_TEXT = "✉ Update Email"
 
 # --- Window chrome ---------------------------------------------------------
 
@@ -210,6 +215,7 @@ class MainWindow(QMainWindow):
         self.settings_page = SettingsPage()
         self.batch_page = BatchPage()
         self.projects_page = ProjectsPage()
+        self.email_page = EmailPage()
         self.stack.addWidget(self.dashboard_page)
         self.stack.addWidget(self.import_page)
         self.stack.addWidget(self.reorder_page)
@@ -218,6 +224,7 @@ class MainWindow(QMainWindow):
         self.stack.addWidget(self.settings_page)
         self.stack.addWidget(self.batch_page)
         self.stack.addWidget(self.projects_page)
+        self.stack.addWidget(self.email_page)
         layout.addWidget(self.stack, 1)
 
         self.dashboard_page.new_tracker_requested.connect(self._on_new_project)
@@ -225,6 +232,9 @@ class MainWindow(QMainWindow):
         self.dashboard_page.view_history_requested.connect(self._go_to_history)
         self.dashboard_page.view_projects_requested.connect(self._go_to_projects)
         self.dashboard_page.batch_requested.connect(self._go_to_batch)
+        self.dashboard_page.email_requested.connect(self._go_to_email)
+        self.email_page.back_requested.connect(self._go_to_dashboard)
+        self.generate_page.email_requested.connect(self._go_to_email_with_config)
         self.import_page.files_ready.connect(self._on_files_ready)
         self.import_page.project_load_requested.connect(self._on_project_load_requested)
         self.reorder_page.back_requested.connect(lambda: self._go_to_step(0))
@@ -284,6 +294,12 @@ class MainWindow(QMainWindow):
         self.settings_button.setToolTip("Open settings")
         self.settings_button.clicked.connect(self._go_to_settings)
         layout.addWidget(self.settings_button)
+
+        self.email_nav_button = QPushButton(EMAIL_BUTTON_TEXT)
+        self.email_nav_button.setProperty("flat", "true")
+        self.email_nav_button.setToolTip("Generate a formatted NDE status update email")
+        self.email_nav_button.clicked.connect(self._go_to_email)
+        layout.addWidget(self.email_nav_button)
 
         layout.addStretch(1)
 
@@ -447,6 +463,13 @@ class MainWindow(QMainWindow):
 
     def _go_to_projects(self) -> None:
         self.stack.setCurrentIndex(PROJECTS_PAGE_INDEX)
+
+    def _go_to_email(self) -> None:
+        self.stack.setCurrentIndex(EMAIL_PAGE_INDEX)
+
+    def _go_to_email_with_config(self, config: ProjectConfig) -> None:
+        self.email_page.set_project(config)
+        self.stack.setCurrentIndex(EMAIL_PAGE_INDEX)
 
     def _on_page_changed(self, index: int) -> None:
         if 0 <= index < len(STATUS_HINTS):
