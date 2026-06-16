@@ -23,3 +23,7 @@ Thumbs.db
 
 # Editor/tooling
 .claude/
+
+# Local reference files (client data, not for repo)
+*.docx
+*.xlsx
