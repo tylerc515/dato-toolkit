@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-from PyQt6.QtCore import QByteArray, QEasingCurve, QEvent, QPoint, QPropertyAnimation, QRect, QSettings, Qt, QTimer, QUrl
+from PyQt6.QtCore import QByteArray, QEasingCurve, QEvent, QPoint, QPropertyAnimation, QRect, QSettings, Qt, QTimer
 from PyQt6.QtGui import QAction, QDesktopServices, QKeySequence, QShortcut
 from PyQt6.QtWidgets import (
     QApplication,
@@ -379,7 +379,7 @@ class MainWindow(QMainWindow):
             f"QFrame {{ background-color: {UPDATE_BANNER_BG}; "
             f"border-left: 4px solid {UPDATE_BANNER_BORDER_COLOR}; }}"
         )
-        banner.setFixedHeight(UPDATE_BANNER_HEIGHT)
+        banner.setMinimumHeight(0)
         banner.setMaximumHeight(0)  # collapsed until animated open
         layout = QHBoxLayout(banner)
         layout.setContentsMargins(16, 0, 16, 0)
