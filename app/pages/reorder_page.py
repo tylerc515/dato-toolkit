@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from PyQt6.QtCore import QTimer, Qt, pyqtSignal
+from PyQt6.QtGui import QColor
 from PyQt6.QtWidgets import (
     QAbstractItemView,
     QHBoxLayout,
@@ -11,6 +12,7 @@ from PyQt6.QtWidgets import (
     QListWidget,
     QListWidgetItem,
     QPushButton,
+    QStyledItemDelegate,
     QVBoxLayout,
     QWidget,
 )
@@ -49,6 +51,30 @@ the standard tube sections (e.g. RT of economizer, SWUT sootblower welds).
 <b>Punchlist Items</b> are carry-over action items from previous inspections.
 Both sections are optional and will only appear in the tracker if you add items.</p>
 """
+
+_COUNT_COLOR = QColor("#888888")
+
+
+class _SectionCountDelegate(QStyledItemDelegate):
+    """Paints a muted elevation count to the right of each section list item."""
+
+    def paint(self, painter, option, index) -> None:
+        super().paint(painter, option, index)
+        section = index.data(Qt.ItemDataRole.UserRole)
+        if not section or not hasattr(section, "elevations"):
+            return
+        count = len(section.elevations)
+        painter.save()
+        painter.setPen(_COUNT_COLOR)
+        small_font = painter.font()
+        small_font.setPointSize(max(7, small_font.pointSize() - 1))
+        painter.setFont(small_font)
+        painter.drawText(
+            option.rect.adjusted(0, 0, -6, 0),
+            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
+            f"({count})",
+        )
+        painter.restore()
 
 
 class ReorderPage(QWidget):
@@ -111,6 +137,7 @@ class ReorderPage(QWidget):
         self.section_list = QListWidget()
         self.section_list.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
         self.section_list.setToolTip("Drag to reorder, double-click to rename")
+        self.section_list.setItemDelegate(_SectionCountDelegate(self.section_list))
         self.section_list.model().rowsMoved.connect(self._on_changed)
         self.section_list.itemChanged.connect(self._on_changed)
         list_column.addWidget(self.section_list, 1)

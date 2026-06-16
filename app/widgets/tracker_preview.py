@@ -88,6 +88,7 @@ class TrackerPreview(QWidget):
         sections: list[ProjectSection],
     ) -> None:
         """Rebuild the preview table from the current title/sections."""
+        self.table.clearSpans()
         self.meta_label.setText(
             f"<b>Customer:</b> {customer or EMPTY_VALUE_TEXT} &nbsp;&nbsp; "
             f"<b>Location:</b> {location or EMPTY_VALUE_TEXT} &nbsp;&nbsp; "
