@@ -102,6 +102,7 @@ def test_write_update_bat_remove_old(tmp_path):
     dest = tmp_path / "DATOToolkit_v2.2.0.exe"
     current = tmp_path / "DATOToolkit_v2.1.0.exe"
     bat = write_update_bat(temp, dest, current, remove_old=True)
+    assert bat.exists()
     content = bat.read_text(encoding="utf-8")
     assert f'move /Y "{temp}" "{dest}"' in content
     assert f'del /F /Q "{current}"' in content
@@ -114,7 +115,9 @@ def test_write_update_bat_no_remove(tmp_path):
     dest = tmp_path / "DATOToolkit_v2.2.0.exe"
     current = tmp_path / "DATOToolkit_v2.1.0.exe"
     bat = write_update_bat(temp, dest, current, remove_old=False)
+    assert bat.exists()
     content = bat.read_text(encoding="utf-8")
+    assert f'move /Y "{temp}" "{dest}"' in content
     assert "del /F /Q" not in content
     assert "rem No removal requested" in content
 
@@ -125,7 +128,9 @@ def test_write_update_bat_same_dest_and_current_skips_remove(tmp_path):
     dest = tmp_path / "DATOToolkit_v2.2.0.exe"
     # dest == current → remove step must be skipped even when remove_old=True
     bat = write_update_bat(temp, dest, dest, remove_old=True)
+    assert bat.exists()
     content = bat.read_text(encoding="utf-8")
+    assert f'move /Y "{temp}" "{dest}"' in content
     assert "del /F /Q" not in content
     assert "rem No removal requested" in content
 
@@ -135,6 +140,7 @@ def test_write_update_bat_uses_ping_not_timeout(tmp_path):
     temp = tmp_path / "t.exe"
     dest = tmp_path / "d.exe"
     bat = write_update_bat(temp, dest, dest, remove_old=False)
+    assert bat.exists()
     content = bat.read_text(encoding="utf-8")
     assert "ping -n 3 127.0.0.1" in content
     assert "timeout" not in content
