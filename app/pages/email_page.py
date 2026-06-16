@@ -348,10 +348,8 @@ class EmailPage(QWidget):
 
         row2 = QHBoxLayout()
         row2.addWidget(QLabel("Status Date"))
-        try:
-            date_str = date.today().strftime("%-m/%-d/%Y")
-        except ValueError:
-            date_str = date.today().isoformat()
+        d = date.today()
+        date_str = f"{d.month}/{d.day}/{d.year}"
         self._date_edit = QLineEdit(date_str)
         row2.addWidget(self._date_edit, 1)
         row2.addWidget(QLabel("Status Time"))
@@ -508,7 +506,7 @@ class EmailPage(QWidget):
         self._link_label.setText(f"{LINKED_PREFIX}{title}")
         self._link_bar.setVisible(True)
         self._no_project_card.setVisible(False)
-        self._boiler_edit.setText(config.equipment or config.title)
+        self._boiler_edit.setText((config.equipment or config.title).upper())
         self._populate_scope_sections(config.sections)
         self._populate_aux_items(config.auxiliary_items)
         self._populate_punchlist_items(config.punchlist_items)
@@ -694,6 +692,7 @@ class EmailPage(QWidget):
 
         output_path = Path(folder) / filename
         data = self._build_email_data()
+        print(f"Sections being passed: {[s.name for s in data.scope_sections]}")
 
         self._success_card.setVisible(False)
         self._progress_bar.setVisible(True)

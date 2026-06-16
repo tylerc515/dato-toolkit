@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
 
 from docx import Document
@@ -40,6 +41,25 @@ class EmailData:
     scope_sections: list[ScopeSection] = field(default_factory=list)
     other_scope_items: list[OtherItem] = field(default_factory=list)
     punchlist_items: list[OtherItem] = field(default_factory=list)
+
+
+# --- Date formatting ----------------------------------------------------------
+
+def _format_date(date_str: str) -> str:
+    """Convert ISO ('2026-06-15') or M/D/YYYY ('6/15/2026') to 'Month D, YYYY'."""
+    try:
+        d = datetime.strptime(date_str, "%Y-%m-%d")
+        return f"{d.strftime('%B')} {d.day}, {d.year}"
+    except ValueError:
+        pass
+    try:
+        parts = date_str.split("/")
+        if len(parts) == 3:
+            d = datetime(int(parts[2]), int(parts[0]), int(parts[1]))
+            return f"{d.strftime('%B')} {d.day}, {d.year}"
+    except (ValueError, IndexError):
+        pass
+    return date_str
 
 
 # --- Separator ----------------------------------------------------------------
@@ -107,17 +127,25 @@ def build_email_doc(data: EmailData, output_path: str | Path) -> Path:
     section.left_margin = Inches(1)
     section.right_margin = Inches(1)
 
-    # Default font
+    # Default font and paragraph spacing
     style = doc.styles["Normal"]
     style.font.name = "Calibri"
     style.font.size = Pt(11)
+    style.paragraph_format.space_before = Pt(0)
+    style.paragraph_format.space_after = Pt(0)
+    style.paragraph_format.line_spacing = 1.0
+
+    list_style = doc.styles["List Paragraph"]
+    list_style.paragraph_format.space_before = Pt(0)
+    list_style.paragraph_format.space_after = Pt(0)
+    list_style.paragraph_format.line_spacing = 1.0
 
     # Opening
     doc.add_paragraph("All,")
     _add_blank(doc)
     doc.add_paragraph(
         f"Please see below for status of NDT inspection as of "
-        f"{data.status_time} on {data.status_date}. "
+        f"{data.status_time} on {_format_date(data.status_date)}. "
         f"If you have any questions, please don't hesitate to reach out."
     )
     _add_blank(doc)
