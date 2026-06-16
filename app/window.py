@@ -3,14 +3,16 @@
 from __future__ import annotations
 
 import logging
+import sys
 from pathlib import Path
 from typing import Optional
 
-from PyQt6.QtCore import QByteArray, QEvent, QPoint, QRect, QSettings, Qt, QUrl
+from PyQt6.QtCore import QByteArray, QEasingCurve, QEvent, QPoint, QPropertyAnimation, QRect, QSettings, Qt, QTimer, QUrl
 from PyQt6.QtGui import QAction, QDesktopServices, QKeySequence, QShortcut
 from PyQt6.QtWidgets import (
     QApplication,
     QFrame,
+    QGraphicsOpacityEffect,
     QHBoxLayout,
     QLabel,
     QMainWindow,
@@ -46,7 +48,8 @@ from app.pages.settings_page import STATUS_HINT as SETTINGS_STATUS_HINT
 from app.parser import TraceFileData
 from app.project import APP_DIR_NAME, ProjectConfig, ProjectError, get_app_data_dir, load_project
 from app.styles import color
-from app.updater import GITHUB_RELEASES_PAGE_URL, UpdateCheckResult, UpdateCheckWorker
+from app.updater import GITHUB_RELEASES_PAGE_URL, UpdateCheckResult, UpdateCheckWorker, format_published_at, launch_update_bat, write_update_bat
+from app.widgets.update_dialog import PENDING_KEY_DEST, PENDING_KEY_TEMP, UpdateDialog
 from app.widgets import OnboardingDialog, StepIndicator
 
 # --- UI text -------------------------------------------------------------
@@ -57,8 +60,15 @@ WINDOW_MIN_HEIGHT = 600
 STEP_LABELS = ["Import Files", "Arrange Sections", "Generate Tracker"]
 ONBOARDING_FLAG_FILENAME = "onboarding_complete"
 
-UPDATE_BANNER_TEXT = "A new version ({version}) is available."
-DOWNLOAD_UPDATE_TEXT = "Download Update"
+UPDATE_BANNER_BG = "#1a3a2a"
+UPDATE_BANNER_BORDER_COLOR = "#00B050"
+UPDATE_BANNER_HEIGHT = 44
+UPDATE_BANNER_DELAY_MS = 2000
+UPDATE_BANNER_ANIM_MS = 250
+UPDATE_AVAILABLE_LABEL_TEXT = "Update available"
+PENDING_BANNER_TEXT = "An update is ready to install."
+INSTALL_NOW_TEXT = "Install Now"
+VIEW_INSTALL_TEXT = "View & Install"
 DISMISS_TEXT = "Dismiss"
 
 INDICATOR_COLOR_UNKNOWN = "#5a6178"
@@ -175,6 +185,10 @@ class MainWindow(QMainWindow):
         self._resize_start_geometry: Optional[QRect] = None
         self._resize_start_pos: Optional[QPoint] = None
         self.tray_icon: Optional[QSystemTrayIcon] = None
+        self._update_info: Optional[UpdateCheckResult] = None
+        self._pulse_animation: Optional[QPropertyAnimation] = None
+        self._pending_temp_path: str = ""
+        self._pending_dest_path: str = ""
 
         self._build_ui()
         self._setup_tray_icon()
@@ -182,6 +196,7 @@ class MainWindow(QMainWindow):
         self._restore_geometry()
         self._run_update_check()
         self._maybe_show_onboarding()
+        self._check_pending_update()
 
     # --- UI construction -------------------------------------------------
 
@@ -197,6 +212,9 @@ class MainWindow(QMainWindow):
 
         self.update_banner = self._build_update_banner()
         layout.addWidget(self.update_banner)
+
+        self.pending_banner = self._build_pending_banner()
+        layout.addWidget(self.pending_banner)
 
         self.step_container = QWidget()
         step_layout = QHBoxLayout(self.step_container)
@@ -307,6 +325,17 @@ class MainWindow(QMainWindow):
         self.update_indicator.setToolTip("Checking for updates…")
         layout.addWidget(self.update_indicator, 0, Qt.AlignmentFlag.AlignTop)
 
+        self.update_indicator.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.update_indicator.mousePressEvent = lambda _e: self._open_update_dialog()
+
+        self.update_available_label = QPushButton(UPDATE_AVAILABLE_LABEL_TEXT)
+        self.update_available_label.setProperty("flat", "true")
+        self.update_available_label.setStyleSheet(f"color: {color('warning')}; font-size: 9pt;")
+        self.update_available_label.setVisible(False)
+        self.update_available_label.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.update_available_label.clicked.connect(self._open_update_dialog)
+        layout.addWidget(self.update_available_label, 0, Qt.AlignmentFlag.AlignTop)
+
         layout.addSpacing(12)
 
         self.minimize_button = self._make_window_button("−", color("chrome_hover"))
@@ -346,23 +375,70 @@ class MainWindow(QMainWindow):
 
     def _build_update_banner(self) -> QFrame:
         banner = QFrame()
-        banner.setStyleSheet(f"background-color: {color('warning')}; color: #1a1a2e;")
+        banner.setStyleSheet(
+            f"QFrame {{ background-color: {UPDATE_BANNER_BG}; "
+            f"border-left: 4px solid {UPDATE_BANNER_BORDER_COLOR}; }}"
+        )
+        banner.setFixedHeight(UPDATE_BANNER_HEIGHT)
+        banner.setMaximumHeight(0)  # collapsed until animated open
+        layout = QHBoxLayout(banner)
+        layout.setContentsMargins(16, 0, 16, 0)
+        layout.setSpacing(12)
+
+        text_col = QVBoxLayout()
+        text_col.setSpacing(0)
+        self.update_banner_version_label = QLabel("")
+        self.update_banner_version_label.setStyleSheet("color: #eaeaea; font-weight: 600;")
+        text_col.addWidget(self.update_banner_version_label)
+        self.update_banner_date_label = QLabel("")
+        self.update_banner_date_label.setStyleSheet(f"color: {UPDATE_BANNER_BORDER_COLOR}; font-size: 10pt;")
+        text_col.addWidget(self.update_banner_date_label)
+        layout.addLayout(text_col, 1)
+
+        view_install_btn = QPushButton(VIEW_INSTALL_TEXT)
+        view_install_btn.setStyleSheet(
+            f"QPushButton {{ background: #e94560; color: white; border-radius: 4px; "
+            f"padding: 4px 12px; font-weight: 600; }}"
+            f"QPushButton:hover {{ background: #ff5c75; }}"
+        )
+        view_install_btn.clicked.connect(self._open_update_dialog)
+        layout.addWidget(view_install_btn)
+
+        dismiss_btn = QPushButton(DISMISS_TEXT)
+        dismiss_btn.setProperty("flat", "true")
+        dismiss_btn.setStyleSheet(f"color: {UPDATE_BANNER_BORDER_COLOR};")
+        dismiss_btn.clicked.connect(lambda: banner.setMaximumHeight(0))
+        layout.addWidget(dismiss_btn)
+
+        return banner
+
+    def _build_pending_banner(self) -> QFrame:
+        banner = QFrame()
+        banner.setStyleSheet(
+            "QFrame { background-color: #1a2a3a; border-left: 4px solid #2f80ed; }"
+        )
+        banner.setFixedHeight(UPDATE_BANNER_HEIGHT)
         banner.setVisible(False)
         layout = QHBoxLayout(banner)
-        layout.setContentsMargins(16, 8, 16, 8)
+        layout.setContentsMargins(16, 0, 16, 0)
 
-        self.update_banner_label = QLabel("")
-        self.update_banner_label.setStyleSheet("color: #1a1a2e;")
-        layout.addWidget(self.update_banner_label, 1)
+        lbl = QLabel(PENDING_BANNER_TEXT)
+        lbl.setStyleSheet("color: #eaeaea;")
+        layout.addWidget(lbl, 1)
 
-        download_button = QPushButton(DOWNLOAD_UPDATE_TEXT)
-        download_button.clicked.connect(self._open_releases_page)
-        layout.addWidget(download_button)
+        install_btn = QPushButton(INSTALL_NOW_TEXT)
+        install_btn.setStyleSheet(
+            "QPushButton { background: #2f80ed; color: white; border-radius: 4px; padding: 4px 12px; }"
+            "QPushButton:hover { background: #4a94f5; }"
+        )
+        install_btn.clicked.connect(self._install_pending_update)
+        layout.addWidget(install_btn)
 
-        dismiss_button = QPushButton(DISMISS_TEXT)
-        dismiss_button.setProperty("flat", "true")
-        dismiss_button.clicked.connect(lambda: banner.setVisible(False))
-        layout.addWidget(dismiss_button)
+        dismiss_btn = QPushButton(DISMISS_TEXT)
+        dismiss_btn.setProperty("flat", "true")
+        dismiss_btn.setStyleSheet("color: #9aa0b4;")
+        dismiss_btn.clicked.connect(lambda: banner.setVisible(False))
+        layout.addWidget(dismiss_btn)
 
         return banner
 
@@ -387,6 +463,7 @@ class MainWindow(QMainWindow):
         self._update_worker.start()
 
     def _on_update_check_finished(self, result: UpdateCheckResult) -> None:
+        self._update_info = result
         if result.error:
             self.update_indicator.set_color(INDICATOR_COLOR_UNKNOWN)
             self.update_indicator.setToolTip("Could not check for updates")
@@ -395,14 +472,82 @@ class MainWindow(QMainWindow):
         if result.update_available:
             self.update_indicator.set_color(color("warning"))
             self.update_indicator.setToolTip(f"Update available: v{result.latest_version}")
-            self.update_banner_label.setText(UPDATE_BANNER_TEXT.format(version=f"v{result.latest_version}"))
-            self.update_banner.setVisible(True)
+            self._start_pulse_animation()
+            self.update_available_label.setVisible(True)
+            QTimer.singleShot(UPDATE_BANNER_DELAY_MS, self._show_update_banner)
         else:
             self.update_indicator.set_color(color("success"))
-            self.update_indicator.setToolTip("You're using the latest version")
+            self.update_indicator.setToolTip("You're on the latest version")
 
-    def _open_releases_page(self) -> None:
-        QDesktopServices.openUrl(QUrl(GITHUB_RELEASES_PAGE_URL))
+    def _start_pulse_animation(self) -> None:
+        effect = QGraphicsOpacityEffect(self.update_indicator)
+        effect.setOpacity(1.0)
+        self.update_indicator.setGraphicsEffect(effect)
+        self._pulse_animation = QPropertyAnimation(effect, b"opacity", self)
+        self._pulse_animation.setDuration(1500)
+        self._pulse_animation.setStartValue(1.0)
+        self._pulse_animation.setKeyValueAt(0.5, 0.4)
+        self._pulse_animation.setEndValue(1.0)
+        self._pulse_animation.setLoopCount(-1)
+        self._pulse_animation.start()
+
+    def _show_update_banner(self) -> None:
+        if self._update_info is None or not self._update_info.update_available:
+            return
+        version = self._update_info.latest_version or ""
+        pub = format_published_at(self._update_info.published_at or "")
+        self.update_banner_version_label.setText(f"⬆ DATO Toolkit {version} is available")
+        if pub:
+            self.update_banner_date_label.setText(f"Released {pub}")
+
+        anim = QPropertyAnimation(self.update_banner, b"maximumHeight", self)
+        anim.setDuration(UPDATE_BANNER_ANIM_MS)
+        anim.setStartValue(0)
+        anim.setEndValue(UPDATE_BANNER_HEIGHT)
+        anim.setEasingCurve(QEasingCurve.Type.OutCubic)
+        anim.start()
+        self._banner_anim = anim
+
+    def _open_update_dialog(self) -> None:
+        if self._update_info is None:
+            return
+        dialog = UpdateDialog(self._update_info, parent=self)
+        dialog.exec()
+
+    def _check_pending_update(self) -> None:
+        settings = QSettings(APP_DIR_NAME, APP_DIR_NAME)
+        temp_path = str(settings.value(PENDING_KEY_TEMP, ""))
+        dest_path = str(settings.value(PENDING_KEY_DEST, ""))
+        if not temp_path or not dest_path:
+            return
+        if not Path(temp_path).exists():
+            settings.remove(PENDING_KEY_TEMP)
+            settings.remove(PENDING_KEY_DEST)
+            logger.info("Pending update temp file missing; cleared QSettings")
+            return
+        logger.info("Found pending update: %s → %s", temp_path, dest_path)
+        self._pending_temp_path = temp_path
+        self._pending_dest_path = dest_path
+        self.pending_banner.setVisible(True)
+
+    def _install_pending_update(self) -> None:
+        current_exe = Path(sys.executable) if getattr(sys, "frozen", False) else Path.cwd() / "main.exe"
+        try:
+            bat_path = write_update_bat(
+                temp_download=Path(self._pending_temp_path),
+                new_exe_dest=Path(self._pending_dest_path),
+                current_exe=current_exe,
+                remove_old=False,
+            )
+            launch_update_bat(bat_path)
+        except Exception as exc:
+            logger.error("Could not launch pending update: %s", exc)
+            return
+        settings = QSettings(APP_DIR_NAME, APP_DIR_NAME)
+        settings.remove(PENDING_KEY_TEMP)
+        settings.remove(PENDING_KEY_DEST)
+        logger.info("Pending install launched: %s", bat_path)
+        QApplication.quit()
 
     # --- System tray ---------------------------------------------------------
 
