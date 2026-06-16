@@ -1,7 +1,7 @@
-# TRACE Tracker Builder
+# DATO Toolkit
 
-A desktop application that turns TRACE UT inspection export files into a
-formatted Excel outage tracker, ready to hand off to your team.
+DATO Toolkit is a suite of field operations tools for NDE inspection teams.
+Generate tracksheets, update emails, and manage outage scope from TRACE export data.
 
 ## Features
 
@@ -43,7 +43,7 @@ pip install -r requirements.txt
 build.bat
 ```
 
-The packaged executable will be created at `dist/TraceTrackerBuilder.exe`.
+The packaged executable will be created at `dist/DATOToolkit_v2.0.0.exe`.
 
 ## Usage
 

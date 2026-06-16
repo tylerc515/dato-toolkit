@@ -13,7 +13,8 @@ SPLASH_WIDTH = 480
 SPLASH_HEIGHT = 280
 SPLASH_CORNER_RADIUS = 16
 
-APP_TITLE_TEXT = "TRACE Tracker Builder"
+APP_TITLE_TEXT = "DATO Toolkit"
+APP_SUBTITLE_TEXT = "Data and Test Operations"
 
 BAR_COLOR_START = "#2f80ed"
 BAR_COLOR_END = "#e94560"
@@ -113,7 +114,12 @@ class SplashScreen(QSplashScreen):
         title_rect = QRectF(0, logo_area_height, width, 30)
         painter.drawText(title_rect, Qt.AlignmentFlag.AlignCenter, APP_TITLE_TEXT)
 
-        bar_y = logo_area_height + 50
+        painter.setFont(QFont("Segoe UI", 10))
+        painter.setPen(QColor(color("muted_text")))
+        subtitle_rect = QRectF(0, logo_area_height + 28, width, 20)
+        painter.drawText(subtitle_rect, Qt.AlignmentFlag.AlignCenter, APP_SUBTITLE_TEXT)
+
+        bar_y = logo_area_height + 58
         bar_width = width - 2 * BAR_MARGIN
 
         painter.setPen(Qt.PenStyle.NoPen)

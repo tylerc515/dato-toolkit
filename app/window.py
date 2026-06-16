@@ -49,7 +49,7 @@ from app.widgets import OnboardingDialog, StepIndicator
 
 # --- UI text -------------------------------------------------------------
 
-APP_NAME = "TRACE Tracker Builder"
+APP_NAME = "DATO Toolkit"
 WINDOW_MIN_WIDTH = 900
 WINDOW_MIN_HEIGHT = 600
 STEP_LABELS = ["Import Files", "Arrange Sections", "Generate Tracker"]
@@ -61,7 +61,7 @@ DISMISS_TEXT = "Dismiss"
 
 INDICATOR_COLOR_UNKNOWN = "#5a6178"
 
-TRAY_SHOW_TEXT = "Show TRACE Tracker Builder"
+TRAY_SHOW_TEXT = "Show DATO Toolkit"
 TRAY_EXIT_TEXT = "Exit"
 TRAY_NOTIFICATION_TITLE = "Tracker Generated"
 TRAY_NOTIFICATION_BODY = "'{title}' was generated successfully."

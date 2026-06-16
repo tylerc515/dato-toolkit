@@ -9,8 +9,8 @@ from typing import Optional
 import requests
 from PyQt6.QtCore import QThread, pyqtSignal
 
-GITHUB_RELEASES_API_URL = "https://api.github.com/repos/tylerc515/trace-tracker-builder/releases/latest"
-GITHUB_RELEASES_PAGE_URL = "https://github.com/tylerc515/trace-tracker-builder/releases"
+GITHUB_RELEASES_API_URL = "https://api.github.com/repos/tylerc515/dato-toolkit/releases/latest"
+GITHUB_RELEASES_PAGE_URL = "https://github.com/tylerc515/dato-toolkit/releases"
 REQUEST_TIMEOUT_SECONDS = 5
 
 logger = logging.getLogger(__name__)

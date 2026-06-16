@@ -1,4 +1,4 @@
-"""Rotating file logging setup for TRACE Tracker Builder."""
+"""Rotating file logging setup for DATO Toolkit."""
 
 from __future__ import annotations
 

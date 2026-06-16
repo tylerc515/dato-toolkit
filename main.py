@@ -1,4 +1,4 @@
-"""Entry point for TRACE Tracker Builder."""
+"""Entry point for DATO Toolkit."""
 
 from __future__ import annotations
 

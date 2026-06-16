@@ -4,24 +4,48 @@ from __future__ import annotations
 
 import difflib
 import json
+import logging
 import os
 import re
+import shutil
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-APP_DIR_NAME = "TraceTrackerBuilder"
+APP_DIR_NAME = "DATOToolkit"
+_LEGACY_DIR_NAME = "TraceTrackerBuilder"
 PROJECT_CONFIG_VERSION = "1.0"
 FUZZY_MATCH_THRESHOLD = 0.6
+
+logger = logging.getLogger(__name__)
 
 
 class ProjectError(Exception):
     """Raised when a project config cannot be read or written."""
 
 
+def _migrate_legacy_data() -> None:
+    """Copy data from the old TraceTrackerBuilder directory to DATOToolkit on first run."""
+    if os.name == "nt":
+        base = Path(os.environ.get("APPDATA", str(Path.home())))
+    else:
+        base = Path.home() / ".config"
+
+    old_path = base / _LEGACY_DIR_NAME
+    new_path = base / APP_DIR_NAME
+
+    if old_path.exists() and not new_path.exists():
+        try:
+            shutil.copytree(old_path, new_path)
+            logger.info("Migrated app data from %s to %s", old_path, new_path)
+        except OSError:
+            logger.warning("Could not migrate data from %s to %s", old_path, new_path)
+
+
 def get_app_data_dir() -> Path:
     """Return the per-user application data directory, creating it if needed."""
+    _migrate_legacy_data()
     if os.name == "nt":
         base = Path(os.environ.get("APPDATA", str(Path.home())))
         path = base / APP_DIR_NAME

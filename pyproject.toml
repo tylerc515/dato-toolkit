@@ -1,7 +1,7 @@
 [project]
-name = "trace-tracker-builder"
-version = "1.0.0"
-description = "Generate formatted Excel trackers from TRACE UT inspection export files."
+name = "dato-toolkit"
+version = "2.0.0"
+description = "DATO Toolkit is a suite of field operations tools for NDE inspection teams."
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }

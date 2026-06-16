@@ -1,4 +1,4 @@
-"""Theme palettes and stylesheet generation for TRACE Tracker Builder."""
+"""Theme palettes and stylesheet generation for DATO Toolkit."""
 
 from __future__ import annotations
 

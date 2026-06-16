@@ -17,7 +17,7 @@ from app.logo import get_pixmap
 from app.styles import color
 
 HELP_PANEL_WIDTH = 320
-ONBOARDING_TITLE = "Welcome to TRACE Tracker Builder"
+ONBOARDING_TITLE = "Welcome to DATO Toolkit"
 ONBOARDING_STEPS = [
     (
         "1. Import Files",
