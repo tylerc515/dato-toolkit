@@ -30,6 +30,7 @@ class HistoryEntry:
     output_path: str
     pdf_path: str = ""
     generated_at: str = ""
+    entry_type: str = "tracker"
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -46,6 +47,7 @@ class HistoryEntry:
             output_path=data.get("output_path", ""),
             pdf_path=data.get("pdf_path", ""),
             generated_at=data.get("generated_at", ""),
+            entry_type=data.get("entry_type", "tracker"),
         )
 
 

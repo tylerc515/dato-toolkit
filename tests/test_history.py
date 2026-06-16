@@ -52,3 +52,47 @@ def test_history_caps_at_max_entries(tmp_path, monkeypatch):
     entries = load_history()
     assert len(entries) == 3
     assert [e.title for e in entries] == ["4", "3", "2"]
+
+
+def test_history_entry_default_type():
+    entry = HistoryEntry(
+        title="Test", customer="", location="", equipment="",
+        date="", elevation_count=0, output_path="/tmp/test.xlsx"
+    )
+    assert entry.entry_type == "tracker"
+
+
+def test_history_entry_email_type():
+    entry = HistoryEntry(
+        title="Test", customer="", location="", equipment="",
+        date="", elevation_count=0, output_path="/tmp/test.docx",
+        entry_type="update_email",
+    )
+    assert entry.entry_type == "update_email"
+
+
+def test_history_entry_type_round_trips(tmp_path, monkeypatch):
+    import json
+    monkeypatch.setattr("app.history.get_app_data_dir", lambda: tmp_path)
+    entry = HistoryEntry(
+        title="RB2 Email", customer="EP", location="Anytown",
+        equipment="Recovery Boiler #2", date="June 2026",
+        elevation_count=0, output_path="/tmp/email.docx",
+        entry_type="update_email",
+    )
+    add_history_entry(entry)
+    loaded = load_history()
+    assert loaded[0].entry_type == "update_email"
+
+
+def test_history_entry_missing_type_defaults_to_tracker(tmp_path, monkeypatch):
+    import json
+    monkeypatch.setattr("app.history.get_app_data_dir", lambda: tmp_path)
+    old_data = {"entries": [{
+        "title": "Old Entry", "customer": "", "location": "",
+        "equipment": "", "date": "", "elevation_count": 0,
+        "output_path": "/tmp/t.xlsx", "pdf_path": "", "generated_at": ""
+    }]}
+    (tmp_path / "history.json").write_text(json.dumps(old_data), encoding="utf-8")
+    loaded = load_history()
+    assert loaded[0].entry_type == "tracker"
