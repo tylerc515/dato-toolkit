@@ -78,7 +78,7 @@ def test_check_for_update_empty_body_gives_fallback(monkeypatch):
 def test_check_for_update_returns_release_url(monkeypatch):
     _make_mock_requests(monkeypatch)
     result = check_for_update("1.0.0")
-    assert "trace-tracker-builder" in result.release_url
+    assert result.release_url == "https://github.com/tylerc515/trace-tracker-builder/releases/tag/v99.0.0"
 
 
 def test_format_published_at_iso_to_human():
@@ -94,3 +94,55 @@ def test_format_published_at_empty_returns_empty():
 def test_format_published_at_invalid_returns_original():
     from app.updater import format_published_at
     assert format_published_at("not-a-date") == "not-a-date"
+
+
+def test_write_update_bat_remove_old(tmp_path):
+    from app.updater import write_update_bat
+    temp = tmp_path / "DATOToolkit_update_abc.exe"
+    dest = tmp_path / "DATOToolkit_v2.2.0.exe"
+    current = tmp_path / "DATOToolkit_v2.1.0.exe"
+    bat = write_update_bat(temp, dest, current, remove_old=True)
+    content = bat.read_text(encoding="utf-8")
+    assert f'move /Y "{temp}" "{dest}"' in content
+    assert f'del /F /Q "{current}"' in content
+    assert f'start "" "{dest}"' in content
+
+
+def test_write_update_bat_no_remove(tmp_path):
+    from app.updater import write_update_bat
+    temp = tmp_path / "DATOToolkit_update_abc.exe"
+    dest = tmp_path / "DATOToolkit_v2.2.0.exe"
+    current = tmp_path / "DATOToolkit_v2.1.0.exe"
+    bat = write_update_bat(temp, dest, current, remove_old=False)
+    content = bat.read_text(encoding="utf-8")
+    assert "del /F /Q" not in content
+    assert "rem No removal requested" in content
+
+
+def test_write_update_bat_same_dest_and_current_skips_remove(tmp_path):
+    from app.updater import write_update_bat
+    temp = tmp_path / "DATOToolkit_update_abc.exe"
+    dest = tmp_path / "DATOToolkit_v2.2.0.exe"
+    # dest == current → remove step must be skipped even when remove_old=True
+    bat = write_update_bat(temp, dest, dest, remove_old=True)
+    content = bat.read_text(encoding="utf-8")
+    assert "del /F /Q" not in content
+    assert "rem No removal requested" in content
+
+
+def test_write_update_bat_uses_ping_not_timeout(tmp_path):
+    from app.updater import write_update_bat
+    temp = tmp_path / "t.exe"
+    dest = tmp_path / "d.exe"
+    bat = write_update_bat(temp, dest, dest, remove_old=False)
+    content = bat.read_text(encoding="utf-8")
+    assert "ping -n 3 127.0.0.1" in content
+    assert "timeout" not in content
+
+
+def test_download_worker_cancel_sets_flag():
+    from app.updater import DownloadWorker
+    worker = DownloadWorker("http://fake/url")
+    assert not worker._cancel.is_set()
+    worker.cancel()
+    assert worker._cancel.is_set()

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import subprocess
 import tempfile
 import threading
 import time
@@ -144,7 +145,6 @@ def write_update_bat(
 
 def launch_update_bat(bat_path: Path) -> None:
     """Launch the installer batch file detached with no console window."""
-    import subprocess
     subprocess.Popen(
         ["cmd", "/C", str(bat_path)],
         creationflags=subprocess.CREATE_NO_WINDOW | subprocess.DETACHED_PROCESS,
