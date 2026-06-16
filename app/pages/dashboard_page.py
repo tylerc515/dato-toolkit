@@ -22,6 +22,8 @@ STAT_PROJECTS_LABEL = "Saved Projects"
 STAT_GENERATED_LABEL = "Trackers Generated"
 STAT_ELEVATIONS_LABEL = "Elevations Tracked"
 STAT_LAST_LABEL = "Last Generated"
+STAT_EMAILS_LABEL = "Update Emails"
+GENERATE_EMAIL_TEXT = "Generate Update Email"
 RECENT_PROJECTS_TITLE = "Recent Projects"
 RECENT_EXPORTS_TITLE = "Recent Exports"
 NO_PROJECTS_TEXT = "No saved projects yet."
@@ -56,6 +58,7 @@ class DashboardPage(QWidget):
     view_history_requested = pyqtSignal()
     view_projects_requested = pyqtSignal()
     batch_requested = pyqtSignal()
+    email_requested = pyqtSignal()
 
     def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
@@ -80,6 +83,12 @@ class DashboardPage(QWidget):
         self.batch_button.setToolTip("Generate trackers for multiple projects from a folder of CSVs")
         self.batch_button.clicked.connect(self.batch_requested.emit)
         header_row.addWidget(self.batch_button)
+
+        self.email_button = QPushButton(GENERATE_EMAIL_TEXT)
+        self.email_button.setProperty("flat", "true")
+        self.email_button.setToolTip("Generate a formatted NDE status update email document")
+        self.email_button.clicked.connect(self.email_requested.emit)
+        header_row.addWidget(self.email_button)
 
         self.new_tracker_button = QPushButton(NEW_TRACKER_TEXT)
         self.new_tracker_button.setProperty("accent", "true")
@@ -166,14 +175,16 @@ class DashboardPage(QWidget):
     def _refresh_stats(self, total_projects: int, history: list[HistoryEntry]) -> None:
         _clear_layout(self.stats_row)
 
-        total_elevations = sum(entry.elevation_count for entry in history)
-        last_generated = format_timestamp(history[0].generated_at) if history else NEVER_TEXT
+        tracker_history = [e for e in history if e.entry_type != "update_email"]
+        email_count = sum(1 for e in history if e.entry_type == "update_email")
+        total_elevations = sum(entry.elevation_count for entry in tracker_history)
+        last_generated = format_timestamp(tracker_history[0].generated_at) if tracker_history else NEVER_TEXT
 
         stats = [
             (str(total_projects), STAT_PROJECTS_LABEL),
-            (str(len(history)), STAT_GENERATED_LABEL),
+            (str(len(tracker_history)), STAT_GENERATED_LABEL),
             (str(total_elevations), STAT_ELEVATIONS_LABEL),
-            (last_generated, STAT_LAST_LABEL),
+            (str(email_count), STAT_EMAILS_LABEL),
         ]
         for value, label in stats:
             self.stats_row.addWidget(self._make_stat_card(value, label), 1)
