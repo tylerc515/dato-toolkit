@@ -50,7 +50,7 @@ def test_build_email_doc_legend_paragraphs(tmp_path):
     assert "COMPLETE" in texts
     assert "IN PROGRESS" in texts
     assert "ISSUES NOTED" in texts
-    assert "Other Issues" in texts
+    assert "OTHER ISSUES" in texts
 
 
 def test_build_email_doc_scope_section_line(tmp_path):
@@ -97,13 +97,14 @@ def test_build_email_doc_aux_items_shown_when_present(tmp_path):
     assert "PT OF COMPOSITE PORTS – complete" in texts
 
 
-def test_build_email_doc_no_other_scope_heading_when_empty(tmp_path):
+def test_build_email_doc_other_scope_empty_shows_placeholder(tmp_path):
     from docx import Document
     data = _minimal_data(other_scope_items=[])
     out = build_email_doc(data, tmp_path / "email.docx")
     doc = Document(str(out))
     texts = [p.text for p in doc.paragraphs]
-    assert "Other scope items:" not in texts
+    assert "Other scope items:" in texts
+    assert "No other scope items." in texts
 
 
 def test_build_email_doc_punchlist_shown_when_present(tmp_path):
@@ -114,17 +115,35 @@ def test_build_email_doc_punchlist_shown_when_present(tmp_path):
     out = build_email_doc(data, tmp_path / "email.docx")
     doc = Document(str(out))
     texts = [p.text for p in doc.paragraphs]
-    assert "Punchlist" in texts
+    assert "Punchlist:" in texts
     assert "Item 37 – UT spout 2 tube 38 – complete" in texts
 
 
-def test_build_email_doc_no_punchlist_heading_when_empty(tmp_path):
+def test_build_email_doc_punchlist_empty_shows_placeholder(tmp_path):
     from docx import Document
     data = _minimal_data(punchlist_items=[])
     out = build_email_doc(data, tmp_path / "email.docx")
     doc = Document(str(out))
     texts = [p.text for p in doc.paragraphs]
-    assert "Punchlist" not in texts
+    assert "Punchlist:" in texts
+    assert "No punchlist items." in texts
+
+
+def test_build_email_doc_other_issues_legend_purple(tmp_path):
+    from docx import Document
+    from docx.oxml.ns import qn
+    data = _minimal_data()
+    out = build_email_doc(data, tmp_path / "email.docx")
+    doc = Document(str(out))
+    texts = [p.text for p in doc.paragraphs]
+    assert "OTHER ISSUES" in texts
+    p = next(para for para in doc.paragraphs if para.text == "OTHER ISSUES")
+    fills = []
+    for r in p.runs:
+        shd = r._r.find(f".//{{{r._r.nsmap.get('w', 'http://schemas.openxmlformats.org/wordprocessingml/2006/main')}}}shd")
+        if shd is not None:
+            fills.append(shd.get(qn("w:fill")))
+    assert "CC99FF" in fills
 
 
 def test_build_email_doc_page_size_letter(tmp_path):

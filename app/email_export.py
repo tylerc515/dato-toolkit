@@ -62,6 +62,10 @@ def _format_date(date_str: str) -> str:
     return date_str
 
 
+# --- Colors -------------------------------------------------------------------
+
+_LIGHT_PURPLE_FILL = "CC99FF"
+
 # --- Separator ----------------------------------------------------------------
 
 _SEP = " – "  # en-dash with spaces
@@ -154,7 +158,7 @@ def build_email_doc(data: EmailData, output_path: str | Path) -> Path:
     _add_shaded_legend(doc, "COMPLETE", "00FF00")
     _add_shaded_legend(doc, "IN PROGRESS", "FFFF00")
     _add_shaded_legend(doc, "ISSUES NOTED", "FF0000")
-    _add_shaded_legend(doc, "Other Issues", None)
+    _add_shaded_legend(doc, "OTHER ISSUES", _LIGHT_PURPLE_FILL)
     _add_blank(doc)
 
     # Boiler heading
@@ -181,19 +185,22 @@ def build_email_doc(data: EmailData, output_path: str | Path) -> Path:
         doc.add_paragraph(s.name + _SEP + s.status)
     _add_blank(doc)
 
-    # Other scope items
+    # Other scope items (always written)
+    _add_bold(doc, "Other scope items:")
+    _add_blank(doc)
     if data.other_scope_items:
-        _add_bold(doc, "Other scope items:")
-        _add_blank(doc)
         _add_other_items(doc, data.other_scope_items)
-        _add_blank(doc)
+    else:
+        doc.add_paragraph("No other scope items.", style="List Paragraph")
+    _add_blank(doc)
 
-    # Punchlist
+    # Punchlist (always written)
+    _add_bold(doc, "Punchlist:")
+    _add_blank(doc)
     if data.punchlist_items:
-        _add_bold(doc, "Punchlist")
-        _add_blank(doc)
-        for item in data.punchlist_items:
-            doc.add_paragraph(item.description + _SEP + item.status)
+        _add_other_items(doc, data.punchlist_items)
+    else:
+        doc.add_paragraph("No punchlist items.", style="List Paragraph")
 
     doc.save(str(output_path))
     return output_path

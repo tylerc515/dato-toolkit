@@ -75,9 +75,12 @@ class _EditForm(QFrame):
         desc_label.setProperty("role", "label")
         layout.addWidget(desc_label)
 
+        _field_qss = "font-size: 12pt; padding: 8px; color: #eaeaea; background: #0d1117;"
+
         self.desc_edit = QPlainTextEdit()
         self.desc_edit.setPlaceholderText("Enter item description (e.g. PT OF COMPOSITE PORTS)")
-        self.desc_edit.setFixedHeight(72)
+        self.desc_edit.setMinimumHeight(80)
+        self.desc_edit.setStyleSheet(_field_qss)
         layout.addWidget(self.desc_edit)
 
         notes_label = QLabel("Notes (optional)")
@@ -86,7 +89,8 @@ class _EditForm(QFrame):
 
         self.notes_edit = QPlainTextEdit()
         self.notes_edit.setPlaceholderText("Enter any notes or findings for this item")
-        self.notes_edit.setFixedHeight(72)
+        self.notes_edit.setMinimumHeight(60)
+        self.notes_edit.setStyleSheet(_field_qss)
         layout.addWidget(self.notes_edit)
 
         btn_row = QHBoxLayout()
@@ -145,10 +149,15 @@ class ItemEditorWidget(QWidget):
         self._list.model().rowsMoved.connect(self._on_rows_moved)
         layout.addWidget(self._list)
 
+        add_btn_row = QHBoxLayout()
         add_btn = QPushButton("+ Add Item")
         add_btn.setProperty("accent", "true")
+        add_btn.setFixedHeight(36)
+        add_btn.setMaximumWidth(200)
         add_btn.clicked.connect(self._on_add)
-        layout.addWidget(add_btn)
+        add_btn_row.addWidget(add_btn)
+        add_btn_row.addStretch(1)
+        layout.addLayout(add_btn_row)
 
         self._form = _EditForm()
         self._form.setVisible(False)
