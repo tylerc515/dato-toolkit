@@ -326,6 +326,8 @@ class ConverterPage(QWidget):
             self._errors[path] = str(exc)
             self._file_list_layout.addWidget(_ErrorCard(path, str(exc), self))
         self._clear_all_btn.setEnabled(bool(self._imported) or bool(self._errors))
+        self._flags_confirmed = False
+        self._flag_mapping = {}
         self._refresh_flag_widget()
         self._update_convert_button()
 
