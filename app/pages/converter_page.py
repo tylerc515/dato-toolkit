@@ -111,7 +111,7 @@ class _FileCard(QFrame):
         name_lbl = QLabel(f"<b>{Path(path).name}</b>")
         info.addWidget(name_lbl)
         detail = QLabel(
-            f"{result.boiler_section} — "
+            f"{result.boiler_section} - "
             f"{result.num_tubes} tubes, "
             f"{len(result.elevations)} elevation{'s' if len(result.elevations) != 1 else ''}"
         )
