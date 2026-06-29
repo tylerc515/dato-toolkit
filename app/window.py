@@ -51,6 +51,7 @@ from app.styles import color
 from app.updater import GITHUB_RELEASES_PAGE_URL, UpdateCheckResult, UpdateCheckWorker, format_published_at, launch_update_bat, write_update_bat
 from app.widgets.update_dialog import PENDING_KEY_DEST, PENDING_KEY_TEMP, UpdateDialog
 from app.widgets import OnboardingDialog, StepIndicator
+from app.widgets.footer import FooterBar
 
 # --- UI text -------------------------------------------------------------
 
@@ -244,6 +245,7 @@ class MainWindow(QMainWindow):
         self.stack.addWidget(self.projects_page)
         self.stack.addWidget(self.email_page)
         layout.addWidget(self.stack, 1)
+        layout.addWidget(FooterBar())
 
         self.dashboard_page.new_tracker_requested.connect(self._on_new_project)
         self.dashboard_page.project_selected.connect(self._on_project_load_requested)
