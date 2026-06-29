@@ -11,7 +11,7 @@ if exist ".venv\Scripts\python.exe" set PYTHON=.venv\Scripts\python.exe
     --clean ^
     --onefile ^
     --windowed ^
-    --name "DATOToolkit_v2.2.2" ^
+    --name "DATOToolkit_v2.2.4" ^
     --icon "assets\icon.ico" ^
     --add-data "assets/logo.svg;assets" ^
     --add-data "bsi_logo.jpg;." ^
