@@ -74,24 +74,33 @@ def write_standard_format(
     # Row 15: blank
     rows.append([""] * n_cols)
 
+    def _translate(val: str) -> str:
+        """Substitute known ATS flag codes with Standard Format equivalents."""
+        if not val:
+            return val
+        translated = flag_mapping.get(val, val)
+        if translated == val and not val.isdigit():
+            logger.warning("Unrecognized flag code in reading: %r", val)
+        return translated
+
     # Elevation blocks (3 rows each)
     for elevation in result.elevations:
         # Sub-row 1: UT Tech Name / label / LEFT / readings
         r1: dict[int, str] = {0: "UT Tech Name:", 2: elevation.label, 4: "LEFT"}
         for i, val in enumerate(elevation.left):
-            r1[5 + i] = val
+            r1[5 + i] = _translate(val)
         rows.append(_make_row(n_cols, r1))
 
         # Sub-row 2: tech code / CNTR / readings
         r2: dict[int, str] = {0: elevation.tech_code or "ATS", 4: "CNTR"}
         for i, val in enumerate(elevation.cntr):
-            r2[5 + i] = val
+            r2[5 + i] = _translate(val)
         rows.append(_make_row(n_cols, r2))
 
         # Sub-row 3: RGHT / readings
         r3: dict[int, str] = {4: "RGHT"}
         for i, val in enumerate(elevation.rght):
-            r3[5 + i] = val
+            r3[5 + i] = _translate(val)
         rows.append(_make_row(n_cols, r3))
 
     # Repeat tube numbers — bottom

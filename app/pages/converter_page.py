@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 from typing import Optional
 
-from PyQt6.QtCore import QThread, Qt, pyqtSignal
+from PyQt6.QtCore import QThread, pyqtSignal
 from PyQt6.QtWidgets import (
     QFileDialog,
     QFrame,
@@ -53,8 +53,6 @@ BROWSE_TEXT = "Browse..."
 CONVERT_ALL_TEXT = "Convert All"
 OPEN_FOLDER_TEXT = "Open Output Folder"
 CONVERT_MORE_TEXT = "Convert More Files"
-NO_FILES_TEXT = "No files imported yet."
-CONVERTING_TEXT = "Converting..."
 
 ATS_TAB_TEXT = "ATS Files"
 TEAM_TAB_TEXT = "TEAM Files"

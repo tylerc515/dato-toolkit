@@ -1,7 +1,7 @@
 """ATS flag code to Standard Format code mapping."""
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 DEFAULT_ATS_FLAG_MAP: dict[str, str] = {
     "NC": "<",   # Not clean
