@@ -24,6 +24,7 @@ STAT_ELEVATIONS_LABEL = "Elevations Tracked"
 STAT_LAST_LABEL = "Last Generated"
 STAT_EMAILS_LABEL = "Update Emails"
 GENERATE_EMAIL_TEXT = "Generate Update Email"
+CONVERT_DATA_TEXT = "Convert Data Files"
 RECENT_PROJECTS_TITLE = "Recent Projects"
 RECENT_EXPORTS_TITLE = "Recent Exports"
 NO_PROJECTS_TEXT = "No saved projects yet."
@@ -59,6 +60,7 @@ class DashboardPage(QWidget):
     view_projects_requested = pyqtSignal()
     batch_requested = pyqtSignal()
     email_requested = pyqtSignal()
+    converter_requested = pyqtSignal()
 
     def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
@@ -89,6 +91,12 @@ class DashboardPage(QWidget):
         self.email_button.setToolTip("Generate a formatted NDE status update email document")
         self.email_button.clicked.connect(self.email_requested.emit)
         header_row.addWidget(self.email_button)
+
+        self.converter_button = QPushButton(CONVERT_DATA_TEXT)
+        self.converter_button.setProperty("flat", "true")
+        self.converter_button.setToolTip("Convert ATS inspection files to Standard Format CSV")
+        self.converter_button.clicked.connect(self.converter_requested.emit)
+        header_row.addWidget(self.converter_button)
 
         self.new_tracker_button = QPushButton(NEW_TRACKER_TEXT)
         self.new_tracker_button.setProperty("accent", "true")

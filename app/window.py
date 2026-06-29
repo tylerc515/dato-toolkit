@@ -39,6 +39,8 @@ from app.pages.import_page import ImportPage
 from app.pages.import_page import STATUS_HINT as IMPORT_STATUS_HINT
 from app.pages.email_page import EmailPage
 from app.pages.email_page import STATUS_HINT as EMAIL_STATUS_HINT
+from app.pages.converter_page import ConverterPage
+from app.pages.converter_page import STATUS_HINT as CONVERTER_STATUS_HINT
 from app.pages.projects_page import ProjectsPage
 from app.pages.projects_page import STATUS_HINT as PROJECTS_STATUS_HINT
 from app.pages.reorder_page import ReorderPage
@@ -90,12 +92,15 @@ STATUS_HINTS = [
     BATCH_STATUS_HINT,
     PROJECTS_STATUS_HINT,
     EMAIL_STATUS_HINT,
+    CONVERTER_STATUS_HINT,
 ]
 HISTORY_PAGE_INDEX = 4
 SETTINGS_PAGE_INDEX = 5
 BATCH_PAGE_INDEX = 6
 PROJECTS_PAGE_INDEX = 7
 EMAIL_PAGE_INDEX = 8
+CONVERTER_PAGE_INDEX = 9
+CONVERTER_BUTTON_TEXT = "⇄ Converter"
 HOME_BUTTON_TEXT = "⌂ Dashboard"
 SETTINGS_BUTTON_TEXT = "⚙ Settings"
 EMAIL_BUTTON_TEXT = "✉ Update Email"
@@ -235,6 +240,7 @@ class MainWindow(QMainWindow):
         self.batch_page = BatchPage()
         self.projects_page = ProjectsPage()
         self.email_page = EmailPage()
+        self.converter_page = ConverterPage()
         self.stack.addWidget(self.dashboard_page)
         self.stack.addWidget(self.import_page)
         self.stack.addWidget(self.reorder_page)
@@ -244,6 +250,7 @@ class MainWindow(QMainWindow):
         self.stack.addWidget(self.batch_page)
         self.stack.addWidget(self.projects_page)
         self.stack.addWidget(self.email_page)
+        self.stack.addWidget(self.converter_page)
         layout.addWidget(self.stack, 1)
         layout.addWidget(FooterBar())
 
@@ -253,7 +260,9 @@ class MainWindow(QMainWindow):
         self.dashboard_page.view_projects_requested.connect(self._go_to_projects)
         self.dashboard_page.batch_requested.connect(self._go_to_batch)
         self.dashboard_page.email_requested.connect(self._go_to_email)
+        self.dashboard_page.converter_requested.connect(self._go_to_converter)
         self.email_page.back_requested.connect(self._go_to_dashboard)
+        self.converter_page.back_requested.connect(self._go_to_dashboard)
         self.generate_page.email_requested.connect(self._go_to_email_with_config)
         self.import_page.files_ready.connect(self._on_files_ready)
         self.import_page.project_load_requested.connect(self._on_project_load_requested)
@@ -320,6 +329,12 @@ class MainWindow(QMainWindow):
         self.email_nav_button.setToolTip("Generate a formatted NDE status update email")
         self.email_nav_button.clicked.connect(self._go_to_email)
         layout.addWidget(self.email_nav_button)
+
+        self.converter_nav_button = QPushButton(CONVERTER_BUTTON_TEXT)
+        self.converter_nav_button.setProperty("flat", "true")
+        self.converter_nav_button.setToolTip("Open Data Converter (Ctrl+T)")
+        self.converter_nav_button.clicked.connect(self._go_to_converter)
+        layout.addWidget(self.converter_nav_button)
 
         layout.addStretch(1)
 
@@ -614,6 +629,9 @@ class MainWindow(QMainWindow):
     def _go_to_email(self) -> None:
         self.stack.setCurrentIndex(EMAIL_PAGE_INDEX)
 
+    def _go_to_converter(self) -> None:
+        self.stack.setCurrentIndex(CONVERTER_PAGE_INDEX)
+
     def _go_to_email_with_config(self, config: ProjectConfig) -> None:
         self.email_page.set_project(config)
         self.stack.setCurrentIndex(EMAIL_PAGE_INDEX)
@@ -663,6 +681,7 @@ class MainWindow(QMainWindow):
         self._add_shortcut("Ctrl+H", self._go_to_history)
         self._add_shortcut("Ctrl+,", self._go_to_settings)
         self._add_shortcut("Ctrl+B", self._go_to_batch)
+        self._add_shortcut("Ctrl+T", self._go_to_converter)
         self._add_shortcut("Ctrl+Right", self._activate_primary_action)
         self._add_shortcut("Ctrl+Return", self._activate_primary_action)
         self._add_shortcut("Ctrl+Left", self._activate_back_action)
@@ -692,7 +711,7 @@ class MainWindow(QMainWindow):
             self.reorder_page.back_button.click()
         elif index == 3:
             self.generate_page.back_button.click()
-        elif index in (HISTORY_PAGE_INDEX, SETTINGS_PAGE_INDEX, BATCH_PAGE_INDEX, PROJECTS_PAGE_INDEX):
+        elif index in (HISTORY_PAGE_INDEX, SETTINGS_PAGE_INDEX, BATCH_PAGE_INDEX, PROJECTS_PAGE_INDEX, CONVERTER_PAGE_INDEX):
             self._go_to_dashboard()
 
     def _toggle_current_help(self) -> None:
@@ -701,6 +720,7 @@ class MainWindow(QMainWindow):
             2: self.reorder_page,
             3: self.generate_page,
             BATCH_PAGE_INDEX: self.batch_page,
+            CONVERTER_PAGE_INDEX: self.converter_page,
         }.get(self.stack.currentIndex())
         if page is not None:
             page.help_panel.toggle()

@@ -42,6 +42,7 @@ KEYBOARD_SHORTCUTS = [
     ("Ctrl+H", "View export history"),
     ("Ctrl+B", "Open batch generation"),
     ("Ctrl+,", "Open settings"),
+    ("Ctrl+T", "Open Data Converter"),
     ("Ctrl+→ / Ctrl+Enter", "Continue to the next step / Generate"),
     ("Ctrl+←", "Go back a step"),
     ("F1", "Show or hide help for the current step"),
