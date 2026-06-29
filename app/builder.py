@@ -1,7 +1,7 @@
 """Excel tracker generation matching the reference TRACE tracker template.
 
 Styles below (fonts, fills, borders, column widths, freeze panes) were
-extracted by inspecting sample_tracksheet_2026.xlsx with openpyxl
+extracted by inspecting examples/templates/reference_template.xlsx with openpyxl
 and are reproduced here so generated workbooks match it exactly.
 """
 
