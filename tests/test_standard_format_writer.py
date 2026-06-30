@@ -1,11 +1,12 @@
 """Tests for Standard Format CSV writer.
 
-The round-trip test (write → parse with parse_trace_csv) is the primary
-correctness check. parse_trace_csv returns a TraceFileData dataclass —
+The round-trip test (write -> parse with parse_trace_csv) is the primary
+correctness check. parse_trace_csv returns a TraceFileData dataclass -
 access fields as attributes, not dict keys.
 """
 from __future__ import annotations
 
+import csv
 from pathlib import Path
 
 import pytest
@@ -83,16 +84,17 @@ def test_write_elevation_labels_preserved(tmp_path: Path):
     assert "14 FT" in labels
 
 
-def test_write_flag_mapping_in_legend(tmp_path: Path):
+def test_write_flag_mapping_translates_in_readings(tmp_path: Path):
+    """Flag codes are translated in readings; fixed legend is always present."""
     from app.converters.standard_format_writer import write_standard_format
     result = _make_result()
     out = tmp_path / "output.csv"
     write_standard_format(result, {"NC": "<"}, out)
     content = out.read_text(encoding="utf-8")
+    # The translated symbol should appear in the readings section
     assert "<" in content
-    # Legend uses STANDARD_SYMBOL_DESCRIPTIONS; "<" has no confirmed description,
-    # so the writer falls back to the symbol itself.
-    assert "means <" in content
+    # The fixed legend is always written (contains reference symbols)
+    assert "Structural interference" in content
 
 
 def test_write_tube_numbers_row(tmp_path: Path):
@@ -119,7 +121,6 @@ def test_write_empty_flag_mapping_succeeds(tmp_path: Path):
 
 def test_tech_name_single_letter_becomes_ats(tmp_path: Path):
     """Single uppercase letter crew codes must be replaced with 'ATS'."""
-    import csv
     from app.converters.standard_format_writer import write_standard_format
     result = ATSParseResult(
         company_name="TEST CO",
@@ -157,7 +158,6 @@ def test_tech_name_single_letter_becomes_ats(tmp_path: Path):
 
 def test_tech_name_real_name_preserved(tmp_path: Path):
     """Multi-character tech names must be written as-is."""
-    import csv
     from app.converters.standard_format_writer import write_standard_format
     result = _make_result()  # tech_code="JD" on both elevations
     out = tmp_path / "output.csv"
@@ -171,7 +171,7 @@ def test_tech_name_real_name_preserved(tmp_path: Path):
 
 
 # ---------------------------------------------------------------------------
-# Bug 2 - dynamic legend
+# Bug 2 - fixed legend (always written in full from reference file)
 # ---------------------------------------------------------------------------
 
 def _make_result_with_flags(flag_codes_in_cntr: list[str]) -> ATSParseResult:
@@ -202,34 +202,25 @@ def _make_result_with_flags(flag_codes_in_cntr: list[str]) -> ATSParseResult:
     )
 
 
-def test_legend_generated_from_actual_flags(tmp_path: Path):
-    """Legend lists only symbols that appear in the converted output."""
-    from app.converters.standard_format_writer import write_standard_format
-    # Only NC (maps to "<") appears; RF (maps to "(") does not appear
-    result = _make_result_with_flags(["NC"])
-    out = tmp_path / "output.csv"
-    write_standard_format(result, {"NC": "<", "RF": "("}, out)
-    content = out.read_text(encoding="utf-8")
-    # "<" has no confirmed description so the legend falls back to the symbol itself
-    assert " <    means <." in content, "Expected '<' legend line"
-    assert " (    means" not in content, "RF symbol should not appear in legend"
+def _find_legend_rows(output_path: Path) -> list[list[str]]:
+    """Return all rows starting immediately after the second 'TUBE NUMBERS along the' row.
+
+    The reference file has a blank between the footer tube-number row and the first
+    legend symbol, but that blank is excluded from load_standard_legend_block() and
+    is not written to the output. Legend rows start at i+1 in the output file.
+    """
+    rows = list(csv.reader(output_path.read_text(encoding="utf-8").splitlines()))
+    found = 0
+    for i, row in enumerate(rows):
+        if any("TUBE NUMBERS along the" in cell for cell in row):
+            found += 1
+            if found == 2:
+                return rows[i + 1:]
+    return []
 
 
-def test_legend_omits_unused_symbols(tmp_path: Path):
-    """Flag mapping symbols not used in output do not appear in legend."""
-    from app.converters.standard_format_writer import write_standard_format
-    result = _make_result_with_flags(["NC"])
-    out = tmp_path / "output.csv"
-    write_standard_format(result, {"NC": "<", "RF": "("}, out)
-    content = out.read_text(encoding="utf-8")
-    legend_lines = [ln for ln in content.splitlines() if "means" in ln]
-    assert len(legend_lines) == 1, (
-        f"Expected exactly 1 legend line, got {len(legend_lines)}: {legend_lines}"
-    )
-
-
-def test_legend_omitted_when_no_flags_present(tmp_path: Path):
-    """When no flag symbols appear in the data, legend block is absent."""
+def test_legend_always_written_in_full(tmp_path: Path):
+    """Fixed legend is written even when no flag symbols appear in the data."""
     from app.converters.standard_format_writer import write_standard_format
     result = ATSParseResult(
         company_name="TEST CO",
@@ -256,9 +247,53 @@ def test_legend_omitted_when_no_flags_present(tmp_path: Path):
     )
     out = tmp_path / "output.csv"
     write_standard_format(result, {}, out)
-    content = out.read_text(encoding="utf-8")
-    assert "means" not in content, (
-        "No legend lines expected when data has no flag symbols"
+    legend_rows = _find_legend_rows(out)
+    # At least 14 rows: 12 symbol rows + blank separator + R/V row + N row
+    assert len(legend_rows) >= 14, (
+        f"Expected at least 14 legend rows, got {len(legend_rows)}"
+    )
+
+
+def test_legend_matches_reference_file_exactly(tmp_path: Path):
+    """Legend rows in output match the reference file block row-for-row."""
+    from app.converters.standard_format_writer import (
+        load_standard_legend_block,
+        write_standard_format,
+    )
+    result = _make_result()
+    out = tmp_path / "output.csv"
+    write_standard_format(result, {"NC": "<", "RF": "("}, out)
+    legend_rows = _find_legend_rows(out)
+    reference_block = load_standard_legend_block()
+    assert len(legend_rows) == len(reference_block), (
+        f"Expected {len(reference_block)} legend rows, got {len(legend_rows)}"
+    )
+    n_cols = max(8, 5 + result.num_tubes)
+    for i, (out_row, ref_row) in enumerate(zip(legend_rows, reference_block)):
+        padded_ref = (list(ref_row) + [""] * n_cols)[:n_cols]
+        assert out_row == padded_ref, (
+            f"Legend row {i} mismatch:\n  output:    {out_row}\n  reference: {padded_ref}"
+        )
+
+
+def test_legend_identical_regardless_of_flags_used(tmp_path: Path):
+    """Legend block is byte-identical whether or not flag codes appear in the data."""
+    from app.converters.standard_format_writer import write_standard_format
+    # File 1: NC flag used
+    result_with_flag = _make_result_with_flags(["NC"])
+    out1 = tmp_path / "with_flag.csv"
+    write_standard_format(result_with_flag, {"NC": "<"}, out1)
+
+    # File 2: no flags used
+    result_no_flag = _make_result_with_flags([])
+    out2 = tmp_path / "no_flag.csv"
+    write_standard_format(result_no_flag, {}, out2)
+
+    legend1 = _find_legend_rows(out1)
+    legend2 = _find_legend_rows(out2)
+
+    assert legend1 == legend2, (
+        "Legend block differs between files with and without flags"
     )
 
 

@@ -4,10 +4,10 @@ from __future__ import annotations
 import csv
 import logging
 import re
+import sys
 from pathlib import Path
 
 from app.converters.ats_parser import ATSParseResult
-from app.converters.flag_mapper import STANDARD_SYMBOL_DESCRIPTIONS
 
 logger = logging.getLogger(__name__)
 
@@ -17,6 +17,45 @@ _FORMAT_COMMENT = (
 _FONT_COMMENT = (
     "Best viewed if Excel's Default Font is set to either  ARIAL-size 10  or  CALIBRI-size 11."
 )
+
+_legend_block_cache: list[list[str]] | None = None
+
+
+def load_standard_legend_block() -> list[list[str]]:
+    """Read the fixed, universal legend block from the bundled reference file.
+
+    Returns a list of rows (each row a list of cell values), preserved exactly
+    as they appear in the source CSV - including the blank separator row.
+    Cached after first read since the block never changes during an app run.
+    """
+    global _legend_block_cache
+    if _legend_block_cache is not None:
+        return _legend_block_cache
+
+    base = Path(getattr(sys, "_MEIPASS", Path(__file__).parent.parent.parent))
+    path = base / "examples" / "standard-format" / "Standard-Sample_Left-to-Right.csv"
+
+    with path.open(newline="", encoding="utf-8") as f:
+        all_rows = list(csv.reader(f))
+
+    # Find the second occurrence of a cell containing "TUBE NUMBERS along the".
+    found = 0
+    second_index = -1
+    for i, row in enumerate(all_rows):
+        if any("TUBE NUMBERS along the" in cell for cell in row):
+            found += 1
+            if found == 2:
+                second_index = i
+                break
+
+    if second_index == -1:
+        raise ValueError(
+            "Could not find second 'TUBE NUMBERS along the' row in reference file"
+        )
+
+    # Skip the blank row immediately after the footer, then take everything to EOF.
+    _legend_block_cache = all_rows[second_index + 2:]
+    return _legend_block_cache
 
 
 def _make_row(n_cols: int, assignments: dict[int, str]) -> list[str]:
@@ -79,9 +118,6 @@ def write_standard_format(
     # Row 15: blank
     rows.append([""] * n_cols)
 
-    seen_symbols: list[str] = []
-    seen_set: set[str] = set()
-
     def _translate(val: str) -> str:
         """Substitute known ATS flag codes with Standard Format equivalents."""
         if not val:
@@ -89,9 +125,6 @@ def write_standard_format(
         translated = flag_mapping.get(val, val)
         if translated == val and not val.isdigit():
             logger.warning("Unrecognized flag code in reading: %r", val)
-        if translated and not translated.isdigit() and translated not in seen_set:
-            seen_symbols.append(translated)
-            seen_set.add(translated)
         return translated
 
     def _excel_fmt(val: str) -> str:
@@ -105,9 +138,7 @@ def write_standard_format(
         # Sub-row 1: UT Tech Name / label / LEFT / readings
         r1: dict[int, str] = {0: "UT Tech Name:", 2: elevation.label, 4: "LEFT"}
         for i, val in enumerate(elevation.left):
-            translated = _translate(val)
-            # legend scanning uses translated value (before excel formatting)
-            r1[5 + i] = _excel_fmt(translated)
+            r1[5 + i] = _excel_fmt(_translate(val))
         rows.append(_make_row(n_cols, r1))
 
         # Sub-row 2: tech code / CNTR / readings
@@ -117,17 +148,13 @@ def write_standard_format(
             tech_code = "ATS"
         r2: dict[int, str] = {0: tech_code, 4: "CNTR"}
         for i, val in enumerate(elevation.cntr):
-            translated = _translate(val)
-            # legend scanning uses translated value (before excel formatting)
-            r2[5 + i] = _excel_fmt(translated)
+            r2[5 + i] = _excel_fmt(_translate(val))
         rows.append(_make_row(n_cols, r2))
 
         # Sub-row 3: RGHT / readings
         r3: dict[int, str] = {4: "RGHT"}
         for i, val in enumerate(elevation.rght):
-            translated = _translate(val)
-            # legend scanning uses translated value (before excel formatting)
-            r3[5 + i] = _excel_fmt(translated)
+            r3[5 + i] = _excel_fmt(_translate(val))
         rows.append(_make_row(n_cols, r3))
 
     # Repeat tube numbers - bottom
@@ -136,17 +163,11 @@ def write_standard_format(
         tube_row_bottom[5 + i] = str(n)
     rows.append(_make_row(n_cols, tube_row_bottom))
 
-    # Dynamic legend - only write when flag symbols actually appear in the output
-    if seen_symbols:
-        rows.append([""] * n_cols)  # blank separator before legend
-        for symbol in seen_symbols:
-            description = STANDARD_SYMBOL_DESCRIPTIONS.get(symbol)
-            if description is None:
-                logger.warning("No description for symbol %r in STANDARD_SYMBOL_DESCRIPTIONS", symbol)
-                description = symbol
-            r = [""] * n_cols
-            r[1] = f" {symbol}    means {description}."
-            rows.append(r)
+    # Fixed universal legend - always written in full, every time
+    for legend_row in load_standard_legend_block():
+        # Pad or trim each legend row to match n_cols
+        padded = list(legend_row) + [""] * n_cols
+        rows.append(padded[:n_cols])
 
     out = Path(output_path)
     with out.open("w", newline="", encoding="utf-8") as f:

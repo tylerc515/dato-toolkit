@@ -2,13 +2,42 @@
 from __future__ import annotations
 
 import difflib
+import re
 from dataclasses import dataclass
 
 DEFAULT_ATS_FLAG_MAP: dict[str, str] = {}
 
-STANDARD_SYMBOL_DESCRIPTIONS: dict[str, str] = {
-    ";": "SCAFFOLD INTERFERENCE",
-}
+
+def _build_symbol_descriptions() -> dict[str, str]:
+    """Parse legend block rows from the reference file to build {symbol: description}."""
+    from app.converters.standard_format_writer import load_standard_legend_block
+
+    result: dict[str, str] = {}
+    primary = re.compile(r"\s*(\S+)\s+means\s+(.+?)\.?\s*$")
+    fallback = re.compile(r"\s*(\S+)\s+(.+?)\.?\s*$")
+
+    for row in load_standard_legend_block():
+        # Check col index 1 (left column) and col index 6 (right column)
+        for col_idx in (1, 6):
+            if col_idx >= len(row):
+                continue
+            cell = row[col_idx].strip()
+            if not cell:
+                continue
+            m = primary.match(cell)
+            if m:
+                result[m.group(1)] = m.group(2).rstrip(".")
+                continue
+            # Fallback only when "means" is absent from the cell
+            if "means" not in cell:
+                m2 = fallback.match(cell)
+                if m2:
+                    result[m2.group(1)] = m2.group(2).rstrip(".")
+
+    return result
+
+
+STANDARD_SYMBOL_DESCRIPTIONS: dict[str, str] = _build_symbol_descriptions()
 
 # Session memory: (ats_code, description_upper) -> std_symbol
 _session_confirmed: dict[tuple[str, str], str] = {}

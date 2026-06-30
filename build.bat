@@ -15,6 +15,7 @@ if exist ".venv\Scripts\python.exe" set PYTHON=.venv\Scripts\python.exe
     --icon "assets\icon.ico" ^
     --add-data "assets/logo.svg;assets" ^
     --add-data "bsi_logo.jpg;." ^
+    --add-data "examples/standard-format/Standard-Sample_Left-to-Right.csv;examples/standard-format" ^
     main.py
 
 endlocal
