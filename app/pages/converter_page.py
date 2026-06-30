@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 from typing import Optional
 
-from PyQt6.QtCore import QThread, pyqtSignal
+from PyQt6.QtCore import QSettings, QThread, Qt, pyqtSignal
 from PyQt6.QtWidgets import (
     QCheckBox,
     QFileDialog,
@@ -59,6 +59,55 @@ ATS_TAB_TEXT = "ATS Files"
 TEAM_TAB_TEXT = "TEAM Files"
 TDS_TAB_TEXT = "TDS Files"
 COMING_SOON_TOOLTIP = "Coming soon"
+
+
+class _AtsDropZone(QFrame):
+    """Drop target for ATS xlsx files."""
+
+    files_dropped = pyqtSignal(list)  # list of .xlsx file paths
+    clicked = pyqtSignal()
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._base_style = (
+            f"QFrame {{ border: 2px dashed {color('border')}; border-radius: 8px; "
+            f"background: transparent; }}"
+            f"QFrame:hover {{ border-color: {color('highlight')}; }}"
+        )
+        self._drag_style = (
+            f"QFrame {{ border: 2px dashed {color('highlight')}; border-radius: 8px; "
+            f"background: transparent; }}"
+        )
+        self.setAcceptDrops(True)
+        self.setMinimumHeight(80)
+        self.setStyleSheet(self._base_style)
+
+        layout = QVBoxLayout(self)
+        layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        lbl = QLabel(DROP_ZONE_TEXT)
+        lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        lbl.setStyleSheet(f"color: {color('muted_text')};")
+        layout.addWidget(lbl)
+
+    def dragEnterEvent(self, event):
+        if event.mimeData().hasUrls():
+            event.acceptProposedAction()
+            self.setStyleSheet(self._drag_style)
+
+    def dragLeaveEvent(self, event):
+        self.setStyleSheet(self._base_style)
+
+    def dropEvent(self, event):
+        self.setStyleSheet(self._base_style)
+        paths = [url.toLocalFile() for url in event.mimeData().urls() if url.isLocalFile()]
+        xlsx_paths = [p for p in paths if p.lower().endswith(".xlsx")]
+        if xlsx_paths:
+            self.files_dropped.emit(xlsx_paths)
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.clicked.emit()
+        super().mousePressEvent(event)
 
 
 class _ConvertWorker(QThread):
@@ -231,14 +280,11 @@ class ConverterPage(QWidget):
         import_header.addWidget(self._clear_all_btn)
         import_layout.addLayout(import_header)
 
-        self._drop_zone = QPushButton(DROP_ZONE_TEXT)
-        self._drop_zone.setMinimumHeight(80)
-        self._drop_zone.setStyleSheet(
-            f"QPushButton {{ border: 2px dashed {color('border')}; border-radius: 8px; "
-            f"color: {color('muted_text')}; background: transparent; }}"
-            f"QPushButton:hover {{ border-color: {color('highlight')}; color: {color('text')}; }}"
-        )
+        self._drop_zone = _AtsDropZone(self)
         self._drop_zone.clicked.connect(self._on_browse_files)
+        self._drop_zone.files_dropped.connect(
+            lambda paths: [self._import_file(p) for p in paths]
+        )
         import_layout.addWidget(self._drop_zone)
 
         self._file_list_layout = QVBoxLayout()
@@ -265,7 +311,8 @@ class ConverterPage(QWidget):
         self._output_folder_edit = QLineEdit()
         self._output_folder_edit.setPlaceholderText("Choose output folder...")
         self._output_folder_edit.setReadOnly(True)
-        self._output_folder_edit.setText(str(Path.home() / "Desktop"))
+        saved = self._load_output_folder()
+        self._output_folder_edit.setText(saved if saved else "")
         folder_row.addWidget(self._output_folder_edit, 1)
         browse_btn = QPushButton(BROWSE_TEXT)
         browse_btn.setProperty("flat", "true")
@@ -336,6 +383,9 @@ class ConverterPage(QWidget):
         try:
             result = parse_ats_file(path)
             self._imported[path] = result
+            # Set output folder to input file's parent on first import (if not already set)
+            if len(self._imported) == 1 and not self._output_folder_edit.text():
+                self._output_folder_edit.setText(str(Path(path).parent))
             card = _FileCard(path, result, self)
             card.remove_requested.connect(self._on_remove_file)
             self._file_list_layout.addWidget(card)
@@ -414,6 +464,15 @@ class ConverterPage(QWidget):
         )
         if folder:
             self._output_folder_edit.setText(folder)
+            self._save_output_folder(folder)
+
+    def _load_output_folder(self) -> str:
+        settings = QSettings("BSI", "DATOToolkit")
+        return settings.value("converter/last_output_folder", "")
+
+    def _save_output_folder(self, folder: str) -> None:
+        settings = QSettings("BSI", "DATOToolkit")
+        settings.setValue("converter/last_output_folder", folder)
 
     def _update_convert_button(self) -> None:
         self._convert_btn.setEnabled(bool(self._imported) and self._flags_confirmed)
@@ -422,6 +481,7 @@ class ConverterPage(QWidget):
 
     def _on_convert(self) -> None:
         output_dir = Path(self._output_folder_edit.text())
+        self._save_output_folder(str(output_dir))
         try:
             output_dir.mkdir(parents=True, exist_ok=True)
         except OSError as exc:
