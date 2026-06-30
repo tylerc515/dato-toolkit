@@ -258,3 +258,40 @@ def test_legend_omitted_when_no_flags_present(tmp_path: Path):
     assert "means" not in content, (
         "No legend lines expected when data has no flag symbols"
     )
+
+
+# ---------------------------------------------------------------------------
+# Bug 4 - Excel-safe output toggle
+# ---------------------------------------------------------------------------
+
+def test_excel_safe_wraps_numeric_readings(tmp_path):
+    """With excel_safe=True, numeric readings are wrapped as =\"value\"."""
+    from app.converters.standard_format_writer import write_standard_format
+    result = _make_result()
+    out = tmp_path / "output.csv"
+    write_standard_format(result, {"NC": "<"}, out, excel_safe=True)
+    content = out.read_text(encoding="utf-8")
+    # "234" should appear as ="234"
+    assert '="234"' in content
+
+
+def test_excel_safe_does_not_wrap_flag_symbols(tmp_path):
+    """With excel_safe=True, non-numeric flag symbols are NOT wrapped."""
+    from app.converters.standard_format_writer import write_standard_format
+    result = _make_result()
+    out = tmp_path / "output.csv"
+    write_standard_format(result, {"NC": "<"}, out, excel_safe=True)
+    content = out.read_text(encoding="utf-8")
+    # "<" should NOT be wrapped
+    assert '="<"' not in content
+
+
+def test_excel_safe_false_writes_plain_strings(tmp_path):
+    """With excel_safe=False (default), readings are plain strings."""
+    from app.converters.standard_format_writer import write_standard_format
+    result = _make_result()
+    out = tmp_path / "output.csv"
+    write_standard_format(result, {}, out, excel_safe=False)
+    content = out.read_text(encoding="utf-8")
+    assert "234" in content
+    assert '="234"' not in content
