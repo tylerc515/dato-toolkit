@@ -6,6 +6,7 @@ import logging
 from pathlib import Path
 
 from app.converters.ats_parser import ATSParseResult
+from app.converters.flag_mapper import STANDARD_SYMBOL_DESCRIPTIONS
 
 logger = logging.getLogger(__name__)
 
@@ -74,6 +75,9 @@ def write_standard_format(
     # Row 15: blank
     rows.append([""] * n_cols)
 
+    seen_symbols: list[str] = []
+    seen_set: set[str] = set()
+
     def _translate(val: str) -> str:
         """Substitute known ATS flag codes with Standard Format equivalents."""
         if not val:
@@ -81,6 +85,9 @@ def write_standard_format(
         translated = flag_mapping.get(val, val)
         if translated == val and not val.isdigit():
             logger.warning("Unrecognized flag code in reading: %r", val)
+        if translated and not translated.isdigit() and translated not in seen_set:
+            seen_symbols.append(translated)
+            seen_set.add(translated)
         return translated
 
     # Elevation blocks (3 rows each)
@@ -92,7 +99,11 @@ def write_standard_format(
         rows.append(_make_row(n_cols, r1))
 
         # Sub-row 2: tech code / CNTR / readings
-        r2: dict[int, str] = {0: elevation.tech_code or "ATS", 4: "CNTR"}
+        # Single uppercase letter is a crew/shift code - write "ATS" instead
+        tech_code = elevation.tech_code
+        if not tech_code or (len(tech_code) == 1 and tech_code.isupper()):
+            tech_code = "ATS"
+        r2: dict[int, str] = {0: tech_code, 4: "CNTR"}
         for i, val in enumerate(elevation.cntr):
             r2[5 + i] = _translate(val)
         rows.append(_make_row(n_cols, r2))
@@ -109,15 +120,17 @@ def write_standard_format(
         tube_row_bottom[5 + i] = str(n)
     rows.append(_make_row(n_cols, tube_row_bottom))
 
-    # Blank row after tube numbers
-    rows.append([""] * n_cols)
-
-    # Flag legend: one row per flag at col B (index 1)
-    for ats_code, std_code in flag_mapping.items():
-        description = result.ats_flags.get(ats_code, ats_code)
-        r = [""] * n_cols
-        r[1] = f" {std_code}    means {description}."
-        rows.append(r)
+    # Dynamic legend - only write when flag symbols actually appear in the output
+    if seen_symbols:
+        rows.append([""] * n_cols)  # blank separator before legend
+        for symbol in seen_symbols:
+            description = STANDARD_SYMBOL_DESCRIPTIONS.get(symbol)
+            if description is None:
+                logger.warning("No description for symbol %r in STANDARD_SYMBOL_DESCRIPTIONS", symbol)
+                description = symbol
+            r = [""] * n_cols
+            r[1] = f" {symbol}    means {description}."
+            rows.append(r)
 
     out = Path(output_path)
     with out.open("w", newline="", encoding="utf-8") as f:

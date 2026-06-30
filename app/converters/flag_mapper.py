@@ -12,6 +12,16 @@ DEFAULT_ATS_FLAG_MAP: dict[str, str] = {
     "NS": "[",   # No scan
 }
 
+STANDARD_SYMBOL_DESCRIPTIONS: dict[str, str] = {
+    ";": "SCAFFOLD INTERFERENCE",
+    "(": "RF",
+    ")": "RT",
+    "+": "ST",
+    "[": "NS",
+    "/": "TC",
+    "<": "NC",
+}
+
 
 @dataclass
 class FlagMappingResult:

@@ -50,3 +50,13 @@ def test_build_mapping_only_unknown():
     assert result.known == {}
     assert "ZZ" in result.unknown
     assert result.final == {}
+
+
+def test_flag_maps_are_consistent():
+    """Every symbol in DEFAULT_ATS_FLAG_MAP must appear in STANDARD_SYMBOL_DESCRIPTIONS."""
+    from app.converters.flag_mapper import DEFAULT_ATS_FLAG_MAP, STANDARD_SYMBOL_DESCRIPTIONS
+    for ats_code, std_symbol in DEFAULT_ATS_FLAG_MAP.items():
+        assert std_symbol in STANDARD_SYMBOL_DESCRIPTIONS, (
+            f"DEFAULT_ATS_FLAG_MAP maps {ats_code!r} to {std_symbol!r}, "
+            f"but {std_symbol!r} is not in STANDARD_SYMBOL_DESCRIPTIONS"
+        )

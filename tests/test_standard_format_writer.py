@@ -90,7 +90,8 @@ def test_write_flag_mapping_in_legend(tmp_path: Path):
     write_standard_format(result, {"NC": "<"}, out)
     content = out.read_text(encoding="utf-8")
     assert "<" in content
-    assert "NOT CLEAN" in content
+    # Legend now uses STANDARD_SYMBOL_DESCRIPTIONS - description for "<" is "NC"
+    assert "means NC" in content
 
 
 def test_write_tube_numbers_row(tmp_path: Path):
@@ -109,3 +110,151 @@ def test_write_empty_flag_mapping_succeeds(tmp_path: Path):
     out = tmp_path / "output.csv"
     write_standard_format(result, {}, out)
     assert out.exists()
+
+
+# ---------------------------------------------------------------------------
+# Bug 1 - tech name default
+# ---------------------------------------------------------------------------
+
+def test_tech_name_single_letter_becomes_ats(tmp_path: Path):
+    """Single uppercase letter crew codes must be replaced with 'ATS'."""
+    import csv
+    from app.converters.standard_format_writer import write_standard_format
+    result = ATSParseResult(
+        company_name="TEST CO",
+        mill_location="Somewhere, TX",
+        boiler_name="Boiler 1",
+        inspection_date="January 2025",
+        boiler_section="FLOOR",
+        num_tubes=2,
+        numbering_direction="Left-to-Right",
+        nde_laboratory="ATS Lab",
+        year=2025,
+        ats_flags={},
+        elevations=[
+            ATSElevation(
+                label="10 FT",
+                tech_code="A",
+                nominal_wall=0.220,
+                left=["220", "215"],
+                cntr=["218", "213"],
+                rght=["222", "216"],
+            ),
+        ],
+        tube_numbers=[1, 2],
+    )
+    out = tmp_path / "output.csv"
+    write_standard_format(result, {}, out)
+    rows = list(csv.reader(out.read_text(encoding="utf-8").splitlines()))
+    # The CNTR row for each elevation has col-0 = tech name
+    cntr_col0_values = [r[0] for r in rows if len(r) > 4 and r[4] == "CNTR"]
+    assert cntr_col0_values, "No CNTR row found in output"
+    assert all(v == "ATS" for v in cntr_col0_values), (
+        f"Expected all CNTR col-0 values to be 'ATS', got: {cntr_col0_values}"
+    )
+
+
+def test_tech_name_real_name_preserved(tmp_path: Path):
+    """Multi-character tech names must be written as-is."""
+    import csv
+    from app.converters.standard_format_writer import write_standard_format
+    result = _make_result()  # tech_code="JD" on both elevations
+    out = tmp_path / "output.csv"
+    write_standard_format(result, {}, out)
+    rows = list(csv.reader(out.read_text(encoding="utf-8").splitlines()))
+    cntr_col0_values = [r[0] for r in rows if len(r) > 4 and r[4] == "CNTR"]
+    assert cntr_col0_values, "No CNTR row found in output"
+    assert all(v == "JD" for v in cntr_col0_values), (
+        f"Expected 'JD', got: {cntr_col0_values}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Bug 2 - dynamic legend
+# ---------------------------------------------------------------------------
+
+def _make_result_with_flags(flag_codes_in_cntr: list[str]) -> ATSParseResult:
+    """Helper: build a 3-tube result where cntr readings contain the given flag codes."""
+    padded = (flag_codes_in_cntr + ["", ""])[:3]
+    return ATSParseResult(
+        company_name="TEST CO",
+        mill_location="Somewhere, TX",
+        boiler_name="Boiler 1",
+        inspection_date="January 2025",
+        boiler_section="FLOOR",
+        num_tubes=3,
+        numbering_direction="Left-to-Right",
+        nde_laboratory="ATS Lab",
+        year=2025,
+        ats_flags={"NC": "NOT CLEAN", "RF": "REFRACTORY"},
+        elevations=[
+            ATSElevation(
+                label="10 FT",
+                tech_code="AB",
+                nominal_wall=0.220,
+                left=["220", "215", "210"],
+                cntr=padded,
+                rght=["222", "216", "212"],
+            ),
+        ],
+        tube_numbers=[1, 2, 3],
+    )
+
+
+def test_legend_generated_from_actual_flags(tmp_path: Path):
+    """Legend lists only symbols that appear in the converted output."""
+    from app.converters.standard_format_writer import write_standard_format
+    # Only NC (maps to "<") appears; RF (maps to "(") does not appear
+    result = _make_result_with_flags(["NC"])
+    out = tmp_path / "output.csv"
+    write_standard_format(result, {"NC": "<", "RF": "("}, out)
+    content = out.read_text(encoding="utf-8")
+    assert " <    means NC." in content, "Expected '<' legend line for NC"
+    assert " (    means RF." not in content, "RF symbol should not appear in legend"
+
+
+def test_legend_omits_unused_symbols(tmp_path: Path):
+    """Flag mapping symbols not used in output do not appear in legend."""
+    from app.converters.standard_format_writer import write_standard_format
+    result = _make_result_with_flags(["NC"])
+    out = tmp_path / "output.csv"
+    write_standard_format(result, {"NC": "<", "RF": "("}, out)
+    content = out.read_text(encoding="utf-8")
+    legend_lines = [ln for ln in content.splitlines() if "means" in ln]
+    assert len(legend_lines) == 1, (
+        f"Expected exactly 1 legend line, got {len(legend_lines)}: {legend_lines}"
+    )
+
+
+def test_legend_omitted_when_no_flags_present(tmp_path: Path):
+    """When no flag symbols appear in the data, legend block is absent."""
+    from app.converters.standard_format_writer import write_standard_format
+    result = ATSParseResult(
+        company_name="TEST CO",
+        mill_location="Somewhere, TX",
+        boiler_name="Boiler 1",
+        inspection_date="January 2025",
+        boiler_section="FLOOR",
+        num_tubes=3,
+        numbering_direction="Left-to-Right",
+        nde_laboratory="ATS Lab",
+        year=2025,
+        ats_flags={},
+        elevations=[
+            ATSElevation(
+                label="10 FT",
+                tech_code="AB",
+                nominal_wall=0.220,
+                left=["220", "215", "210"],
+                cntr=["218", "213", "208"],
+                rght=["222", "216", "212"],
+            ),
+        ],
+        tube_numbers=[1, 2, 3],
+    )
+    out = tmp_path / "output.csv"
+    write_standard_format(result, {}, out)
+    content = out.read_text(encoding="utf-8")
+    assert "means" not in content, (
+        "No legend lines expected when data has no flag symbols"
+    )
