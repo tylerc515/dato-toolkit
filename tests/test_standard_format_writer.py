@@ -90,8 +90,9 @@ def test_write_flag_mapping_in_legend(tmp_path: Path):
     write_standard_format(result, {"NC": "<"}, out)
     content = out.read_text(encoding="utf-8")
     assert "<" in content
-    # Legend now uses STANDARD_SYMBOL_DESCRIPTIONS - description for "<" is "NC"
-    assert "means NC" in content
+    # Legend uses STANDARD_SYMBOL_DESCRIPTIONS; "<" has no confirmed description,
+    # so the writer falls back to the symbol itself.
+    assert "means <" in content
 
 
 def test_write_tube_numbers_row(tmp_path: Path):
@@ -209,8 +210,9 @@ def test_legend_generated_from_actual_flags(tmp_path: Path):
     out = tmp_path / "output.csv"
     write_standard_format(result, {"NC": "<", "RF": "("}, out)
     content = out.read_text(encoding="utf-8")
-    assert " <    means NC." in content, "Expected '<' legend line for NC"
-    assert " (    means RF." not in content, "RF symbol should not appear in legend"
+    # "<" has no confirmed description so the legend falls back to the symbol itself
+    assert " <    means <." in content, "Expected '<' legend line"
+    assert " (    means" not in content, "RF symbol should not appear in legend"
 
 
 def test_legend_omits_unused_symbols(tmp_path: Path):

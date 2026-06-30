@@ -22,7 +22,11 @@ from PyQt6.QtWidgets import (
 )
 
 from app.converters.ats_parser import ATSParseError, ATSParseResult, parse_ats_file
-from app.converters.flag_mapper import FlagMappingResult, build_flag_mapping
+from app.converters.flag_mapper import (
+    FlagMappingResult,
+    build_flag_mapping,
+    confirm_session_mappings,
+)
 from app.converters.standard_format_writer import write_standard_format
 from app.styles import apply_card_shadow, color
 from app.widgets import HelpPanel
@@ -452,6 +456,10 @@ class ConverterPage(QWidget):
         self._flag_widget_layout.addWidget(flag_widget)
 
     def _on_flags_confirmed(self, mapping: dict[str, str]) -> None:
+        all_flags: dict[str, str] = {}
+        for result in self._imported.values():
+            all_flags.update(result.ats_flags)
+        confirm_session_mappings(mapping, all_flags)
         self._flag_mapping = mapping
         self._flags_confirmed = True
         self._update_convert_button()
