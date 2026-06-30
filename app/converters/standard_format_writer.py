@@ -70,7 +70,7 @@ def write_standard_format(
     rows.append([""] * n_cols)
     rows.append([""] * n_cols)
 
-    # Row 14: tube numbers — top
+    # Row 14: tube numbers - top
     tube_row: dict[int, str] = {1: "TUBE NUMBERS along the top.---->"}
     for i, n in enumerate(result.tube_numbers):
         tube_row[5 + i] = str(n)
@@ -130,7 +130,7 @@ def write_standard_format(
             r3[5 + i] = _excel_fmt(translated)
         rows.append(_make_row(n_cols, r3))
 
-    # Repeat tube numbers — bottom
+    # Repeat tube numbers - bottom
     tube_row_bottom: dict[int, str] = {1: "TUBE NUMBERS along the bottom.---->"}
     for i, n in enumerate(result.tube_numbers):
         tube_row_bottom[5 + i] = str(n)
