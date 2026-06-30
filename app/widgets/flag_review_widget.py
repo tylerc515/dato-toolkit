@@ -1,4 +1,4 @@
-"""Flag review widget for confirming ATS → Standard Format code mappings."""
+"""Flag review widget for confirming ATS -> Standard Format code mappings."""
 from __future__ import annotations
 
 from PyQt6.QtCore import QTimer, Qt, pyqtSignal
@@ -14,7 +14,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from app.converters.flag_mapper import FlagMappingResult
+from app.converters.flag_mapper import FlagMappingResult, STANDARD_SYMBOL_DESCRIPTIONS
 from app.styles import color
 
 HEADING_TEXT = "Flag Review"
@@ -23,9 +23,15 @@ SUBTEXT_UNKNOWN = (
     "Some flag codes in these files are not in the auto-map list. "
     "Enter a Standard Format code for each, or check 'Leave as-is' to pass it through unchanged."
 )
+SUBTEXT_SUGGESTED = (
+    "Some flag codes were matched by description. Review the suggested mappings below "
+    "and confirm or change them before converting."
+)
 CONFIRM_TEXT = "Confirm Mappings"
 AUTO_MAPPED_LABEL = "Auto-mapped"
 NEEDS_MAPPING_LABEL = "Needs mapping"
+SUGGESTED_MATCH_LABEL = "Suggested match"
+SUGGESTED_MATCH_COLOR = "#4da6ff"
 LEAVE_AS_IS_TEXT = "Leave as-is"
 
 
@@ -41,7 +47,7 @@ class FlagReviewWidget(QWidget):
         self._leave_checks: dict[str, QCheckBox] = {}
         self._build_ui()
 
-        if not mapping_result.unknown:
+        if not mapping_result.unknown and not mapping_result.suggested:
             QTimer.singleShot(0, lambda: self.mappings_confirmed.emit(dict(mapping_result.final)))
 
     def _build_ui(self) -> None:
@@ -52,13 +58,14 @@ class FlagReviewWidget(QWidget):
         heading.setProperty("role", "heading")
         outer.addWidget(heading)
 
-        if not self._mapping_result.unknown:
+        if not self._mapping_result.unknown and not self._mapping_result.suggested:
             info = QLabel(SUBTEXT_ALL_KNOWN)
             info.setStyleSheet(f"color: {color('success')}; font-size: 9pt;")
             outer.addWidget(info)
             return
 
-        subtext = QLabel(SUBTEXT_UNKNOWN)
+        subtext_str = SUBTEXT_UNKNOWN if self._mapping_result.unknown else SUBTEXT_SUGGESTED
+        subtext = QLabel(subtext_str)
         subtext.setWordWrap(True)
         subtext.setProperty("role", "muted")
         outer.addWidget(subtext)
@@ -90,6 +97,27 @@ class FlagReviewWidget(QWidget):
             status = QLabel(AUTO_MAPPED_LABEL)
             status.setStyleSheet(f"color: {color('success')}; font-size: 9pt;")
             row.addWidget(status, 2)
+            row.addWidget(QLabel(""), 1)
+            scroll_layout.addLayout(row)
+
+        # Suggested flags (editable, pre-filled, no Leave as-is)
+        for ats_code, std_symbol in self._mapping_result.suggested.items():
+            description = STANDARD_SYMBOL_DESCRIPTIONS.get(std_symbol, ats_code)
+            row = QHBoxLayout()
+            row.addWidget(QLabel(ats_code), 1)
+            row.addWidget(QLabel(description), 3)
+
+            code_input = QLineEdit()
+            code_input.setMaxLength(3)
+            code_input.setText(std_symbol)
+            code_input.textChanged.connect(self._on_input_changed)
+            self._code_inputs[ats_code] = code_input
+            row.addWidget(code_input, 1)
+
+            status_lbl = QLabel(SUGGESTED_MATCH_LABEL)
+            status_lbl.setStyleSheet(f"color: {SUGGESTED_MATCH_COLOR}; font-size: 9pt;")
+            row.addWidget(status_lbl, 2)
+
             row.addWidget(QLabel(""), 1)
             scroll_layout.addLayout(row)
 
@@ -131,6 +159,8 @@ class FlagReviewWidget(QWidget):
         btn_row.addWidget(self._confirm_btn)
         outer.addLayout(btn_row)
 
+        self._update_confirm_button()
+
     def _on_leave_toggled(
         self, code: str, inp: QLineEdit, status_lbl: QLabel, state: int
     ) -> None:
@@ -149,18 +179,32 @@ class FlagReviewWidget(QWidget):
 
     def _update_confirm_button(self) -> None:
         all_resolved = True
-        for ats_code in self._mapping_result.unknown:
-            leave = self._leave_checks.get(ats_code)
+        # Suggested inputs must be non-empty (pre-filled but user can clear)
+        for ats_code in self._mapping_result.suggested:
             inp = self._code_inputs.get(ats_code)
-            if leave and leave.isChecked():
-                continue
             if inp and not inp.text().strip():
                 all_resolved = False
                 break
+        if all_resolved:
+            # Unknown inputs must be filled or have Leave as-is checked
+            for ats_code in self._mapping_result.unknown:
+                leave = self._leave_checks.get(ats_code)
+                inp = self._code_inputs.get(ats_code)
+                if leave and leave.isChecked():
+                    continue
+                if inp and not inp.text().strip():
+                    all_resolved = False
+                    break
         self._confirm_btn.setEnabled(all_resolved)
 
     def _on_confirm(self) -> None:
         final = dict(self._mapping_result.known)
+        # Add suggested (may be user-overridden via the pre-filled inputs)
+        for ats_code in self._mapping_result.suggested:
+            inp = self._code_inputs.get(ats_code)
+            if inp:
+                final[ats_code] = inp.text().strip() or self._mapping_result.suggested[ats_code]
+        # Add unknown (same as before)
         for ats_code in self._mapping_result.unknown:
             leave = self._leave_checks.get(ats_code)
             inp = self._code_inputs.get(ats_code)
