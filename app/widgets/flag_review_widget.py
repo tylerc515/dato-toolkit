@@ -35,6 +35,8 @@ SUGGESTED_MATCH_COLOR = "#4da6ff"
 LEAVE_AS_IS_TEXT = "Leave as-is"
 COMBO_SEPARATOR = "  -  "
 COMBO_MIN_WIDTH = 220
+COMBO_MAX_WIDTH = 340
+COMBO_POPUP_MIN_WIDTH = 400
 
 
 def _symbol_from_display(text: str) -> str:
@@ -54,10 +56,15 @@ def _make_combo() -> QComboBox:
     combo.setEditable(True)
     combo.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
     combo.setMinimumWidth(COMBO_MIN_WIDTH)
+    combo.setMaximumWidth(COMBO_MAX_WIDTH)
     combo.setMaxVisibleItems(7)
 
     for symbol, description in STANDARD_SYMBOL_DESCRIPTIONS.items():
         combo.addItem(f"{symbol}{COMBO_SEPARATOR}{description}")
+
+    # The popup list must stay wide enough for long descriptions even though
+    # the closed field itself is capped at COMBO_MAX_WIDTH.
+    combo.view().setMinimumWidth(COMBO_POPUP_MIN_WIDTH)
 
     completer = combo.completer()
     if completer is not None:

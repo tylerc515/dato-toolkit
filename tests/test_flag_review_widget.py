@@ -134,6 +134,41 @@ def test_suggested_preselects_correct_symbol(qtbot):
     )
 
 
+def test_combo_field_width_is_constrained(qtbot):
+    """The closed combo field has a fixed max width, not unbounded stretch."""
+    from app.converters.flag_mapper import FlagMappingResult
+    from app.widgets.flag_review_widget import FlagReviewWidget, COMBO_MAX_WIDTH
+    result = FlagMappingResult(
+        known={},
+        suggested={},
+        unknown={"XX": "MYSTERY FLAG"},
+        final={},
+    )
+    widget = FlagReviewWidget(result)
+    qtbot.addWidget(widget)
+
+    combo = widget._code_inputs["XX"]
+    assert combo.maximumWidth() == COMBO_MAX_WIDTH
+
+
+def test_combo_popup_stays_wide_enough_for_long_descriptions(qtbot):
+    """The dropdown popup view is not constrained by the narrower closed field."""
+    from app.converters.flag_mapper import FlagMappingResult
+    from app.widgets.flag_review_widget import FlagReviewWidget, COMBO_MAX_WIDTH, COMBO_POPUP_MIN_WIDTH
+    result = FlagMappingResult(
+        known={},
+        suggested={},
+        unknown={"XX": "MYSTERY FLAG"},
+        final={},
+    )
+    widget = FlagReviewWidget(result)
+    qtbot.addWidget(widget)
+
+    combo = widget._code_inputs["XX"]
+    assert combo.view().minimumWidth() >= COMBO_POPUP_MIN_WIDTH
+    assert combo.view().minimumWidth() > COMBO_MAX_WIDTH
+
+
 def test_leave_as_is_disables_combo(qtbot):
     """Checking 'Leave as-is' disables the combo box; unchecking re-enables it."""
     from app.converters.flag_mapper import FlagMappingResult
