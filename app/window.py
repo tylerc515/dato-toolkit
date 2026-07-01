@@ -415,7 +415,7 @@ class MainWindow(QMainWindow):
         text_col = QVBoxLayout()
         text_col.setSpacing(0)
         self.update_banner_version_label = QLabel("")
-        self.update_banner_version_label.setStyleSheet("color: #eaeaea; font-weight: 600;")
+        self.update_banner_version_label.setStyleSheet(f"color: {Color.TEXT_PRIMARY}; font-weight: 600;")
         text_col.addWidget(self.update_banner_version_label)
         self.update_banner_date_label = QLabel("")
         self.update_banner_date_label.setStyleSheet(f"color: {UPDATE_BANNER_BORDER_COLOR}; font-size: 10pt;")
@@ -450,7 +450,7 @@ class MainWindow(QMainWindow):
         layout.setContentsMargins(16, 0, 16, 0)
 
         lbl = QLabel(PENDING_BANNER_TEXT)
-        lbl.setStyleSheet("color: #eaeaea;")
+        lbl.setStyleSheet(f"color: {Color.TEXT_PRIMARY};")
         layout.addWidget(lbl, 1)
 
         install_btn = QPushButton(INSTALL_NOW_TEXT)

@@ -24,7 +24,6 @@ from app.design.icons import icon
 from app.design.tokens import Color, FontSize, Radius, Spacing
 from app.parser import TraceFileData, TraceParseError, parse_trace_csv
 from app.project import find_project_for_metadata, find_similar_project_for_metadata
-from app.styles import color
 from app.widgets import HelpPanel
 from app.widgets.components import Card
 
@@ -224,7 +223,7 @@ class ImportPage(QWidget):
         self.warning_banner = QLabel(WARNING_BANNER_TEXT)
         self.warning_banner.setWordWrap(True)
         self.warning_banner.setStyleSheet(
-            f"background-color: {color('warning')}; color: #1a1a2e; border-radius: 8px; padding: 10px;"
+            f"background-color: {Color.WARNING}; color: {Color.PAGE_BG}; border-radius: 8px; padding: 10px;"
         )
         self.warning_banner.setVisible(False)
         content_layout.addWidget(self.warning_banner)
