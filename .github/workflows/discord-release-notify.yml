@@ -1,0 +1,31 @@
+name: Discord Release Notification
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (prints payload, does not post to Discord)'
+        type: boolean
+        default: false
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Send Discord notification
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          DISCORD_ANALYST_ROLE_ID: ${{ secrets.DISCORD_ANALYST_ROLE_ID }}
+        run: |
+          python scripts/notify_discord_release.py ${{ github.event.inputs.dry_run == 'true' && '--dry-run' || '' }}
