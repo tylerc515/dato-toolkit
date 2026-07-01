@@ -6,6 +6,7 @@ from PyQt6.QtCore import QTimer, Qt, pyqtSignal
 from PyQt6.QtGui import QColor
 from PyQt6.QtWidgets import (
     QAbstractItemView,
+    QFrame,
     QHBoxLayout,
     QLabel,
     QLineEdit,
@@ -17,6 +18,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from app.design.tokens import Color, Spacing
 from app.parser import TraceFileData
 from app.project import AuxItem, ProjectConfig, ProjectSection
 from app.titlegen import generate_title
@@ -52,7 +54,7 @@ the standard tube sections (e.g. RT of economizer, SWUT sootblower welds).
 Both sections are optional and will only appear in the tracker if you add items.</p>
 """
 
-_COUNT_COLOR = QColor("#888888")
+_COUNT_COLOR = QColor(Color.TEXT_MUTED)
 
 
 class _SectionCountDelegate(QStyledItemDelegate):
@@ -123,6 +125,7 @@ class ReorderPage(QWidget):
         content_layout.addLayout(header_row)
 
         title_label = QLabel(TITLE_FIELD_LABEL)
+        title_label.setProperty("role", "label")
         content_layout.addWidget(title_label)
         self.title_edit = QLineEdit()
         self.title_edit.setToolTip("Edit the title that appears at the top of the generated tracker")
@@ -133,6 +136,7 @@ class ReorderPage(QWidget):
 
         list_column = QVBoxLayout()
         list_label = QLabel(SECTION_LIST_LABEL)
+        list_label.setProperty("role", "label")
         list_column.addWidget(list_label)
         self.section_list = QListWidget()
         self.section_list.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
@@ -176,10 +180,11 @@ class ReorderPage(QWidget):
         self.help_panel.toggle()
 
     def _build_additional_panel(self) -> QWidget:
-        container = QWidget()
+        container = QFrame()
+        container.setProperty("card", "true")
         layout = QVBoxLayout(container)
-        layout.setContentsMargins(0, 4, 0, 4)
-        layout.setSpacing(4)
+        layout.setContentsMargins(Spacing.MD, Spacing.SM, Spacing.MD, Spacing.SM)
+        layout.setSpacing(Spacing.SM)
 
         toggle_row = QHBoxLayout()
         self._additional_toggle = QPushButton(f"▶  {ADDITIONAL_SECTIONS_LABEL}")
@@ -192,8 +197,8 @@ class ReorderPage(QWidget):
 
         self._additional_body = QWidget()
         body_layout = QVBoxLayout(self._additional_body)
-        body_layout.setContentsMargins(12, 8, 0, 8)
-        body_layout.setSpacing(16)
+        body_layout.setContentsMargins(Spacing.MD, Spacing.SM, 0, Spacing.SM)
+        body_layout.setSpacing(Spacing.LG)
 
         self._aux_editor = ItemEditorWidget(AUX_EDITOR_TITLE)
         self._aux_editor.items_changed.connect(self._on_aux_changed)
