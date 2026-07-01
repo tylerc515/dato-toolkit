@@ -8,7 +8,6 @@ from typing import Optional
 
 from PyQt6.QtCore import QSettings, QThread, Qt, pyqtSignal
 from PyQt6.QtWidgets import (
-    QCheckBox,
     QFileDialog,
     QFrame,
     QHBoxLayout,
@@ -125,14 +124,12 @@ class _ConvertWorker(QThread):
         jobs: list[tuple[str, ATSParseResult]],
         flag_mapping: dict[str, str],
         output_dir: Path,
-        excel_safe: bool = False,
         parent: QWidget | None = None,
     ):
         super().__init__(parent)
         self._jobs = jobs
         self._flag_mapping = flag_mapping
         self._output_dir = output_dir
-        self._excel_safe = excel_safe
 
     def run(self) -> None:
         for source_path, result in self._jobs:
@@ -140,7 +137,7 @@ class _ConvertWorker(QThread):
             out_name = f"{section}_Standard_Format.csv"
             out_path = self._output_dir / out_name
             try:
-                write_standard_format(result, self._flag_mapping, out_path, excel_safe=self._excel_safe)
+                write_standard_format(result, self._flag_mapping, out_path)
                 self.file_done.emit(source_path, True, "")
             except Exception as exc:
                 self.file_done.emit(source_path, False, str(exc))
@@ -324,20 +321,6 @@ class ConverterPage(QWidget):
         folder_row.addWidget(browse_btn)
         output_layout.addLayout(folder_row)
 
-        self._excel_safe_check = QCheckBox("Excel-safe output (experimental)")
-        self._excel_safe_check.setChecked(False)
-        output_layout.addWidget(self._excel_safe_check)
-
-        excel_safe_hint = QLabel(
-            "Prevents Excel's leading-zero warning when opening the file directly. "
-            "Compatibility with TRACE has not been verified - test before relying "
-            "on this for production conversions."
-        )
-        excel_safe_hint.setWordWrap(True)
-        excel_safe_hint.setStyleSheet("font-style: italic; font-size: 8pt;")
-        excel_safe_hint.setProperty("role", "muted")
-        output_layout.addWidget(excel_safe_hint)
-
         self._convert_btn = QPushButton(CONVERT_ALL_TEXT)
         self._convert_btn.setProperty("accent", "true")
         self._convert_btn.setEnabled(False)
@@ -511,7 +494,6 @@ class ConverterPage(QWidget):
             jobs,
             self._flag_mapping,
             output_dir,
-            excel_safe=self._excel_safe_check.isChecked(),
             parent=self,
         )
         self._worker.file_done.connect(self._on_file_done)

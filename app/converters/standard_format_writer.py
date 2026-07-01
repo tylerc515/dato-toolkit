@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import csv
 import logging
-import re
 import sys
 from pathlib import Path
 
@@ -94,7 +93,6 @@ def write_standard_format(
     result: ATSParseResult,
     flag_mapping: dict[str, str],
     output_path: str | Path,
-    excel_safe: bool = False,
 ) -> None:
     """Write an ATSParseResult as a Standard Format CSV file.
 
@@ -102,8 +100,6 @@ def write_standard_format(
         result: parsed ATS data
         flag_mapping: {ats_code: standard_format_code} - the confirmed mapping
         output_path: where to write the CSV
-        excel_safe: when True, wrap numeric readings as ="value" so Excel
-            preserves leading zeros instead of converting them to numbers
     """
     n_cols = max(8, 5 + result.num_tubes)
     rows: list[list[str]] = []
@@ -151,18 +147,12 @@ def write_standard_format(
             logger.warning("Unrecognized flag code in reading: %r", val)
         return translated
 
-    def _excel_fmt(val: str) -> str:
-        """Wrap all-digit readings in Excel text formula to preserve leading zeros."""
-        if excel_safe and val.isdigit():
-            return f'="{val}"'
-        return val
-
     # Elevation blocks (3 rows each)
     for elevation in result.elevations:
         # Sub-row 1: UT Tech Name / label / LEFT / readings
         r1: dict[int, str] = {0: "UT Tech Name:", 2: elevation.label, 4: "LEFT"}
         for i, val in enumerate(elevation.left):
-            r1[5 + i] = _excel_fmt(_translate(val))
+            r1[5 + i] = _translate(val)
         rows.append(_make_row(n_cols, r1))
 
         # Sub-row 2: tech code / CNTR / readings
@@ -172,13 +162,13 @@ def write_standard_format(
             tech_code = "ATS"
         r2: dict[int, str] = {0: tech_code, 4: "CNTR"}
         for i, val in enumerate(elevation.cntr):
-            r2[5 + i] = _excel_fmt(_translate(val))
+            r2[5 + i] = _translate(val)
         rows.append(_make_row(n_cols, r2))
 
         # Sub-row 3: RGHT / readings
         r3: dict[int, str] = {4: "RGHT"}
         for i, val in enumerate(elevation.rght):
-            r3[5 + i] = _excel_fmt(_translate(val))
+            r3[5 + i] = _translate(val)
         rows.append(_make_row(n_cols, r3))
 
     # Repeat tube numbers - bottom
@@ -197,10 +187,3 @@ def write_standard_format(
     with out.open("w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
         writer.writerows(rows)
-
-    if excel_safe:
-        # csv.writer quotes ="234" as "=""234""" because the value contains double-quotes.
-        # Post-process to restore the literal ="value" form so Excel recognizes the formula.
-        text = out.read_text(encoding="utf-8")
-        text = re.sub(r'"=""(\d+)"""', lambda m: f'="{m.group(1)}"', text)
-        out.write_text(text, encoding="utf-8")
