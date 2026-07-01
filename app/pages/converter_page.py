@@ -28,8 +28,11 @@ from app.converters.flag_mapper import (
     confirm_session_mappings,
 )
 from app.converters.standard_format_writer import write_standard_format
-from app.styles import apply_card_shadow, color
+from app.design.icons import icon
+from app.design.tokens import Color, FontSize, Radius, Spacing
+from app.styles import color
 from app.widgets import HelpPanel
+from app.widgets.components import Card, PrimaryButton, SecondaryButton, StatCard
 from app.widgets.flag_review_widget import FlagReviewWidget
 
 logger = logging.getLogger(__name__)
@@ -166,7 +169,7 @@ class _ConvertWorker(QThread):
         self.all_done.emit()
 
 
-class _FileCard(QFrame):
+class _FileCard(Card):
     """One imported file shown in the file list."""
 
     remove_requested = pyqtSignal(str)  # path
@@ -174,11 +177,10 @@ class _FileCard(QFrame):
     def __init__(self, path: str, result: ATSParseResult, parent: QWidget | None = None):
         super().__init__(parent)
         self._path = path
-        self.setProperty("card", "true")
-        apply_card_shadow(self)
+        self.layout().setContentsMargins(Spacing.MD, Spacing.SM, Spacing.MD, Spacing.SM)
 
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(12, 8, 12, 8)
+        row = QHBoxLayout()
+        self.layout().addLayout(row)
 
         info = QVBoxLayout()
         name_lbl = QLabel(f"<b>{Path(path).name}</b>")
@@ -190,14 +192,14 @@ class _FileCard(QFrame):
         )
         detail.setProperty("role", "muted")
         info.addWidget(detail)
-        layout.addLayout(info, 1)
+        row.addLayout(info, 1)
 
         remove_btn = QPushButton("✕")
         remove_btn.setFixedSize(24, 24)
         remove_btn.setProperty("flat", "true")
         remove_btn.setToolTip("Remove this file")
         remove_btn.clicked.connect(lambda: self.remove_requested.emit(self._path))
-        layout.addWidget(remove_btn)
+        row.addWidget(remove_btn)
 
 
 class _ErrorCard(QFrame):
@@ -206,13 +208,13 @@ class _ErrorCard(QFrame):
     def __init__(self, path: str, error: str, parent: QWidget | None = None):
         super().__init__(parent)
         self.setStyleSheet(
-            f"QFrame {{ background-color: #2a1a1a; border: 1px solid {color('error')}; "
-            f"border-radius: 6px; }}"
+            f"QFrame {{ background-color: {Color.CARD_BG}; border: 1px solid {Color.DANGER}; "
+            f"border-radius: {Radius.CARD}px; }}"
         )
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(12, 8, 12, 8)
+        layout.setContentsMargins(Spacing.MD, Spacing.SM, Spacing.MD, Spacing.SM)
         lbl = QLabel(f"<b>{Path(path).name}</b>: {error}")
-        lbl.setStyleSheet(f"color: {color('error')};")
+        lbl.setStyleSheet(f"color: {Color.DANGER};")
         lbl.setWordWrap(True)
         layout.addWidget(lbl, 1)
 
@@ -244,11 +246,13 @@ class ConverterPage(QWidget):
 
         # Header
         header_row = QHBoxLayout()
-        back_btn = QPushButton(BACK_TEXT)
-        back_btn.setProperty("flat", "true")
+        back_btn = SecondaryButton(BACK_TEXT)
         back_btn.clicked.connect(self.back_requested.emit)
         header_row.addWidget(back_btn)
-        header_row.addSpacing(12)
+        header_row.addSpacing(Spacing.MD)
+        title_icon = QLabel()
+        title_icon.setPixmap(icon("arrows-left-right", color=Color.TEXT_PRIMARY).pixmap(20, 20))
+        header_row.addWidget(title_icon)
         title = QLabel(TITLE_TEXT)
         title.setProperty("role", "heading")
         header_row.addWidget(title)
@@ -260,22 +264,38 @@ class ConverterPage(QWidget):
         header_row.addWidget(help_btn)
         main_layout.addLayout(header_row)
 
-        # Sub-navigation tabs
+        # Sub-navigation tabs (pill-style)
         tab_row = QHBoxLayout()
         ats_tab = QPushButton(ATS_TAB_TEXT)
         ats_tab.setStyleSheet(
-            f"QPushButton {{ background-color: {color('highlight')}; color: {color('text')}; "
-            f"font-weight: 600; border-radius: 6px; padding: 4px 12px; }}"
+            f"QPushButton {{ background-color: {Color.ACCENT}; color: {Color.TEXT_PRIMARY}; "
+            f"font-weight: 600; border: none; border-radius: {Radius.PILL}px; "
+            f"padding: {Spacing.SM}px {Spacing.LG}px; }}"
         )
         tab_row.addWidget(ats_tab)
         for tab_text in (TEAM_TAB_TEXT, TDS_TAB_TEXT):
             btn = QPushButton(tab_text)
             btn.setEnabled(False)
             btn.setToolTip(COMING_SOON_TOOLTIP)
-            btn.setProperty("flat", "true")
+            btn.setStyleSheet(
+                f"QPushButton {{ background-color: transparent; color: {Color.TEXT_MUTED}; "
+                f"border: 1px solid {Color.BORDER}; border-radius: {Radius.PILL}px; "
+                f"padding: {Spacing.SM}px {Spacing.LG}px; }}"
+            )
             tab_row.addWidget(btn)
         tab_row.addStretch(1)
         main_layout.addLayout(tab_row)
+
+        # Stat card row
+        stats_row = QHBoxLayout()
+        stats_row.setSpacing(Spacing.MD)
+        self._stat_files = StatCard("Files loaded", "0")
+        self._stat_elevations = StatCard("Elevations", "0")
+        self._stat_flags = StatCard("Flags needing review", "0")
+        stats_row.addWidget(self._stat_files)
+        stats_row.addWidget(self._stat_elevations)
+        stats_row.addWidget(self._stat_flags)
+        main_layout.addLayout(stats_row)
 
         # Scrollable content area
         scroll = QScrollArea()
@@ -283,15 +303,13 @@ class ConverterPage(QWidget):
         scroll.setFrameShape(QFrame.Shape.NoFrame)
         content = QWidget()
         self._content_layout = QVBoxLayout(content)
-        self._content_layout.setSpacing(12)
+        self._content_layout.setSpacing(Spacing.MD)
         scroll.setWidget(content)
         main_layout.addWidget(scroll, 1)
 
         # Section 1: Import
-        import_card = QFrame()
-        import_card.setProperty("card", "true")
-        apply_card_shadow(import_card)
-        import_layout = QVBoxLayout(import_card)
+        import_card = Card()
+        import_layout = import_card.layout()
 
         import_header = QHBoxLayout()
         import_header.addWidget(QLabel("<b>Import ATS Files</b>"))
@@ -311,7 +329,7 @@ class ConverterPage(QWidget):
         import_layout.addWidget(self._drop_zone)
 
         self._file_list_layout = QVBoxLayout()
-        self._file_list_layout.setSpacing(6)
+        self._file_list_layout.setSpacing(Spacing.SM)
         import_layout.addLayout(self._file_list_layout)
 
         self._content_layout.addWidget(import_card)
@@ -323,10 +341,8 @@ class ConverterPage(QWidget):
         self._content_layout.addWidget(self._flag_widget_container)
 
         # Section 3: Output
-        output_card = QFrame()
-        output_card.setProperty("card", "true")
-        apply_card_shadow(output_card)
-        output_layout = QVBoxLayout(output_card)
+        output_card = Card()
+        output_layout = output_card.layout()
         output_layout.addWidget(QLabel("<b>Output</b>"))
 
         folder_row = QHBoxLayout()
@@ -337,14 +353,13 @@ class ConverterPage(QWidget):
         saved = self._load_output_folder()
         self._output_folder_edit.setText(saved if saved else "")
         folder_row.addWidget(self._output_folder_edit, 1)
-        browse_btn = QPushButton(BROWSE_TEXT)
-        browse_btn.setProperty("flat", "true")
+        browse_btn = SecondaryButton(BROWSE_TEXT)
         browse_btn.clicked.connect(self._on_browse_output)
         folder_row.addWidget(browse_btn)
         output_layout.addLayout(folder_row)
 
-        self._convert_btn = QPushButton(CONVERT_ALL_TEXT)
-        self._convert_btn.setProperty("accent", "true")
+        self._convert_btn = PrimaryButton(CONVERT_ALL_TEXT)
+        self._convert_btn.setIcon(icon("play", color=Color.TEXT_PRIMARY))
         self._convert_btn.setEnabled(False)
         self._convert_btn.clicked.connect(self._on_convert)
         output_layout.addWidget(self._convert_btn)
@@ -404,6 +419,7 @@ class ConverterPage(QWidget):
         self._clear_all_btn.setEnabled(bool(self._imported) or bool(self._errors))
         self._flags_confirmed = False
         self._flag_mapping = {}
+        self._update_file_stats()
         self._refresh_flag_widget()
         self._update_convert_button()
 
@@ -422,6 +438,7 @@ class ConverterPage(QWidget):
         for p, e in self._errors.items():
             self._file_list_layout.addWidget(_ErrorCard(p, e, self))
         self._clear_all_btn.setEnabled(bool(self._imported) or bool(self._errors))
+        self._update_file_stats()
         self._refresh_flag_widget()
         self._update_convert_button()
 
@@ -435,8 +452,15 @@ class ConverterPage(QWidget):
         self._clear_all_btn.setEnabled(False)
         self._flags_confirmed = False
         self._flag_mapping = {}
+        self._update_file_stats()
         self._refresh_flag_widget()
         self._update_convert_button()
+
+    def _update_file_stats(self) -> None:
+        self._stat_files.set_value(str(len(self._imported)))
+        self._stat_elevations.set_value(
+            str(sum(len(r.elevations) for r in self._imported.values()))
+        )
 
     # --- Flag review ---
 
@@ -449,6 +473,7 @@ class ConverterPage(QWidget):
         if not self._imported:
             self._flags_confirmed = False
             self._flag_mapping = {}
+            self._set_flags_needing_review(0)
             return
 
         all_flags: dict[str, str] = {}
@@ -456,9 +481,20 @@ class ConverterPage(QWidget):
             all_flags.update(result.ats_flags)
 
         mapping_result = build_flag_mapping(all_flags)
+        self._set_flags_needing_review(len(mapping_result.unknown) + len(mapping_result.suggested))
         flag_widget = FlagReviewWidget(mapping_result, all_flags, self)
         flag_widget.mappings_confirmed.connect(self._on_flags_confirmed)
         self._flag_widget_layout.addWidget(flag_widget)
+
+    def _set_flags_needing_review(self, count: int) -> None:
+        self._stat_flags.set_value(str(count))
+        # StatCard doesn't expose a public color setter, so this reaches into
+        # its private value label to swap the semantic color at runtime -
+        # matching the styling StatCard.__init__ applies for value_color.
+        value_color = Color.WARNING if count > 0 else Color.TEXT_PRIMARY
+        self._stat_flags._value_label.setStyleSheet(
+            f"color: {value_color}; font-size: {FontSize.STAT_NUMBER}px; font-weight: 500;"
+        )
 
     def _on_flags_confirmed(self, mapping: dict[str, str]) -> None:
         all_flags: dict[str, str] = {}
@@ -548,9 +584,9 @@ class ConverterPage(QWidget):
 
     def _on_file_done(self, path: str, success: bool, error: str) -> None:
         self._progress_bar.setValue(self._progress_bar.value() + 1)
-        icon = "✓" if success else "✗"
+        status_icon = "✓" if success else "✗"
         style_color = color("success") if success else color("error")
-        text = f"{icon} {Path(path).name}" + (f": {error}" if error else "")
+        text = f"{status_icon} {Path(path).name}" + (f": {error}" if error else "")
         lbl = QLabel(text)
         lbl.setStyleSheet(f"color: {style_color};")
         self._results_layout.addWidget(lbl)
