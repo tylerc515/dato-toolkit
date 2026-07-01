@@ -27,11 +27,13 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from app.design.icons import icon
+from app.design.tokens import Color, Radius, Spacing
 from app.email_export import EmailData, OtherItem, ScopeSection, build_email_doc
 from app.history import HistoryEntry, add_history_entry
 from app.project import ProjectConfig, ProjectError, get_projects_dir, list_projects, load_project, sanitize_filename
-from app.styles import apply_card_shadow, color
 from app.widgets import HelpPanel
+from app.widgets.components import Card, PrimaryButton, SecondaryButton
 
 logger = logging.getLogger(__name__)
 
@@ -49,8 +51,6 @@ BROWSE_TEXT = "Browse…"
 DOCX_SUFFIX = ".docx"
 STATUS_HINT = "Tip: Load a tracker project first so sections are pre-filled automatically."
 
-LINK_BAR_BG = "#1a3a2a"
-LINK_BAR_BORDER = "#00B050"
 LINKED_PREFIX = "✓ Linked to: "
 UNLINK_TEXT = "Unlink"
 NO_PROJECT_HEADING = "No tracker project linked"
@@ -285,18 +285,24 @@ class EmailPage(QWidget):
         # Slim link bar (shown when a project is linked)
         self._link_bar = QFrame()
         self._link_bar.setStyleSheet(
-            f"QFrame {{ background-color: {LINK_BAR_BG}; border-left: 4px solid {LINK_BAR_BORDER}; }}"
+            f"QFrame {{ background-color: {Color.CARD_BG}; "
+            f"border-left: 4px solid {Color.SUCCESS}; }}"
         )
         self._link_bar.setFixedHeight(44)
         self._link_bar.setVisible(False)
         link_bar_layout = QHBoxLayout(self._link_bar)
-        link_bar_layout.setContentsMargins(16, 0, 16, 0)
+        link_bar_layout.setContentsMargins(Spacing.LG, 0, Spacing.LG, 0)
         self._link_label = QLabel("")
-        self._link_label.setStyleSheet("color: #eaeaea; font-weight: 600;")
+        # config.title/config.equipment originate from parsed TRACE CSV content
+        # (or user-edited free text), so force plain text: Qt's rich-text
+        # auto-detection would otherwise sniff a stray "<" in that data and
+        # render it as HTML.
+        self._link_label.setTextFormat(Qt.TextFormat.PlainText)
+        self._link_label.setStyleSheet(f"color: {Color.TEXT_PRIMARY}; font-weight: 600;")
         link_bar_layout.addWidget(self._link_label, 1)
         unlink_btn = QPushButton(UNLINK_TEXT)
         unlink_btn.setProperty("flat", "true")
-        unlink_btn.setStyleSheet("color: #9aa0b4;")
+        unlink_btn.setStyleSheet(f"color: {Color.TEXT_MUTED};")
         unlink_btn.clicked.connect(self._unlink)
         link_bar_layout.addWidget(unlink_btn)
         content_wrapper_layout.addWidget(self._link_bar)
@@ -307,7 +313,7 @@ class EmailPage(QWidget):
         scroll.setFrameShape(QFrame.Shape.NoFrame)
         scroll_content = QWidget()
         self._form_layout = QVBoxLayout(scroll_content)
-        self._form_layout.setSpacing(16)
+        self._form_layout.setSpacing(Spacing.LG)
         scroll.setWidget(scroll_content)
         content_wrapper_layout.addWidget(scroll, 1)
 
@@ -326,11 +332,9 @@ class EmailPage(QWidget):
         self.help_panel = HelpPanel(HELP_TITLE, HELP_BODY)
         outer.addWidget(self.help_panel)
 
-    def _section_card(self, title: str) -> tuple[QFrame, QVBoxLayout]:
-        card = QFrame()
-        card.setProperty("card", "true")
-        apply_card_shadow(card)
-        layout = QVBoxLayout(card)
+    def _section_card(self, title: str) -> tuple[Card, QVBoxLayout]:
+        card = Card()
+        layout = card.layout()
         heading = QLabel(title)
         heading.setProperty("role", "heading")
         layout.addWidget(heading)
@@ -380,7 +384,7 @@ class EmailPage(QWidget):
     def _build_scope_section(self) -> None:
         card, layout = self._section_card("Scope of Work")
         self._scope_container = QVBoxLayout()
-        self._scope_container.setSpacing(4)
+        self._scope_container.setSpacing(Spacing.XS)
         layout.addLayout(self._scope_container)
         no_lbl = QLabel("No sections loaded. Load a tracker project to pre-fill.")
         no_lbl.setProperty("role", "muted")
@@ -390,7 +394,7 @@ class EmailPage(QWidget):
     def _build_other_items_section(self) -> None:
         card, layout = self._section_card("Other Scope Items")
         self._aux_container = QVBoxLayout()
-        self._aux_container.setSpacing(4)
+        self._aux_container.setSpacing(Spacing.XS)
         layout.addLayout(self._aux_container)
         no_lbl = QLabel("No auxiliary items. Load a tracker project with auxiliary items.")
         no_lbl.setProperty("role", "muted")
@@ -400,7 +404,7 @@ class EmailPage(QWidget):
     def _build_punchlist_section(self) -> None:
         card, layout = self._section_card("Punchlist")
         self._punch_container = QVBoxLayout()
-        self._punch_container.setSpacing(4)
+        self._punch_container.setSpacing(Spacing.XS)
         layout.addLayout(self._punch_container)
         no_lbl = QLabel("No punchlist items.")
         no_lbl.setProperty("role", "muted")
@@ -408,14 +412,14 @@ class EmailPage(QWidget):
         self._form_layout.addWidget(card)
 
     def _build_no_project_card(self) -> None:
-        self._no_project_card = QFrame()
-        self._no_project_card.setProperty("card", "true")
-        apply_card_shadow(self._no_project_card)
-        np_layout = QVBoxLayout(self._no_project_card)
-        np_layout.setSpacing(8)
+        self._no_project_card = Card()
+        np_layout = self._no_project_card.layout()
+        np_layout.setSpacing(Spacing.SM)
 
         heading_row = QHBoxLayout()
-        heading_row.addWidget(QLabel("🔗"))
+        link_icon = QLabel()
+        link_icon.setPixmap(icon("link", color=Color.TEXT_MUTED).pixmap(20, 20))
+        heading_row.addWidget(link_icon)
         heading_lbl = QLabel(NO_PROJECT_HEADING)
         heading_lbl.setProperty("role", "heading")
         heading_row.addWidget(heading_lbl)
@@ -428,11 +432,10 @@ class EmailPage(QWidget):
         np_layout.addWidget(sub_lbl)
 
         btn_row = QHBoxLayout()
-        load_file_btn = QPushButton(LOAD_FILE_TEXT)
+        load_file_btn = PrimaryButton(LOAD_FILE_TEXT)
         load_file_btn.clicked.connect(self._load_from_file)
         btn_row.addWidget(load_file_btn)
-        browse_recent_btn = QPushButton(BROWSE_RECENT_TEXT)
-        browse_recent_btn.setProperty("flat", "true")
+        browse_recent_btn = SecondaryButton(BROWSE_RECENT_TEXT)
         browse_recent_btn.clicked.connect(self._browse_recent)
         btn_row.addWidget(browse_recent_btn)
         btn_row.addStretch(1)
@@ -453,8 +456,7 @@ class EmailPage(QWidget):
         folder_row.addWidget(QLabel("Folder"))
         self._folder_edit = QLineEdit(str(Path.home() / "Documents"))
         folder_row.addWidget(self._folder_edit, 1)
-        browse_btn = QPushButton(BROWSE_TEXT)
-        browse_btn.setProperty("flat", "true")
+        browse_btn = SecondaryButton(BROWSE_TEXT)
         browse_btn.clicked.connect(self._browse_folder)
         folder_row.addWidget(browse_btn)
         layout.addLayout(folder_row)
@@ -464,33 +466,39 @@ class EmailPage(QWidget):
         self._progress_bar.setVisible(False)
         layout.addWidget(self._progress_bar)
 
-        self._success_card = QFrame()
-        self._success_card.setProperty("card", "true")
-        success_layout = QVBoxLayout(self._success_card)
+        self._success_card = Card()
+        self._success_card.setStyleSheet(
+            f"QFrame {{ background-color: {Color.CARD_BG}; border: 1px solid {Color.SUCCESS}; "
+            f"border-radius: {Radius.CARD}px; }}"
+        )
+        success_layout = self._success_card.layout()
+        success_heading_row = QHBoxLayout()
+        success_heading_icon = QLabel()
+        success_heading_icon.setPixmap(icon("check", color=Color.SUCCESS).pixmap(20, 20))
+        success_heading_row.addWidget(success_heading_icon)
         success_heading = QLabel(SUCCESS_TITLE)
         success_heading.setProperty("role", "heading")
-        success_layout.addWidget(success_heading)
+        success_heading.setStyleSheet(f"color: {Color.SUCCESS};")
+        success_heading_row.addWidget(success_heading)
+        success_heading_row.addStretch(1)
+        success_layout.addLayout(success_heading_row)
         success_text = QLabel(SUCCESS_TEXT)
         success_layout.addWidget(success_text)
         success_btns = QHBoxLayout()
-        self._open_doc_btn = QPushButton(OPEN_DOC_TEXT)
-        self._open_doc_btn.setProperty("accent", "true")
+        self._open_doc_btn = PrimaryButton(OPEN_DOC_TEXT)
         self._open_doc_btn.clicked.connect(self._open_document)
         success_btns.addWidget(self._open_doc_btn)
-        self._open_folder_btn = QPushButton(OPEN_FOLDER_TEXT)
-        self._open_folder_btn.setProperty("flat", "true")
+        self._open_folder_btn = SecondaryButton(OPEN_FOLDER_TEXT)
         self._open_folder_btn.clicked.connect(self._open_folder)
         success_btns.addWidget(self._open_folder_btn)
-        self._again_btn = QPushButton(GENERATE_ANOTHER_TEXT)
-        self._again_btn.setProperty("flat", "true")
+        self._again_btn = SecondaryButton(GENERATE_ANOTHER_TEXT)
         self._again_btn.clicked.connect(self._reset)
         success_btns.addWidget(self._again_btn)
         success_layout.addLayout(success_btns)
         self._success_card.setVisible(False)
         layout.addWidget(self._success_card)
 
-        self._generate_btn = QPushButton(GENERATE_TEXT)
-        self._generate_btn.setProperty("accent", "true")
+        self._generate_btn = PrimaryButton(GENERATE_TEXT)
         self._generate_btn.clicked.connect(self._on_generate)
         layout.addWidget(self._generate_btn)
 
