@@ -145,7 +145,7 @@ class FixedGridTable(QWidget):
                 f"add_row expected {len(self._columns)} values, got {len(values)}"
             )
         for col_idx, widget in enumerate(values):
-            if isinstance(widget, QLabel):
+            if type(widget) is QLabel:
                 widget.setStyleSheet(
                     f"color: {Color.TEXT_SECONDARY}; font-size: {FontSize.BODY}px; "
                     f"border-top: 1px solid {Color.BORDER}; padding: {Spacing.SM}px;"

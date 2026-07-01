@@ -124,3 +124,29 @@ def test_fixed_grid_table_clear_rows_keeps_header():
     table.clear_rows()
     # Header row only = 2 columns
     assert table._grid.count() == 2
+
+
+def test_fixed_grid_table_add_row_preserves_qlabel_subclass_styling():
+    # Regression test: add_row() must not clobber a QLabel *subclass's*
+    # own semantic styling (e.g. StatusBadge's color/pill CSS) - only
+    # plain QLabel instances should receive the generic data-cell style.
+    from app.widgets.components import FixedGridTable, StatusBadge
+
+    table = FixedGridTable([
+        {"label": "Code", "width": 90},
+        {"label": "Status", "stretch": True},
+    ])
+    badge = StatusBadge("Auto-mapped", "success")
+    badge_style_before = badge.styleSheet()
+    plain_label = QLabel("NC")
+
+    table.add_row([plain_label, badge])
+
+    # StatusBadge's own styling must survive untouched.
+    assert badge.styleSheet() == badge_style_before
+    assert "border-radius" in badge.styleSheet()
+    assert "border-top" not in badge.styleSheet()
+
+    # Plain QLabel must still get the generic data-cell styling applied.
+    assert "border-top" in plain_label.styleSheet()
+    assert "padding" in plain_label.styleSheet()
