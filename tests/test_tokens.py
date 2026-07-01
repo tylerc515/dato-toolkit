@@ -41,7 +41,7 @@ def test_radius_tokens_have_expected_values():
 def test_font_size_tokens_have_expected_values():
     from app.design.tokens import FontSize
     assert (FontSize.LABEL, FontSize.SMALL, FontSize.BODY, FontSize.SECTION, FontSize.PAGE_TITLE, FontSize.STAT_NUMBER) == (
-        11, 12, 13, 14, 18, 22,
+        12, 13, 14, 15, 20, 24,
     )
 
 

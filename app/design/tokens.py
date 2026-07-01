@@ -55,12 +55,12 @@ class Radius:
 
 
 class FontSize:
-    LABEL = 11
-    SMALL = 12
-    BODY = 13
-    SECTION = 14
-    PAGE_TITLE = 18
-    STAT_NUMBER = 22
+    LABEL = 12
+    SMALL = 13
+    BODY = 14
+    SECTION = 15
+    PAGE_TITLE = 20
+    STAT_NUMBER = 24
 
 
 FONT_FAMILY = "Segoe UI"
