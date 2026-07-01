@@ -16,6 +16,7 @@ from PyQt6.QtWidgets import (
 
 from app.converters.flag_mapper import FlagMappingResult, STANDARD_SYMBOL_DESCRIPTIONS
 from app.styles import color
+from app.widgets.components import FixedGridTable, StatusBadge
 
 HEADING_TEXT = "Flag Review"
 SUBTEXT_ALL_KNOWN = "All flag codes were auto-mapped. No review needed."
@@ -31,12 +32,49 @@ CONFIRM_TEXT = "Confirm Mappings"
 AUTO_MAPPED_LABEL = "Auto-mapped"
 NEEDS_MAPPING_LABEL = "Needs mapping"
 SUGGESTED_MATCH_LABEL = "Suggested match"
-SUGGESTED_MATCH_COLOR = "#4da6ff"
 LEAVE_AS_IS_TEXT = "Leave as-is"
 COMBO_SEPARATOR = "  -  "
 COMBO_MIN_WIDTH = 220
-COMBO_MAX_WIDTH = 340
+COMBO_MAX_WIDTH = 230
 COMBO_POPUP_MIN_WIDTH = 400
+
+# StatusBadge only supports "success" / "warning" / "danger" semantics
+# (see app/widgets/components.py::_SEMANTIC_COLORS). Map every status this
+# widget can show onto one of those three:
+#   - Auto-mapped   -> success  (fully resolved, no action needed)
+#   - Suggested     -> warning  (needs user confirmation before it's final;
+#                                 there is no "info"/blue semantic available,
+#                                 so this is the closest of the three)
+#   - Needs mapping -> warning  (action required)
+#   - Leave as-is   -> success  (once checked, the row is settled/resolved,
+#                                 same as auto-mapped - just resolved by the
+#                                 user instead of the auto-mapper)
+_STATUS_SEMANTIC_AUTO_MAPPED = "success"
+_STATUS_SEMANTIC_SUGGESTED = "warning"
+_STATUS_SEMANTIC_NEEDS_MAPPING = "warning"
+_STATUS_SEMANTIC_LEAVE_AS_IS = "success"
+
+_COLUMNS = [
+    {"label": "ATS Code", "width": 90},
+    {"label": "ATS Description", "stretch": True},
+    {"label": "Standard Symbol", "width": 260},
+    {"label": "Status", "width": 130},
+    {"label": "Leave as-is", "width": 90},
+]
+
+
+def _cell(widget: QWidget, alignment: Qt.AlignmentFlag) -> QWidget:
+    """Wrap widget in a plain QWidget so FixedGridTable.add_row's automatic
+    QLabel restyling (which would clobber StatusBadge's semantic color, since
+    StatusBadge is a QLabel subclass) never touches it, and so it can be
+    given an explicit alignment inside its fixed-width grid cell instead of
+    stretching to fill the whole column."""
+    wrapper = QWidget()
+    layout = QHBoxLayout(wrapper)
+    layout.setContentsMargins(0, 0, 0, 0)
+    layout.addWidget(widget)
+    layout.setAlignment(widget, alignment)
+    return wrapper
 
 
 def _symbol_from_display(text: str) -> str:
@@ -124,40 +162,27 @@ class FlagReviewWidget(QWidget):
         scroll.setWidget(scroll_content)
         outer.addWidget(scroll)
 
-        # Column headers
-        header = QHBoxLayout()
-        for label, stretch in [
-            ("ATS Code", 1),
-            ("ATS Description", 3),
-            ("Standard Symbol", 3),
-            ("Status", 2),
-            ("", 1),
-        ]:
-            lbl = QLabel(f"<b>{label}</b>")
-            header.addWidget(lbl, stretch)
-        scroll_layout.addLayout(header)
+        self._table = FixedGridTable(_COLUMNS)
+        scroll_layout.addWidget(self._table)
 
-        # Known flags (read-only display)
+        # Known flags (read-only display) - now goes through the same
+        # table.add_row() path as suggested/unknown flags, eliminating the
+        # pre-redesign special case where known rows used a different
+        # construction than the other two categories.
         for ats_code, std_code in self._mapping_result.known.items():
             description = self._mapping_result.unknown.get(ats_code, ats_code)
-            row = QHBoxLayout()
-            row.addWidget(QLabel(ats_code), 1)
-            row.addWidget(QLabel(description), 3)
-            code_lbl = QLabel(std_code)
-            code_lbl.setStyleSheet(f"color: {color('success')};")
-            row.addWidget(code_lbl, 3)
-            status = QLabel(AUTO_MAPPED_LABEL)
-            status.setStyleSheet(f"color: {color('success')}; font-size: 9pt;")
-            row.addWidget(status, 2)
-            row.addWidget(QLabel(""), 1)
-            scroll_layout.addLayout(row)
+            status_badge = StatusBadge(AUTO_MAPPED_LABEL, _STATUS_SEMANTIC_AUTO_MAPPED)
+            self._table.add_row([
+                QLabel(ats_code),
+                QLabel(description),
+                QLabel(std_code),
+                _cell(status_badge, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter),
+                QLabel(""),
+            ])
 
         # Suggested flags (editable combo, pre-filled, no Leave as-is)
         for ats_code, std_symbol in self._mapping_result.suggested.items():
             description = self._ats_flags.get(ats_code, ats_code)
-            row = QHBoxLayout()
-            row.addWidget(QLabel(ats_code), 1)
-            row.addWidget(QLabel(description), 3)
 
             combo = _make_combo()
             display_text = (
@@ -167,39 +192,39 @@ class FlagReviewWidget(QWidget):
             combo.setCurrentText(display_text)
             combo.currentTextChanged.connect(self._on_input_changed)
             self._code_inputs[ats_code] = combo
-            row.addWidget(combo, 3)
 
-            status_lbl = QLabel(SUGGESTED_MATCH_LABEL)
-            status_lbl.setStyleSheet(f"color: {SUGGESTED_MATCH_COLOR}; font-size: 9pt;")
-            row.addWidget(status_lbl, 2)
+            status_badge = StatusBadge(SUGGESTED_MATCH_LABEL, _STATUS_SEMANTIC_SUGGESTED)
 
-            row.addWidget(QLabel(""), 1)
-            scroll_layout.addLayout(row)
+            self._table.add_row([
+                QLabel(ats_code),
+                QLabel(description),
+                _cell(combo, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter),
+                _cell(status_badge, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter),
+                QLabel(""),
+            ])
 
         # Unknown flags (editable combo, no pre-fill)
         for ats_code, description in self._mapping_result.unknown.items():
-            row = QHBoxLayout()
-            row.addWidget(QLabel(ats_code), 1)
-            row.addWidget(QLabel(description), 3)
-
             combo = _make_combo()
             combo.currentTextChanged.connect(self._on_input_changed)
             self._code_inputs[ats_code] = combo
-            row.addWidget(combo, 3)
 
-            status_lbl = QLabel(NEEDS_MAPPING_LABEL)
-            status_lbl.setStyleSheet(f"color: {color('warning')}; font-size: 9pt;")
-            row.addWidget(status_lbl, 2)
+            status_badge = StatusBadge(NEEDS_MAPPING_LABEL, _STATUS_SEMANTIC_NEEDS_MAPPING)
 
             leave_check = QCheckBox(LEAVE_AS_IS_TEXT)
             leave_check.stateChanged.connect(
-                lambda state, code=ats_code, inp=combo, lbl=status_lbl:
-                    self._on_leave_toggled(code, inp, lbl, state)
+                lambda state, code=ats_code, inp=combo, badge=status_badge:
+                    self._on_leave_toggled(code, inp, badge, state)
             )
             self._leave_checks[ats_code] = leave_check
-            row.addWidget(leave_check, 1)
 
-            scroll_layout.addLayout(row)
+            self._table.add_row([
+                QLabel(ats_code),
+                QLabel(description),
+                _cell(combo, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter),
+                _cell(status_badge, Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter),
+                _cell(leave_check, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter),
+            ])
 
         scroll_layout.addStretch(1)
 
@@ -215,16 +240,14 @@ class FlagReviewWidget(QWidget):
         self._update_confirm_button()
 
     def _on_leave_toggled(
-        self, code: str, inp: QComboBox, status_lbl: QLabel, state: int
+        self, code: str, inp: QComboBox, status_badge: StatusBadge, state: int
     ) -> None:
         checked = state == Qt.CheckState.Checked.value
         inp.setEnabled(not checked)
         if checked:
-            status_lbl.setText("Leave as-is")
-            status_lbl.setStyleSheet(f"color: {color('muted_text')}; font-size: 9pt;")
+            status_badge.set_status(LEAVE_AS_IS_TEXT, _STATUS_SEMANTIC_LEAVE_AS_IS)
         else:
-            status_lbl.setText(NEEDS_MAPPING_LABEL)
-            status_lbl.setStyleSheet(f"color: {color('warning')}; font-size: 9pt;")
+            status_badge.set_status(NEEDS_MAPPING_LABEL, _STATUS_SEMANTIC_NEEDS_MAPPING)
         self._update_confirm_button()
 
     def _on_input_changed(self) -> None:
