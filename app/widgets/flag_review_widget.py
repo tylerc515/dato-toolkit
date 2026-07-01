@@ -15,7 +15,7 @@ from PyQt6.QtWidgets import (
 )
 
 from app.converters.flag_mapper import FlagMappingResult, STANDARD_SYMBOL_DESCRIPTIONS
-from app.styles import color
+from app.design.tokens import Color, FontSize
 from app.widgets.components import FixedGridTable, StatusBadge
 
 HEADING_TEXT = "Flag Review"
@@ -144,7 +144,7 @@ class FlagReviewWidget(QWidget):
 
         if not self._mapping_result.unknown and not self._mapping_result.suggested:
             info = QLabel(SUBTEXT_ALL_KNOWN)
-            info.setStyleSheet(f"color: {color('success')}; font-size: 9pt;")
+            info.setStyleSheet(f"color: {Color.SUCCESS}; font-size: {FontSize.SMALL}px;")
             outer.addWidget(info)
             return
 
