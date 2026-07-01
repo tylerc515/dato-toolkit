@@ -1,52 +1,48 @@
-"""Theme palettes and stylesheet generation for DATO Toolkit."""
+"""Theme palette and stylesheet generation for DATO Toolkit.
+
+This app ships a single visual theme (the TRACE-inspired dark palette
+defined in app.design.tokens). THEME_LIGHT / theme-switching machinery
+is kept at the function-signature level only, so app/settings.py and
+main.py don't need changes in this pass - see docs/superpowers/plans/
+2026-07-01-visual-redesign.md Task 2 for why. Light mode is future work.
+
+The color() function is a TRANSITIONAL SHIM: it maps the old semantic
+palette key names (used by pages not yet rebuilt in this redesign) onto
+the new Color tokens, so unmigrated pages keep rendering correctly
+during the phased rollout. Delete it once every page has been rebuilt
+(Phase 9) and a grep confirms no callers remain.
+"""
 
 from __future__ import annotations
 
 from PyQt6.QtGui import QColor
 from PyQt6.QtWidgets import QGraphicsDropShadowEffect, QWidget
 
+from app.design.tokens import Color, FontSize, FONT_FAMILY, Radius, Spacing
+
 THEME_DARK = "dark"
 THEME_LIGHT = "light"
 THEME_NAMES = (THEME_DARK, THEME_LIGHT)
 DEFAULT_THEME = THEME_DARK
 
-THEMES: dict[str, dict[str, str]] = {
-    THEME_DARK: {
-        "background": "#1a1a2e",
-        "surface": "#16213e",
-        "accent": "#0f3460",
-        "button_hover": "#16498a",
-        "button_pressed": "#0a2745",
-        "button_disabled_bg": "#2a3050",
-        "highlight": "#e94560",
-        "highlight_hover": "#ff5c75",
-        "highlight_disabled_bg": "#5b3641",
-        "text": "#eaeaea",
-        "muted_text": "#9aa0b4",
-        "border": "#2c3759",
-        "success": "#3ddc97",
-        "warning": "#f7b731",
-        "error": "#e94560",
-        "chrome_hover": "#2a2a4a",
-    },
-    THEME_LIGHT: {
-        "background": "#f3f5fa",
-        "surface": "#ffffff",
-        "accent": "#3a5a99",
-        "button_hover": "#4a6cae",
-        "button_pressed": "#2c4677",
-        "button_disabled_bg": "#e4e7f0",
-        "highlight": "#e94560",
-        "highlight_hover": "#ff5c75",
-        "highlight_disabled_bg": "#f4d9de",
-        "text": "#1a1a2e",
-        "muted_text": "#6b7290",
-        "border": "#d6dbe8",
-        "success": "#1f9d63",
-        "warning": "#f7b731",
-        "error": "#d33b54",
-        "chrome_hover": "#e2e6f0",
-    },
+# TRANSITIONAL: old semantic key -> new token. See module docstring.
+_LEGACY_COLOR_MAP: dict[str, str] = {
+    "background": Color.PAGE_BG,
+    "surface": Color.CARD_BG,
+    "accent": Color.CARD_BG,
+    "button_hover": Color.BORDER_STRONG,
+    "button_pressed": Color.SIDEBAR_BG,
+    "button_disabled_bg": Color.CARD_BG,
+    "highlight": Color.ACCENT,
+    "highlight_hover": Color.ACCENT_HOVER,
+    "highlight_disabled_bg": Color.BORDER_STRONG,
+    "text": Color.TEXT_PRIMARY,
+    "muted_text": Color.TEXT_MUTED,
+    "border": Color.BORDER,
+    "success": Color.SUCCESS,
+    "warning": Color.WARNING,
+    "error": Color.DANGER,
+    "chrome_hover": Color.BORDER_STRONG,
 }
 
 _active_theme = DEFAULT_THEME
@@ -55,7 +51,7 @@ _active_theme = DEFAULT_THEME
 def set_active_theme(theme: str) -> None:
     """Set the theme used by `color()` lookups for newly built widgets."""
     global _active_theme
-    _active_theme = theme if theme in THEMES else DEFAULT_THEME
+    _active_theme = theme if theme in THEME_NAMES else DEFAULT_THEME
 
 
 def get_active_theme() -> str:
@@ -63,22 +59,21 @@ def get_active_theme() -> str:
 
 
 def color(name: str, theme: str | None = None) -> str:
-    """Look up a palette color by name for the given (or active) theme."""
-    palette = THEMES.get(theme or _active_theme, THEMES[DEFAULT_THEME])
-    return palette[name]
+    """TRANSITIONAL: look up a legacy palette key, mapped to its new token."""
+    return _LEGACY_COLOR_MAP[name]
 
 
 def build_stylesheet(theme: str) -> str:
-    """Build the application-wide QSS for the given theme."""
-    p = THEMES.get(theme, THEMES[DEFAULT_THEME])
+    """Build the application-wide QSS. `theme` is accepted for call-site
+    compatibility but ignored - this pass ships a single dark theme."""
     return f"""
 * {{
-    font-family: "Segoe UI", "Calibri", sans-serif;
-    color: {p["text"]};
+    font-family: "{FONT_FAMILY}", "Calibri", sans-serif;
+    color: {Color.TEXT_PRIMARY};
 }}
 
 QMainWindow, QWidget {{
-    background-color: {p["background"]};
+    background-color: {Color.PAGE_BG};
 }}
 
 QLabel {{
@@ -86,97 +81,99 @@ QLabel {{
 }}
 
 QLabel[role="muted"] {{
-    color: {p["muted_text"]};
+    color: {Color.TEXT_MUTED};
 }}
 
 QLabel[role="heading"] {{
-    font-size: 18px;
+    font-size: {FontSize.PAGE_TITLE}px;
     font-weight: 600;
 }}
 
 QFrame[card="true"] {{
-    background-color: {p["surface"]};
-    border-radius: 12px;
-    border: 1px solid {p["border"]};
+    background-color: {Color.CARD_BG};
+    border-radius: {Radius.CARD}px;
+    border: 1px solid {Color.BORDER};
 }}
 
 QPushButton {{
-    background-color: {p["accent"]};
-    color: {p["text"]};
-    border: none;
-    border-radius: 8px;
-    padding: 8px 18px;
-    font-size: 13px;
+    background-color: {Color.CARD_BG};
+    color: {Color.TEXT_PRIMARY};
+    border: 1px solid {Color.BORDER_STRONG};
+    border-radius: {Radius.BUTTON}px;
+    padding: {Spacing.SM}px {Spacing.LG}px;
+    font-size: {FontSize.SECTION}px;
 }}
 
 QPushButton:hover {{
-    background-color: {p["button_hover"]};
+    background-color: {Color.BORDER_STRONG};
 }}
 
 QPushButton:pressed {{
-    background-color: {p["button_pressed"]};
+    background-color: {Color.SIDEBAR_BG};
 }}
 
 QPushButton:disabled {{
-    background-color: {p["button_disabled_bg"]};
-    color: {p["muted_text"]};
+    background-color: {Color.CARD_BG};
+    color: {Color.TEXT_MUTED};
 }}
 
 QPushButton[accent="true"] {{
-    background-color: {p["highlight"]};
+    background-color: {Color.ACCENT};
+    color: {Color.TEXT_PRIMARY};
     font-weight: 600;
-    font-size: 15px;
-    padding: 12px 24px;
-    border-radius: 10px;
+    font-size: {FontSize.SECTION}px;
+    padding: {Spacing.MD}px {Spacing.XXL}px;
+    border: none;
+    border-radius: {Radius.BUTTON}px;
 }}
 
 QPushButton[accent="true"]:hover {{
-    background-color: {p["highlight_hover"]};
+    background-color: {Color.ACCENT_HOVER};
 }}
 
 QPushButton[accent="true"]:disabled {{
-    background-color: {p["highlight_disabled_bg"]};
-    color: {p["muted_text"]};
+    background-color: {Color.BORDER_STRONG};
+    color: {Color.TEXT_MUTED};
 }}
 
 QPushButton[flat="true"] {{
     background-color: transparent;
-    border: 1px solid {p["border"]};
+    border: 1px solid {Color.BORDER};
 }}
 
 QPushButton[flat="true"]:hover {{
-    background-color: {p["accent"]};
+    background-color: {Color.CARD_BG};
 }}
 
 QLineEdit, QTextEdit, QComboBox {{
-    background-color: {p["background"]};
-    border: 1px solid {p["border"]};
-    border-radius: 8px;
-    padding: 6px 10px;
-    selection-background-color: {p["highlight"]};
+    background-color: {Color.INPUT_BG};
+    border: 1px solid {Color.BORDER};
+    border-radius: {Radius.INPUT}px;
+    padding: {Spacing.SM}px {Spacing.MD}px;
+    selection-background-color: {Color.ACCENT};
 }}
 
 QLineEdit:focus, QTextEdit:focus, QComboBox:focus {{
-    border: 1px solid {p["highlight"]};
+    border: 1px solid {Color.ACCENT};
 }}
 
 QListWidget {{
-    background-color: {p["surface"]};
-    border: 1px solid {p["border"]};
-    border-radius: 10px;
-    padding: 6px;
+    background-color: {Color.CARD_BG};
+    border: 1px solid {Color.BORDER};
+    border-radius: {Radius.CARD}px;
+    padding: {Spacing.SM}px;
 }}
 
 QListWidget::item {{
-    background-color: {p["accent"]};
-    border-radius: 8px;
-    padding: 10px;
-    margin: 4px;
+    background-color: {Color.INPUT_BG};
+    border-radius: {Radius.BUTTON}px;
+    padding: {Spacing.SM}px;
+    margin: {Spacing.XS}px;
 }}
 
 QListWidget::item:selected {{
-    background-color: {p["button_hover"]};
-    border: 1px solid {p["highlight"]};
+    background-color: {Color.ACCENT_BG_TINT};
+    border: 1px solid {Color.ACCENT};
 }}
 
 QScrollArea {{
@@ -185,44 +182,44 @@ QScrollArea {{
 }}
 
 QScrollBar:vertical {{
-    background: {p["background"]};
+    background: {Color.PAGE_BG};
     width: 10px;
     border-radius: 5px;
 }}
 
 QScrollBar::handle:vertical {{
-    background: {p["accent"]};
+    background: {Color.BORDER_STRONG};
     border-radius: 5px;
     min-height: 24px;
 }}
 
 QScrollBar::handle:vertical:hover {{
-    background: {p["highlight"]};
+    background: {Color.ACCENT};
 }}
 
 QProgressBar {{
-    background-color: {p["surface"]};
-    border: 1px solid {p["border"]};
-    border-radius: 8px;
+    background-color: {Color.CARD_BG};
+    border: 1px solid {Color.BORDER};
+    border-radius: {Radius.BUTTON}px;
     text-align: center;
     height: 18px;
 }}
 
 QProgressBar::chunk {{
-    background-color: {p["highlight"]};
+    background-color: {Color.ACCENT};
     border-radius: 7px;
 }}
 
 QStatusBar {{
-    background-color: {p["surface"]};
-    color: {p["muted_text"]};
-    border-top: 1px solid {p["border"]};
+    background-color: {Color.SIDEBAR_BG};
+    color: {Color.TEXT_MUTED};
+    border-top: 1px solid {Color.BORDER};
 }}
 
 QToolTip {{
-    background-color: {p["surface"]};
-    color: {p["text"]};
-    border: 1px solid {p["highlight"]};
+    background-color: {Color.CARD_BG};
+    color: {Color.TEXT_PRIMARY};
+    border: 1px solid {Color.ACCENT};
     border-radius: 6px;
     padding: 4px 8px;
 }}
@@ -231,13 +228,13 @@ QCheckBox::indicator {{
     width: 16px;
     height: 16px;
     border-radius: 4px;
-    border: 1px solid {p["border"]};
-    background: {p["background"]};
+    border: 1px solid {Color.BORDER};
+    background: {Color.INPUT_BG};
 }}
 
 QCheckBox::indicator:checked {{
-    background: {p["highlight"]};
-    border: 1px solid {p["highlight"]};
+    background: {Color.ACCENT};
+    border: 1px solid {Color.ACCENT};
 }}
 """
 
