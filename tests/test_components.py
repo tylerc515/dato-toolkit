@@ -83,6 +83,18 @@ def test_stat_card_set_value_without_color_preserves_prior_color():
     assert Color.WARNING in stat._value_label.styleSheet()
 
 
+def test_stat_card_tooltip_sets_card_tooltip():
+    from app.widgets.components import StatCard
+    stat = StatCard("Files loaded", "3", tooltip="Total files loaded this session")
+    assert stat.toolTip() == "Total files loaded this session"
+
+
+def test_stat_card_without_tooltip_arg_has_no_tooltip():
+    from app.widgets.components import StatCard
+    stat = StatCard("Files loaded", "3")
+    assert stat.toolTip() == ""
+
+
 def test_status_badge_accepts_known_semantics():
     from app.widgets.components import StatusBadge
     for semantic in ("success", "warning", "danger"):
@@ -101,6 +113,25 @@ def test_status_badge_set_status_updates_text():
     badge = StatusBadge("Needs mapping", "warning")
     badge.set_status("Auto-mapped", "success")
     assert badge.text() == "Auto-mapped"
+
+
+def test_status_badge_tooltip_sets_label_tooltip():
+    from app.widgets.components import StatusBadge
+    badge = StatusBadge("Auto-mapped", "success", tooltip="Automatically mapped from source")
+    assert badge.toolTip() == "Automatically mapped from source"
+
+
+def test_status_badge_without_tooltip_arg_has_no_tooltip():
+    from app.widgets.components import StatusBadge
+    badge = StatusBadge("Auto-mapped", "success")
+    assert badge.toolTip() == ""
+
+
+def test_status_badge_set_status_updates_tooltip():
+    from app.widgets.components import StatusBadge
+    badge = StatusBadge("Needs mapping", "warning")
+    badge.set_status("Auto-mapped", "success", tooltip="Now mapped")
+    assert badge.toolTip() == "Now mapped"
 
 
 def test_fixed_grid_table_requires_exactly_one_stretch_column():
@@ -143,6 +174,26 @@ def test_fixed_grid_table_clear_rows_keeps_header():
     table.clear_rows()
     # Header row only = 2 columns
     assert table._grid.count() == 2
+
+
+def test_fixed_grid_table_header_cell_sets_tooltip_when_provided():
+    from app.widgets.components import FixedGridTable
+    table = FixedGridTable([
+        {"label": "Code", "width": 90, "tooltip": "The ATS flag code"},
+        {"label": "Description", "stretch": True},
+    ])
+    header_item = table._grid.itemAtPosition(0, 0)
+    assert header_item.widget().toolTip() == "The ATS flag code"
+
+
+def test_fixed_grid_table_header_cell_has_no_tooltip_when_absent():
+    from app.widgets.components import FixedGridTable
+    table = FixedGridTable([
+        {"label": "Code", "width": 90},
+        {"label": "Description", "stretch": True},
+    ])
+    header_item = table._grid.itemAtPosition(0, 0)
+    assert header_item.widget().toolTip() == ""
 
 
 def test_fixed_grid_table_add_row_preserves_qlabel_subclass_styling():
