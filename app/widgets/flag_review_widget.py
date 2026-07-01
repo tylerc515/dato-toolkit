@@ -4,10 +4,10 @@ from __future__ import annotations
 from PyQt6.QtCore import QTimer, Qt, pyqtSignal
 from PyQt6.QtWidgets import (
     QCheckBox,
+    QComboBox,
     QFrame,
     QHBoxLayout,
     QLabel,
-    QLineEdit,
     QPushButton,
     QScrollArea,
     QVBoxLayout,
@@ -33,6 +33,38 @@ NEEDS_MAPPING_LABEL = "Needs mapping"
 SUGGESTED_MATCH_LABEL = "Suggested match"
 SUGGESTED_MATCH_COLOR = "#4da6ff"
 LEAVE_AS_IS_TEXT = "Leave as-is"
+COMBO_SEPARATOR = "  -  "
+COMBO_MIN_WIDTH = 220
+
+
+def _symbol_from_display(text: str) -> str:
+    """Extract the symbol character from a combo display string.
+
+    Display strings look like '*  -  Scaffold was interfering'.
+    If the text has no separator, return it stripped (bare character typed by user).
+    """
+    if COMBO_SEPARATOR in text:
+        return text.split(COMBO_SEPARATOR, 1)[0].strip()
+    return text.strip()
+
+
+def _make_combo() -> QComboBox:
+    """Build a searchable combo box populated with all standard symbols."""
+    combo = QComboBox()
+    combo.setEditable(True)
+    combo.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
+    combo.setMinimumWidth(COMBO_MIN_WIDTH)
+
+    for symbol, description in STANDARD_SYMBOL_DESCRIPTIONS.items():
+        combo.addItem(f"{symbol}{COMBO_SEPARATOR}{description}")
+
+    completer = combo.completer()
+    if completer is not None:
+        completer.setFilterMode(Qt.MatchFlag.MatchContains)
+        completer.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
+
+    combo.setCurrentIndex(-1)
+    return combo
 
 
 class FlagReviewWidget(QWidget):
@@ -43,7 +75,7 @@ class FlagReviewWidget(QWidget):
     def __init__(self, mapping_result: FlagMappingResult, parent: QWidget | None = None):
         super().__init__(parent)
         self._mapping_result = mapping_result
-        self._code_inputs: dict[str, QLineEdit] = {}
+        self._code_inputs: dict[str, QComboBox] = {}
         self._leave_checks: dict[str, QCheckBox] = {}
         self._build_ui()
 
@@ -80,7 +112,13 @@ class FlagReviewWidget(QWidget):
 
         # Column headers
         header = QHBoxLayout()
-        for label, stretch in [("ATS Code", 1), ("ATS Description", 3), ("Std Code", 1), ("Status", 2), ("", 1)]:
+        for label, stretch in [
+            ("ATS Code", 1),
+            ("ATS Description", 3),
+            ("Standard Symbol", 3),
+            ("Status", 2),
+            ("", 1),
+        ]:
             lbl = QLabel(f"<b>{label}</b>")
             header.addWidget(lbl, stretch)
         scroll_layout.addLayout(header)
@@ -93,26 +131,29 @@ class FlagReviewWidget(QWidget):
             row.addWidget(QLabel(description), 3)
             code_lbl = QLabel(std_code)
             code_lbl.setStyleSheet(f"color: {color('success')};")
-            row.addWidget(code_lbl, 1)
+            row.addWidget(code_lbl, 3)
             status = QLabel(AUTO_MAPPED_LABEL)
             status.setStyleSheet(f"color: {color('success')}; font-size: 9pt;")
             row.addWidget(status, 2)
             row.addWidget(QLabel(""), 1)
             scroll_layout.addLayout(row)
 
-        # Suggested flags (editable, pre-filled, no Leave as-is)
+        # Suggested flags (editable combo, pre-filled, no Leave as-is)
         for ats_code, std_symbol in self._mapping_result.suggested.items():
             description = STANDARD_SYMBOL_DESCRIPTIONS.get(std_symbol, ats_code)
             row = QHBoxLayout()
             row.addWidget(QLabel(ats_code), 1)
             row.addWidget(QLabel(description), 3)
 
-            code_input = QLineEdit()
-            code_input.setMaxLength(3)
-            code_input.setText(std_symbol)
-            code_input.textChanged.connect(self._on_input_changed)
-            self._code_inputs[ats_code] = code_input
-            row.addWidget(code_input, 1)
+            combo = _make_combo()
+            display_text = (
+                f"{std_symbol}{COMBO_SEPARATOR}"
+                f"{STANDARD_SYMBOL_DESCRIPTIONS.get(std_symbol, std_symbol)}"
+            )
+            combo.setCurrentText(display_text)
+            combo.currentTextChanged.connect(self._on_input_changed)
+            self._code_inputs[ats_code] = combo
+            row.addWidget(combo, 3)
 
             status_lbl = QLabel(SUGGESTED_MATCH_LABEL)
             status_lbl.setStyleSheet(f"color: {SUGGESTED_MATCH_COLOR}; font-size: 9pt;")
@@ -121,18 +162,16 @@ class FlagReviewWidget(QWidget):
             row.addWidget(QLabel(""), 1)
             scroll_layout.addLayout(row)
 
-        # Unknown flags (editable)
+        # Unknown flags (editable combo, no pre-fill)
         for ats_code, description in self._mapping_result.unknown.items():
             row = QHBoxLayout()
             row.addWidget(QLabel(ats_code), 1)
             row.addWidget(QLabel(description), 3)
 
-            code_input = QLineEdit()
-            code_input.setMaxLength(3)
-            code_input.setPlaceholderText("e.g. ?")
-            code_input.textChanged.connect(self._on_input_changed)
-            self._code_inputs[ats_code] = code_input
-            row.addWidget(code_input, 1)
+            combo = _make_combo()
+            combo.currentTextChanged.connect(self._on_input_changed)
+            self._code_inputs[ats_code] = combo
+            row.addWidget(combo, 3)
 
             status_lbl = QLabel(NEEDS_MAPPING_LABEL)
             status_lbl.setStyleSheet(f"color: {color('warning')}; font-size: 9pt;")
@@ -140,7 +179,7 @@ class FlagReviewWidget(QWidget):
 
             leave_check = QCheckBox(LEAVE_AS_IS_TEXT)
             leave_check.stateChanged.connect(
-                lambda state, code=ats_code, inp=code_input, lbl=status_lbl:
+                lambda state, code=ats_code, inp=combo, lbl=status_lbl:
                     self._on_leave_toggled(code, inp, lbl, state)
             )
             self._leave_checks[ats_code] = leave_check
@@ -162,7 +201,7 @@ class FlagReviewWidget(QWidget):
         self._update_confirm_button()
 
     def _on_leave_toggled(
-        self, code: str, inp: QLineEdit, status_lbl: QLabel, state: int
+        self, code: str, inp: QComboBox, status_lbl: QLabel, state: int
     ) -> None:
         checked = state == Qt.CheckState.Checked.value
         inp.setEnabled(not checked)
@@ -179,37 +218,43 @@ class FlagReviewWidget(QWidget):
 
     def _update_confirm_button(self) -> None:
         all_resolved = True
-        # Suggested inputs must be non-empty (pre-filled but user can clear)
+        # Suggested combos must have non-empty text (pre-filled but user can clear)
         for ats_code in self._mapping_result.suggested:
-            inp = self._code_inputs.get(ats_code)
-            if inp and not inp.text().strip():
+            combo = self._code_inputs.get(ats_code)
+            if combo and not combo.currentText().strip():
                 all_resolved = False
                 break
         if all_resolved:
-            # Unknown inputs must be filled or have Leave as-is checked
+            # Unknown combos must be filled or have Leave as-is checked
             for ats_code in self._mapping_result.unknown:
                 leave = self._leave_checks.get(ats_code)
-                inp = self._code_inputs.get(ats_code)
+                combo = self._code_inputs.get(ats_code)
                 if leave and leave.isChecked():
                     continue
-                if inp and not inp.text().strip():
+                if combo and not combo.currentText().strip():
                     all_resolved = False
                     break
         self._confirm_btn.setEnabled(all_resolved)
 
     def _on_confirm(self) -> None:
         final = dict(self._mapping_result.known)
-        # Add suggested (may be user-overridden via the pre-filled inputs)
+        # Add suggested (may be user-overridden via the pre-filled combo)
         for ats_code in self._mapping_result.suggested:
-            inp = self._code_inputs.get(ats_code)
-            if inp:
-                final[ats_code] = inp.text().strip() or self._mapping_result.suggested[ats_code]
-        # Add unknown (same as before)
+            combo = self._code_inputs.get(ats_code)
+            if combo:
+                text = combo.currentText().strip()
+                symbol = (
+                    _symbol_from_display(text) if text
+                    else self._mapping_result.suggested[ats_code]
+                )
+                final[ats_code] = symbol
+        # Add unknown (user-selected or leave as-is)
         for ats_code in self._mapping_result.unknown:
             leave = self._leave_checks.get(ats_code)
-            inp = self._code_inputs.get(ats_code)
+            combo = self._code_inputs.get(ats_code)
             if leave and leave.isChecked():
                 final[ats_code] = ats_code
-            elif inp:
-                final[ats_code] = inp.text().strip()
+            elif combo:
+                text = combo.currentText().strip()
+                final[ats_code] = _symbol_from_display(text)
         self.mappings_confirmed.emit(final)
