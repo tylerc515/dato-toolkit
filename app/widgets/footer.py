@@ -7,6 +7,8 @@ import webbrowser
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QHBoxLayout, QLabel, QWidget
 
+from app.design.tokens import Color, FONT_FAMILY
+
 
 class _LinkLabel(QLabel):
     """QLabel that opens a URL on left-click and changes color on hover via QSS."""
@@ -16,7 +18,7 @@ class _LinkLabel(QLabel):
         self._url = url
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setStyleSheet(
-            "QLabel { color: #6e7681; font-family: 'Segoe UI'; font-size: 9pt; }"
+            f"QLabel {{ color: {Color.TEXT_MUTED}; font-family: '{FONT_FAMILY}'; font-size: 9pt; }}"
             f"QLabel:hover {{ color: {hover_color}; }}"
         )
 
@@ -34,7 +36,7 @@ class FooterBar(QWidget):
         self.setFixedHeight(28)
         self.setObjectName("FooterBar")
         self.setStyleSheet(
-            "#FooterBar { background-color: #0d1117; border-top: 1px solid #2f3650; }"
+            f"#FooterBar {{ background-color: {Color.PAGE_BG}; border-top: 1px solid {Color.BORDER_STRONG}; }}"
         )
 
         layout = QHBoxLayout(self)
@@ -44,16 +46,16 @@ class FooterBar(QWidget):
         dev_link = _LinkLabel(
             "Developed by Tyler Chambers",
             "https://github.com/tylerc515",
-            "#eaeaea",
+            Color.TEXT_PRIMARY,
         )
         separator = QLabel(" · ")
         separator.setStyleSheet(
-            "QLabel { color: #6e7681; font-family: 'Segoe UI'; font-size: 9pt; }"
+            f"QLabel {{ color: {Color.TEXT_MUTED}; font-family: '{FONT_FAMILY}'; font-size: 9pt; }}"
         )
         docs_link = _LinkLabel(
             "Documentation",
             "https://github.com/tylerc515/dato-toolkit/wiki",
-            "#2f80ed",
+            Color.ACCENT_TEXT,
         )
 
         layout.addStretch(1)
