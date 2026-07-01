@@ -172,7 +172,8 @@ class _FileCard(Card):
         else:
             data = result.data
             assert data is not None
-            name_label = QLabel(f"<b>{filename}</b>")
+            name_label = QLabel(filename)
+            name_label.setStyleSheet("font-weight: 600;")
             info_layout.addWidget(name_label)
             detail_label = QLabel(f"Section: {data.boiler_section}  •  {len(data.elevations)} elevations")
             detail_label.setProperty("role", "muted")

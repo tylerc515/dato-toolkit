@@ -1,6 +1,7 @@
 """ATS Data Converter page: import ATS xlsx files and export Standard Format CSVs."""
 from __future__ import annotations
 
+import html
 import logging
 import os
 from pathlib import Path
@@ -183,7 +184,8 @@ class _FileCard(Card):
         self.layout().addLayout(row)
 
         info = QVBoxLayout()
-        name_lbl = QLabel(f"<b>{Path(path).name}</b>")
+        name_lbl = QLabel(Path(path).name)
+        name_lbl.setStyleSheet("font-weight: 600;")
         info.addWidget(name_lbl)
         detail = QLabel(
             f"{result.boiler_section} - "
@@ -213,7 +215,7 @@ class _ErrorCard(QFrame):
         )
         layout = QHBoxLayout(self)
         layout.setContentsMargins(Spacing.MD, Spacing.SM, Spacing.MD, Spacing.SM)
-        lbl = QLabel(f"<b>{Path(path).name}</b>: {error}")
+        lbl = QLabel(f"<b>{html.escape(Path(path).name)}</b>: {html.escape(error)}")
         lbl.setStyleSheet(f"color: {Color.DANGER};")
         lbl.setWordWrap(True)
         layout.addWidget(lbl, 1)
