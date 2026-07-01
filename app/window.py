@@ -297,6 +297,7 @@ class MainWindow(QMainWindow):
         self.generate_page.email_requested.connect(self._go_to_email_with_config)
         self.import_page.files_ready.connect(self._on_files_ready)
         self.import_page.project_load_requested.connect(self._on_project_load_requested)
+        self.import_page.back_requested.connect(self._go_to_dashboard)
         self.reorder_page.back_requested.connect(lambda: self._go_to_step(0))
         self.reorder_page.continue_requested.connect(self._on_reorder_continue)
         self.generate_page.back_requested.connect(lambda: self._go_to_step(1))
@@ -720,7 +721,7 @@ class MainWindow(QMainWindow):
     def _activate_back_action(self) -> None:
         index = self.stack.currentIndex()
         if index == 1:
-            self._go_to_dashboard()
+            self.import_page.back_button.click()
         elif index == 2:
             self.reorder_page.back_button.click()
         elif index == 3:

@@ -55,3 +55,11 @@ def test_breadcrumb_updates_on_navigation():
     win = _make_window()
     win._go_to_converter()
     assert "Data converter" in win.breadcrumb_label.text()
+
+
+def test_import_page_back_button_returns_to_dashboard():
+    win = _make_window()
+    win._go_to_step(0)  # navigate to import page (stack index 1)
+    assert win.stack.currentIndex() == 1
+    win.import_page.back_button.click()
+    assert win.stack.currentIndex() == 0

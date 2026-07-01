@@ -25,11 +25,12 @@ from app.design.tokens import Color, FontSize, Radius, Spacing
 from app.parser import TraceFileData, TraceParseError, parse_trace_csv
 from app.project import find_project_for_metadata, find_similar_project_for_metadata
 from app.widgets import HelpPanel
-from app.widgets.components import Card
+from app.widgets.components import Card, SecondaryButton
 
 # --- UI text -------------------------------------------------------------
 
 TITLE_TEXT = "Step 1: Import Files"
+BACK_TEXT = "← Back"
 DROP_ZONE_TEXT = "Drag & drop TRACE export files here, or click to browse"
 DROP_ZONE_HINT = "Accepted file type: .csv"
 CLEAR_ALL_TEXT = "Clear All"
@@ -194,6 +195,7 @@ class ImportPage(QWidget):
 
     files_ready = pyqtSignal(list)  # list[TraceFileData]
     project_load_requested = pyqtSignal(object)  # Path
+    back_requested = pyqtSignal()
 
     def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
@@ -208,6 +210,10 @@ class ImportPage(QWidget):
         content_layout = QVBoxLayout(content)
 
         header_row = QHBoxLayout()
+        self.back_button = SecondaryButton(BACK_TEXT)
+        self.back_button.clicked.connect(self.back_requested.emit)
+        header_row.addWidget(self.back_button)
+        header_row.addSpacing(Spacing.MD)
         title = QLabel(TITLE_TEXT)
         title.setProperty("role", "heading")
         header_row.addWidget(title)
