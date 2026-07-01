@@ -18,7 +18,7 @@ from app.widgets.components import Card, PrimaryButton, SecondaryButton, StatCar
 
 TITLE_TEXT = "Dashboard"
 SUBTITLE_TEXT = "Pick up a recent project or start a new tracker."
-NEW_TRACKER_TEXT = "+ New Tracker"
+NEW_TRACKER_TEXT = "New Tracker"
 BATCH_GENERATE_TEXT = "Batch Generate"
 STAT_PROJECTS_LABEL = "Saved Projects"
 STAT_GENERATED_LABEL = "Trackers Generated"
@@ -84,6 +84,11 @@ class DashboardPage(QWidget):
         header_row.addLayout(title_column)
         header_row.addStretch(1)
 
+        self.new_tracker_button = PrimaryButton(NEW_TRACKER_TEXT)
+        self.new_tracker_button.setIcon(icon("plus", color=Color.TEXT_PRIMARY))
+        self.new_tracker_button.clicked.connect(self.new_tracker_requested.emit)
+        header_row.addWidget(self.new_tracker_button)
+
         self.batch_button = SecondaryButton(BATCH_GENERATE_TEXT)
         self.batch_button.setIcon(icon("table"))
         self.batch_button.setToolTip("Generate trackers for multiple projects from a folder of CSVs")
@@ -91,7 +96,7 @@ class DashboardPage(QWidget):
         header_row.addWidget(self.batch_button)
 
         self.email_button = SecondaryButton(GENERATE_EMAIL_TEXT)
-        self.email_button.setIcon(icon("envelope-simple"))
+        self.email_button.setIcon(icon("paper-plane-tilt"))
         self.email_button.setToolTip("Generate a formatted NDE status update email document")
         self.email_button.clicked.connect(self.email_requested.emit)
         header_row.addWidget(self.email_button)
@@ -101,11 +106,6 @@ class DashboardPage(QWidget):
         self.converter_button.setToolTip("Convert ATS inspection files to Standard Format CSV")
         self.converter_button.clicked.connect(self.converter_requested.emit)
         header_row.addWidget(self.converter_button)
-
-        self.new_tracker_button = PrimaryButton(NEW_TRACKER_TEXT)
-        self.new_tracker_button.setIcon(icon("plus", color=Color.TEXT_PRIMARY))
-        self.new_tracker_button.clicked.connect(self.new_tracker_requested.emit)
-        header_row.addWidget(self.new_tracker_button)
         outer.addLayout(header_row)
 
         self.stats_row = QHBoxLayout()
