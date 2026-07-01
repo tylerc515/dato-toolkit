@@ -52,27 +52,35 @@ def test_set_and_get_active_theme_still_work():
 
 
 def test_build_stylesheet_contains_no_stray_pixel_literals():
-    """Every `<number>px` value in the generated QSS must trace back to a
-    Spacing/Radius/FontSize token value, with one narrow exception: a bare
-    `1px` border width. `1px solid ...` is a CSS/QSS border-width convention
-    (the universal "hairline" border), not a design-system spacing or radius
-    value - there is no Spacing/Radius token for it and it isn't meant to
-    scale with the rest of the design system, so it's excluded from this
-    check rather than forced onto an unrelated token.
+    """Every `<number>px` value written in `build_stylesheet`'s SOURCE CODE
+    must come from a token interpolation like `{Spacing.SM}px`, with one
+    narrow exception: a bare `1px` border width. `1px solid ...` is a
+    CSS/QSS border-width convention (the universal "hairline" border), not
+    a design-system spacing or radius value - there is no Spacing/Radius
+    token for it and it isn't meant to scale with the rest of the design
+    system, so it's excluded from this check rather than forced onto an
+    unrelated token.
+
+    This inspects the SOURCE TEXT of the function, not the rendered QSS
+    output. Checking the rendered output is not sufficient: the token
+    value space (Spacing/Radius/FontSize, roughly 4-32) is small and dense
+    enough that a hardcoded literal can coincidentally equal some token's
+    numeric value without ever having been interpolated from it, letting a
+    regression silently pass. A real token interpolation always renders in
+    source as `...}px` (the closing brace sits directly before `px`); a
+    hardcoded literal has a digit directly before `px` with no brace in
+    between. Matching `\\d+px` that is NOT immediately preceded by `}`
+    catches exactly the hardcoded case.
     """
+    import inspect
+
     from app.styles import build_stylesheet
-    from app.design.tokens import FontSize, Radius, Spacing
 
-    qss = build_stylesheet("dark")
+    source = inspect.getsource(build_stylesheet)
 
-    token_values = set()
-    for token_class in (Spacing, Radius, FontSize):
-        for key, value in vars(token_class).items():
-            if not key.startswith("_") and isinstance(value, int):
-                token_values.add(value)
-
-    found_pixels = {int(n) for n in re.findall(r"(\d+)px", qss)}
-    stray = {n for n in found_pixels if n != 1 and n not in token_values}
+    found_pixels = re.findall(r"(?<!\})\d+px", source)
+    stray = {literal for literal in found_pixels if literal != "1px"}
     assert not stray, (
-        f"QSS contains pixel literals not sourced from app.design.tokens: {stray}"
+        f"build_stylesheet source contains pixel literals not sourced via "
+        f"token interpolation (e.g. {{Spacing.SM}}px): {stray}"
     )
