@@ -205,9 +205,9 @@ def _make_result_with_flags(flag_codes_in_cntr: list[str]) -> ATSParseResult:
 def _find_legend_rows(output_path: Path) -> list[list[str]]:
     """Return all rows starting immediately after the second 'TUBE NUMBERS along the' row.
 
-    The reference file has a blank between the footer tube-number row and the first
-    legend symbol, but that blank is excluded from load_standard_legend_block() and
-    is not written to the output. Legend rows start at i+1 in the output file.
+    Row 0 of the returned list is the blank separator that separates the footer
+    from the symbol entries. The legend block is written as-is from
+    load_standard_legend_block(), which includes that blank separator.
     """
     rows = list(csv.reader(output_path.read_text(encoding="utf-8").splitlines()))
     found = 0
@@ -248,14 +248,17 @@ def test_legend_always_written_in_full(tmp_path: Path):
     out = tmp_path / "output.csv"
     write_standard_format(result, {}, out)
     legend_rows = _find_legend_rows(out)
-    # At least 14 rows: 12 symbol rows + blank separator + R/V row + N row
-    assert len(legend_rows) >= 14, (
-        f"Expected at least 14 legend rows, got {len(legend_rows)}"
+    # At least 13 rows: 1 blank separator + 12 symbol rows (R/V/N excluded from output)
+    assert len(legend_rows) >= 13, (
+        f"Expected at least 13 legend rows, got {len(legend_rows)}"
     )
 
 
 def test_legend_matches_reference_file_exactly(tmp_path: Path):
-    """Legend rows in output match the reference file block row-for-row."""
+    """Legend rows in output match the reference file block row-for-row.
+
+    Row 0 must be the blank separator that follows the tube-numbers footer.
+    """
     from app.converters.standard_format_writer import (
         load_standard_legend_block,
         write_standard_format,
@@ -265,6 +268,13 @@ def test_legend_matches_reference_file_exactly(tmp_path: Path):
     write_standard_format(result, {"NC": "<", "RF": "("}, out)
     legend_rows = _find_legend_rows(out)
     reference_block = load_standard_legend_block()
+
+    # Row 0 must be the blank separator (all empty cells)
+    assert legend_rows, "Expected at least one legend row"
+    assert all(c == "" for c in legend_rows[0]), (
+        f"Expected blank separator at legend_rows[0], got: {legend_rows[0]}"
+    )
+
     assert len(legend_rows) == len(reference_block), (
         f"Expected {len(reference_block)} legend rows, got {len(legend_rows)}"
     )
@@ -332,3 +342,29 @@ def test_excel_safe_false_writes_plain_strings(tmp_path):
     content = out.read_text(encoding="utf-8")
     assert "234" in content
     assert '="234"' not in content
+
+
+# ---------------------------------------------------------------------------
+# Fix 2 - R/V/N reading-suffix codes excluded from output legend
+# ---------------------------------------------------------------------------
+
+def test_output_legend_excludes_rvn(tmp_path: Path):
+    """R, V, N are reading-suffix codes and must not appear as legend entries."""
+    from app.converters.standard_format_writer import write_standard_format
+    result = _make_result()
+    out = tmp_path / "output.csv"
+    write_standard_format(result, {}, out)
+    legend_rows = _find_legend_rows(out)
+    rvn = {"R", "V", "N"}
+    for row in legend_rows:
+        for cell in row:
+            # Exact-value check: no bare R/V/N cell (avoids false positives from
+            # words that contain those letters, e.g. "REMOVAL")
+            assert cell.strip() not in rvn, (
+                f"Legend row contains bare R/V/N cell value: {row}"
+            )
+            # First-token check: no cell whose leading symbol is R, V, or N
+            parts = cell.strip().split()
+            assert not (parts and parts[0] in rvn), (
+                f"Legend row contains R/V/N symbol entry: {row}"
+            )

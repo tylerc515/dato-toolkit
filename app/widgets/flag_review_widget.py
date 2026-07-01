@@ -54,6 +54,7 @@ def _make_combo() -> QComboBox:
     combo.setEditable(True)
     combo.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
     combo.setMinimumWidth(COMBO_MIN_WIDTH)
+    combo.setMaxVisibleItems(7)
 
     for symbol, description in STANDARD_SYMBOL_DESCRIPTIONS.items():
         combo.addItem(f"{symbol}{COMBO_SEPARATOR}{description}")

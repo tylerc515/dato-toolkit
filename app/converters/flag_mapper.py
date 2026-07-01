@@ -34,6 +34,8 @@ def _build_symbol_descriptions() -> dict[str, str]:
                 if m2:
                     result[m2.group(1)] = m2.group(2).rstrip(".")
 
+    for sym in ("R", "V", "N"):
+        result.pop(sym, None)
     return result
 
 

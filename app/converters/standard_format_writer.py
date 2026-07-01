@@ -21,12 +21,25 @@ _FONT_COMMENT = (
 _legend_block_cache: list[list[str]] | None = None
 
 
+_RVN_SYMBOLS: frozenset[str] = frozenset({"R", "V", "N"})
+
+
+def _row_has_rvn_symbol(row: list[str]) -> bool:
+    """Return True if any cell in the row has a leading symbol of R, V, or N."""
+    for cell in row:
+        parts = cell.strip().split()
+        if parts and parts[0] in _RVN_SYMBOLS:
+            return True
+    return False
+
+
 def load_standard_legend_block() -> list[list[str]]:
     """Read the fixed, universal legend block from the bundled reference file.
 
-    Returns a list of rows (each row a list of cell values), preserved exactly
-    as they appear in the source CSV - including the blank separator row.
-    Cached after first read since the block never changes during an app run.
+    Returns a list of rows (each row a list of cell values). Row 0 is the
+    blank separator that follows the tube-numbers footer. R, V, and N rows
+    are excluded because they are reading-suffix codes, not flag symbols.
+    Trailing all-empty rows are also removed. Cached after first read.
     """
     global _legend_block_cache
     if _legend_block_cache is not None:
@@ -53,8 +66,19 @@ def load_standard_legend_block() -> list[list[str]]:
             "Could not find second 'TUBE NUMBERS along the' row in reference file"
         )
 
-    # Skip the blank row immediately after the footer, then take everything to EOF.
-    _legend_block_cache = all_rows[second_index + 2:]
+    # Include the blank separator row immediately after the footer (second_index + 1),
+    # then take everything to EOF.
+    block = all_rows[second_index + 1:]
+
+    # Remove rows that carry R, V, or N reading-suffix symbols.
+    # The blank separator at position 0 has no leading symbol, so it is preserved.
+    block = [row for row in block if not _row_has_rvn_symbol(row)]
+
+    # Strip trailing all-empty rows left after removing the R/V/N entries.
+    while block and all(c == "" for c in block[-1]):
+        block.pop()
+
+    _legend_block_cache = block
     return _legend_block_cache
 
 
