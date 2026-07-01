@@ -13,6 +13,7 @@ from PyQt6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QMessageBox,
     QProgressBar,
     QPushButton,
     QScrollArea,
@@ -58,10 +59,26 @@ CONVERT_ALL_TEXT = "Convert All"
 OPEN_FOLDER_TEXT = "Open Output Folder"
 CONVERT_MORE_TEXT = "Convert More Files"
 
+OVERWRITE_TITLE = "Files Already Exist"
+OVERWRITE_MESSAGE = (
+    "The following file(s) already exist in the output folder:\n\n"
+    "{names}\n\nOverwrite them?"
+)
+PERMISSION_ERROR_MESSAGE = (
+    "Could not save {name} — it may be open in another program "
+    "(such as Excel). Close it and try converting again."
+)
+OS_ERROR_MESSAGE = "Could not save {name}: {reason}"
+
 ATS_TAB_TEXT = "ATS Files"
 TEAM_TAB_TEXT = "TEAM Files"
 TDS_TAB_TEXT = "TDS Files"
 COMING_SOON_TOOLTIP = "Coming soon"
+
+
+def _output_filename(result: ATSParseResult) -> str:
+    section = result.boiler_section.replace("/", "-").replace("\\", "-")
+    return f"{section}_Standard_Format.csv"
 
 
 class _AtsDropZone(QFrame):
@@ -133,12 +150,17 @@ class _ConvertWorker(QThread):
 
     def run(self) -> None:
         for source_path, result in self._jobs:
-            section = result.boiler_section.replace("/", "-").replace("\\", "-")
-            out_name = f"{section}_Standard_Format.csv"
+            out_name = _output_filename(result)
             out_path = self._output_dir / out_name
             try:
                 write_standard_format(result, self._flag_mapping, out_path)
                 self.file_done.emit(source_path, True, "")
+            except PermissionError:
+                message = PERMISSION_ERROR_MESSAGE.format(name=out_name)
+                self.file_done.emit(source_path, False, message)
+            except OSError as exc:
+                message = OS_ERROR_MESSAGE.format(name=out_name, reason=exc.strerror or str(exc))
+                self.file_done.emit(source_path, False, message)
             except Exception as exc:
                 self.file_done.emit(source_path, False, str(exc))
         self.all_done.emit()
@@ -470,6 +492,26 @@ class ConverterPage(QWidget):
 
     # --- Conversion ---
 
+    def _existing_output_paths(self, output_dir: Path) -> list[Path]:
+        """Return output paths that already exist on disk for the current batch."""
+        conflicts = []
+        for result in self._imported.values():
+            out_path = output_dir / _output_filename(result)
+            if out_path.exists():
+                conflicts.append(out_path)
+        return conflicts
+
+    def _confirm_overwrite(self, conflicts: list[Path]) -> bool:
+        """Show a single dialog listing all conflicting files. True if user chose to overwrite."""
+        names = "\n".join(f"- {p.name}" for p in conflicts)
+        box = QMessageBox(self)
+        box.setWindowTitle(OVERWRITE_TITLE)
+        box.setText(OVERWRITE_MESSAGE.format(names=names))
+        overwrite_btn = box.addButton("Overwrite", QMessageBox.ButtonRole.AcceptRole)
+        box.addButton("Cancel", QMessageBox.ButtonRole.RejectRole)
+        box.exec()
+        return box.clickedButton() is overwrite_btn
+
     def _on_convert(self) -> None:
         output_dir = Path(self._output_folder_edit.text())
         self._save_output_folder(str(output_dir))
@@ -477,6 +519,10 @@ class ConverterPage(QWidget):
             output_dir.mkdir(parents=True, exist_ok=True)
         except OSError as exc:
             logger.error("Cannot create output folder: %s", exc)
+            return
+
+        conflicts = self._existing_output_paths(output_dir)
+        if conflicts and not self._confirm_overwrite(conflicts):
             return
 
         jobs = list(self._imported.items())
