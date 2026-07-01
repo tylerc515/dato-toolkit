@@ -113,6 +113,11 @@ class _AtsDropZone(QFrame):
         lbl.setStyleSheet(f"color: {color('muted_text')};")
         layout.addWidget(lbl)
 
+        self.setToolTip(
+            "Drop one or more ATS inspection .xlsx files here, or click to "
+            "open a file browser. You can import several files at once."
+        )
+
     def dragEnterEvent(self, event):
         if event.mimeData().hasUrls():
             event.acceptProposedAction()
@@ -291,9 +296,21 @@ class ConverterPage(QWidget):
         # Stat card row
         stats_row = QHBoxLayout()
         stats_row.setSpacing(Spacing.MD)
-        self._stat_files = StatCard("Files loaded", "0")
-        self._stat_elevations = StatCard("Elevations", "0")
-        self._stat_flags = StatCard("Flags needing review", "0")
+        self._stat_files = StatCard(
+            "Files loaded", "0",
+            tooltip="Number of ATS files currently imported and ready to convert.",
+        )
+        self._stat_elevations = StatCard(
+            "Elevations", "0",
+            tooltip="Total inspection elevations found across all imported files.",
+        )
+        self._stat_flags = StatCard(
+            "Flags needing review", "0",
+            tooltip=(
+                "ATS flag codes that could not be automatically matched to a "
+                "Standard Format code and need your confirmation before converting."
+            ),
+        )
         stats_row.addWidget(self._stat_files)
         stats_row.addWidget(self._stat_elevations)
         stats_row.addWidget(self._stat_flags)
@@ -318,6 +335,7 @@ class ConverterPage(QWidget):
         import_header.addStretch(1)
         self._clear_all_btn = QPushButton(CLEAR_ALL_TEXT)
         self._clear_all_btn.setProperty("flat", "true")
+        self._clear_all_btn.setToolTip("Remove every imported file and start over.")
         self._clear_all_btn.setEnabled(False)
         self._clear_all_btn.clicked.connect(self._on_clear_all)
         import_header.addWidget(self._clear_all_btn)
@@ -352,6 +370,10 @@ class ConverterPage(QWidget):
         self._output_folder_edit = QLineEdit()
         self._output_folder_edit.setPlaceholderText("Choose output folder...")
         self._output_folder_edit.setReadOnly(True)
+        self._output_folder_edit.setToolTip(
+            "Where the converted Standard Format CSV files will be saved. "
+            "Defaults to the folder of the first file you import; use Browse to change it."
+        )
         saved = self._load_output_folder()
         self._output_folder_edit.setText(saved if saved else "")
         folder_row.addWidget(self._output_folder_edit, 1)
@@ -362,6 +384,10 @@ class ConverterPage(QWidget):
 
         self._convert_btn = PrimaryButton(CONVERT_ALL_TEXT)
         self._convert_btn.setIcon(icon("play", color=Color.TEXT_PRIMARY))
+        self._convert_btn.setToolTip(
+            "Convert every imported file to Standard Format CSV. Enabled once "
+            "all flag codes above have been reviewed and confirmed."
+        )
         self._convert_btn.setEnabled(False)
         self._convert_btn.clicked.connect(self._on_convert)
         output_layout.addWidget(self._convert_btn)

@@ -109,7 +109,7 @@ class _DropZone(QFrame):
         hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(hint)
 
-        self.setToolTip(DROP_ZONE_TEXT)
+        self.setToolTip("Drop one or more TRACE export .csv files here, or click to open a file browser.")
 
     def dragEnterEvent(self, event):
         if event.mimeData().hasUrls():

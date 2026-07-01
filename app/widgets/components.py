@@ -65,8 +65,11 @@ class StatCard(Card):
         value: str,
         value_color: str = Color.TEXT_PRIMARY,
         parent: QWidget | None = None,
+        tooltip: str | None = None,
     ):
         super().__init__(parent)
+        if tooltip:
+            self.setToolTip(tooltip)
         self._label_label = QLabel(label)
         self._label_label.setStyleSheet(f"color: {Color.TEXT_MUTED}; font-size: {FontSize.SMALL}px;")
         self.layout().addWidget(self._label_label)
@@ -88,12 +91,18 @@ class StatCard(Card):
 class StatusBadge(QLabel):
     """Small pill-shaped status label with a semantic dot + text."""
 
-    def __init__(self, text: str, semantic: str, parent: QWidget | None = None):
+    def __init__(
+        self,
+        text: str,
+        semantic: str,
+        parent: QWidget | None = None,
+        tooltip: str | None = None,
+    ):
         super().__init__(text, parent)
         self._semantic = semantic
-        self.set_status(text, semantic)
+        self.set_status(text, semantic, tooltip=tooltip)
 
-    def set_status(self, text: str, semantic: str) -> None:
+    def set_status(self, text: str, semantic: str, tooltip: str | None = None) -> None:
         if semantic not in _SEMANTIC_COLORS:
             raise ValueError(f"Unknown StatusBadge semantic: {semantic!r}")
         self._semantic = semantic
@@ -103,6 +112,8 @@ class StatusBadge(QLabel):
             f"color: {badge_color}; font-size: {FontSize.SMALL}px; "
             f"border-radius: {Radius.PILL}px; padding: 2px 8px;"
         )
+        if tooltip is not None:
+            self.setToolTip(tooltip)
 
 
 class FixedGridTable(QWidget):
@@ -139,6 +150,8 @@ class FixedGridTable(QWidget):
                 f"background-color: {Color.TABLE_HEADER_BG}; color: {Color.TEXT_MUTED}; "
                 f"font-size: {FontSize.LABEL}px; font-weight: 600; padding: {Spacing.SM}px;"
             )
+            if col.get("tooltip"):
+                header_cell.setToolTip(col["tooltip"])
             self._grid.addWidget(header_cell, 0, col_idx)
 
         self._next_row = 1

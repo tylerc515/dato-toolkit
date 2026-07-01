@@ -18,6 +18,7 @@ from PyQt6.QtWidgets import (
     QGridLayout,
     QHBoxLayout,
     QLabel,
+    QPushButton,
     QVBoxLayout,
     QWidget,
 )
@@ -25,6 +26,7 @@ from PyQt6.QtWidgets import (
 from app.design.tokens import Color, Spacing
 from app.settings import get_theme
 from app.styles import THEME_DARK, THEME_LIGHT
+from app.widgets import HelpPanel
 from app.widgets.components import Card, SecondaryButton
 
 # --- UI text -------------------------------------------------------------
@@ -35,7 +37,17 @@ APPEARANCE_TITLE = "Appearance"
 THEME_LABEL_TEXT = "Theme"
 THEME_COMING_SOON_TEXT = "Light theme coming in a future update."
 SHORTCUTS_TITLE = "Keyboard Shortcuts"
-STATUS_HINT = "Tip: Adjust application appearance settings here."
+STATUS_HINT = "Tip: Adjust appearance settings or look up a keyboard shortcut here."
+HELP_TITLE = "Settings"
+HELP_BODY = """
+<p>This page holds application-wide preferences and a quick reference for
+keyboard shortcuts you can use anywhere in the app.</p>
+<p>The <b>Theme</b> selector is shown for discoverability, but is disabled
+in this release — only the dark theme is available right now. A light
+theme is planned for a future update.</p>
+<p>The <b>Keyboard Shortcuts</b> list below works from any page, not just
+this one — it's shown here as a reference.</p>
+"""
 
 _THEME_DISPLAY_NAMES = {
     THEME_DARK: "Dark",
@@ -65,9 +77,12 @@ class SettingsPage(QWidget):
         self._build_ui()
 
     def _build_ui(self) -> None:
-        outer = QVBoxLayout(self)
-        outer.setContentsMargins(Spacing.LG, Spacing.LG, Spacing.LG, Spacing.LG)
-        outer.setSpacing(Spacing.LG)
+        outer = QHBoxLayout(self)
+
+        content = QWidget()
+        content_layout = QVBoxLayout(content)
+        content_layout.setContentsMargins(Spacing.LG, Spacing.LG, Spacing.LG, Spacing.LG)
+        content_layout.setSpacing(Spacing.LG)
 
         header_row = QHBoxLayout()
         self.back_button = SecondaryButton(BACK_TEXT)
@@ -78,11 +93,25 @@ class SettingsPage(QWidget):
         title.setProperty("role", "heading")
         header_row.addWidget(title)
         header_row.addStretch(1)
-        outer.addLayout(header_row)
+        self.help_button = QPushButton("?")
+        self.help_button.setFixedSize(32, 32)
+        self.help_button.setProperty("flat", "true")
+        self.help_button.setToolTip("Show or hide help for this page")
+        self.help_button.clicked.connect(self._toggle_help)
+        header_row.addWidget(self.help_button)
+        content_layout.addLayout(header_row)
 
-        outer.addWidget(self._build_appearance_card())
-        outer.addWidget(self._build_shortcuts_card())
-        outer.addStretch(1)
+        content_layout.addWidget(self._build_appearance_card())
+        content_layout.addWidget(self._build_shortcuts_card())
+        content_layout.addStretch(1)
+
+        outer.addWidget(content, 1)
+
+        self.help_panel = HelpPanel(HELP_TITLE, HELP_BODY)
+        outer.addWidget(self.help_panel)
+
+    def _toggle_help(self) -> None:
+        self.help_panel.toggle()
 
     def _build_appearance_card(self) -> Card:
         card = Card()

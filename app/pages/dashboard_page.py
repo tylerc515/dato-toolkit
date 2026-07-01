@@ -110,10 +110,22 @@ class DashboardPage(QWidget):
 
         self.stats_row = QHBoxLayout()
         self.stats_row.setSpacing(Spacing.MD)
-        self._stat_projects = StatCard(STAT_PROJECTS_LABEL, "0")
-        self._stat_generated = StatCard(STAT_GENERATED_LABEL, "0")
-        self._stat_elevations = StatCard(STAT_ELEVATIONS_LABEL, "0")
-        self._stat_emails = StatCard(STAT_EMAILS_LABEL, "0")
+        self._stat_projects = StatCard(
+            STAT_PROJECTS_LABEL, "0",
+            tooltip="Tracker projects you've saved, including drafts you haven't generated yet.",
+        )
+        self._stat_generated = StatCard(
+            STAT_GENERATED_LABEL, "0",
+            tooltip="Excel trackers you've generated so far (update emails are counted separately).",
+        )
+        self._stat_elevations = StatCard(
+            STAT_ELEVATIONS_LABEL, "0",
+            tooltip="Total inspection elevations recorded across every tracker you've generated.",
+        )
+        self._stat_emails = StatCard(
+            STAT_EMAILS_LABEL, "0",
+            tooltip="NDE status update email documents you've generated.",
+        )
         for stat_card in (self._stat_projects, self._stat_generated, self._stat_elevations, self._stat_emails):
             self.stats_row.addWidget(stat_card, 1)
         outer.addLayout(self.stats_row)

@@ -11,6 +11,7 @@ from PyQt6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
+    QPushButton,
     QScrollArea,
     QVBoxLayout,
     QWidget,
@@ -19,6 +20,7 @@ from PyQt6.QtWidgets import (
 from app.design.icons import icon
 from app.history import HistoryEntry, format_timestamp, load_history
 from app.search import matches_search
+from app.widgets import HelpPanel
 from app.widgets.components import FixedGridTable, SecondaryButton, StatusBadge
 
 # --- UI text -------------------------------------------------------------
@@ -27,13 +29,28 @@ TITLE_TEXT = "Export History"
 BACK_TEXT = "← Back"
 NO_HISTORY_TEXT = "No trackers generated yet."
 NO_MATCHES_TEXT = "No exports match your search."
-OPEN_FILE_TOOLTIP = "Open File"
-OPEN_FOLDER_TOOLTIP = "Open Folder"
+OPEN_FILE_TOOLTIP = "Open the generated tracker file"
+OPEN_FOLDER_TOOLTIP = "Open the folder containing the generated file"
 SEARCH_PLACEHOLDER = "Search by title, customer, location, equipment, or date…"
-STATUS_HINT = "Tip: Browse every tracker you've generated and reopen its file or folder."
+STATUS_HINT = "Tip: Search or browse every tracker you've generated, then reopen its file or folder."
 UNTITLED_TEXT = "(Untitled)"
 PDF_BADGE_TEXT = "PDF"
 PDF_NONE_TEXT = "—"
+PDF_PRESENT_TOOLTIP = "A PDF copy was also generated alongside the Excel tracker."
+PDF_ABSENT_TOOLTIP = "No PDF copy was generated for this tracker."
+EQUIPMENT_COLUMN_TOOLTIP = "The equipment name recorded on the tracker (e.g. 'Recovery Boiler #2')."
+HELP_TITLE = "Export History"
+HELP_BODY = """
+<p>Every tracker you generate is logged here automatically, most recent
+first, so you can find and reopen it later even after closing the app.</p>
+<p>Use the search box to filter by title, customer, location, equipment,
+or date.</p>
+<p>The <b>Output File</b> column lets you reopen the generated Excel file
+or jump straight to its folder. The <b>PDF</b> column shows whether a PDF
+copy was also generated alongside it.</p>
+<p>This log only tracks generated trackers — it does not affect the saved
+project files themselves, which you can manage from the dashboard.</p>
+"""
 
 _ACTION_BUTTON_SIZE = 28
 
@@ -52,7 +69,7 @@ _COLUMNS = [
     {"label": "Title", "stretch": True},
     {"label": "Customer", "width": 160},
     {"label": "Location", "width": 130},
-    {"label": "Equipment", "width": 150},
+    {"label": "Equipment", "width": 150, "tooltip": EQUIPMENT_COLUMN_TOOLTIP},
     {"label": "Elevations", "width": 80},
     {"label": "Output File", "width": 90},
     {"label": "PDF", "width": 70},
@@ -101,7 +118,11 @@ class HistoryPage(QWidget):
         self._build_ui()
 
     def _build_ui(self) -> None:
-        outer = QVBoxLayout(self)
+        outer = QHBoxLayout(self)
+
+        content = QWidget()
+        content_layout = QVBoxLayout(content)
+        content_layout.setContentsMargins(0, 0, 0, 0)
 
         header_row = QHBoxLayout()
         self.back_button = SecondaryButton(BACK_TEXT)
@@ -112,13 +133,19 @@ class HistoryPage(QWidget):
         title.setProperty("role", "heading")
         header_row.addWidget(title)
         header_row.addStretch(1)
-        outer.addLayout(header_row)
+        self.help_button = QPushButton("?")
+        self.help_button.setFixedSize(32, 32)
+        self.help_button.setProperty("flat", "true")
+        self.help_button.setToolTip("Show or hide help for this page")
+        self.help_button.clicked.connect(self._toggle_help)
+        header_row.addWidget(self.help_button)
+        content_layout.addLayout(header_row)
 
         self.search_edit = QLineEdit()
         self.search_edit.setPlaceholderText(SEARCH_PLACEHOLDER)
         self.search_edit.setClearButtonEnabled(True)
         self.search_edit.textChanged.connect(self._apply_filter)
-        outer.addWidget(self.search_edit)
+        content_layout.addWidget(self.search_edit)
 
         scroll_area = QScrollArea()
         scroll_area.setWidgetResizable(True)
@@ -138,7 +165,15 @@ class HistoryPage(QWidget):
         scroll_layout.addStretch(1)
         scroll_area.setWidget(scroll_content)
 
-        outer.addWidget(scroll_area, 1)
+        content_layout.addWidget(scroll_area, 1)
+
+        outer.addWidget(content, 1)
+
+        self.help_panel = HelpPanel(HELP_TITLE, HELP_BODY)
+        outer.addWidget(self.help_panel)
+
+    def _toggle_help(self) -> None:
+        self.help_panel.toggle()
 
     def refresh(self) -> None:
         """Reload the full history list from disk."""
@@ -186,11 +221,12 @@ class HistoryPage(QWidget):
 
         if entry.pdf_path:
             pdf_widget: QWidget = _cell(
-                StatusBadge(PDF_BADGE_TEXT, "success"),
+                StatusBadge(PDF_BADGE_TEXT, "success", tooltip=PDF_PRESENT_TOOLTIP),
                 Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
             )
         else:
             pdf_widget = _text_cell(PDF_NONE_TEXT)
+            pdf_widget.setToolTip(PDF_ABSENT_TOOLTIP)
 
         return [
             _text_cell(format_timestamp(entry.generated_at)),

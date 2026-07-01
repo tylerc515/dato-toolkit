@@ -219,6 +219,10 @@ class GeneratePage(QWidget):
         self.email_button.clicked.connect(self._email_tracker)
         success_buttons.addWidget(self.email_button)
         self.new_project_button = SecondaryButton(NEW_PROJECT_TEXT)
+        self.new_project_button.setToolTip(
+            "Clear the wizard and start a fresh tracker. The file you just "
+            "generated stays saved on disk."
+        )
         self.new_project_button.clicked.connect(self.new_project_requested.emit)
         success_buttons.addWidget(self.new_project_button)
         self.gen_email_button = PrimaryButton(GEN_EMAIL_TEXT)

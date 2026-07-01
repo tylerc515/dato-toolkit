@@ -189,6 +189,10 @@ class ReorderPage(QWidget):
         toggle_row = QHBoxLayout()
         self._additional_toggle = QPushButton(f"▶  {ADDITIONAL_SECTIONS_LABEL}")
         self._additional_toggle.setProperty("flat", "true")
+        self._additional_toggle.setToolTip(
+            "Expand to add optional auxiliary scope items and punchlist items "
+            "not covered by the standard tube sections."
+        )
         self._additional_toggle.setCheckable(True)
         self._additional_toggle.toggled.connect(self._on_additional_toggle)
         toggle_row.addWidget(self._additional_toggle)

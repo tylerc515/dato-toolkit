@@ -105,6 +105,7 @@ class _EditForm(QFrame):
 
         self.notes_edit = QPlainTextEdit()
         self.notes_edit.setPlaceholderText("Enter any notes or findings for this item")
+        self.notes_edit.setToolTip("Optional. Appears in the notes cell for this item in the generated tracker.")
         self.notes_edit.setMinimumHeight(60)
         self.notes_edit.setStyleSheet(_field_qss)
         layout.addWidget(self.notes_edit)
@@ -168,6 +169,7 @@ class ItemEditorWidget(QWidget):
         add_btn_row = QHBoxLayout()
         add_btn = QPushButton("+ Add Item")
         add_btn.setProperty("accent", "true")
+        add_btn.setToolTip("Add a new item to this list.")
         add_btn.setFixedHeight(36)
         add_btn.setMaximumWidth(200)
         add_btn.clicked.connect(self._on_add)

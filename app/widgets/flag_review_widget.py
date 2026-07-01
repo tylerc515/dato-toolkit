@@ -96,6 +96,10 @@ def _make_combo() -> QComboBox:
     combo.setMinimumWidth(COMBO_MIN_WIDTH)
     combo.setMaximumWidth(COMBO_MAX_WIDTH)
     combo.setMaxVisibleItems(7)
+    combo.setToolTip(
+        "Type to search, or pick the Standard Format code this ATS flag "
+        "should be converted to."
+    )
 
     for symbol, description in STANDARD_SYMBOL_DESCRIPTIONS.items():
         combo.addItem(f"{symbol}{COMBO_SEPARATOR}{description}")
@@ -171,7 +175,10 @@ class FlagReviewWidget(QWidget):
         # construction than the other two categories.
         for ats_code, std_code in self._mapping_result.known.items():
             description = self._mapping_result.unknown.get(ats_code, ats_code)
-            status_badge = StatusBadge(AUTO_MAPPED_LABEL, _STATUS_SEMANTIC_AUTO_MAPPED)
+            status_badge = StatusBadge(
+                AUTO_MAPPED_LABEL, _STATUS_SEMANTIC_AUTO_MAPPED,
+                tooltip="This flag code was automatically matched with high confidence. No action needed.",
+            )
             self._table.add_row([
                 QLabel(ats_code),
                 QLabel(description),
@@ -193,7 +200,10 @@ class FlagReviewWidget(QWidget):
             combo.currentTextChanged.connect(self._on_input_changed)
             self._code_inputs[ats_code] = combo
 
-            status_badge = StatusBadge(SUGGESTED_MATCH_LABEL, _STATUS_SEMANTIC_SUGGESTED)
+            status_badge = StatusBadge(
+                SUGGESTED_MATCH_LABEL, _STATUS_SEMANTIC_SUGGESTED,
+                tooltip="Matched by description similarity, not an exact code match. Please confirm or change it.",
+            )
 
             self._table.add_row([
                 QLabel(ats_code),
@@ -209,9 +219,16 @@ class FlagReviewWidget(QWidget):
             combo.currentTextChanged.connect(self._on_input_changed)
             self._code_inputs[ats_code] = combo
 
-            status_badge = StatusBadge(NEEDS_MAPPING_LABEL, _STATUS_SEMANTIC_NEEDS_MAPPING)
+            status_badge = StatusBadge(
+                NEEDS_MAPPING_LABEL, _STATUS_SEMANTIC_NEEDS_MAPPING,
+                tooltip="No automatic match was found. Choose a Standard Format code, or check 'Leave as-is'.",
+            )
 
             leave_check = QCheckBox(LEAVE_AS_IS_TEXT)
+            leave_check.setToolTip(
+                "Pass this ATS code through to the output unchanged, instead of "
+                "mapping it to a Standard Format code."
+            )
             leave_check.stateChanged.connect(
                 lambda state, code=ats_code, inp=combo, badge=status_badge:
                     self._on_leave_toggled(code, inp, badge, state)
@@ -232,6 +249,10 @@ class FlagReviewWidget(QWidget):
         btn_row.addStretch(1)
         self._confirm_btn = QPushButton(CONFIRM_TEXT)
         self._confirm_btn.setProperty("accent", "true")
+        self._confirm_btn.setToolTip(
+            "Lock in these mappings so you can convert. If you change a "
+            "mapping afterward, click this again to apply the update."
+        )
         self._confirm_btn.setEnabled(False)
         self._confirm_btn.clicked.connect(self._on_confirm)
         btn_row.addWidget(self._confirm_btn)
@@ -245,9 +266,15 @@ class FlagReviewWidget(QWidget):
         checked = state == Qt.CheckState.Checked.value
         inp.setEnabled(not checked)
         if checked:
-            status_badge.set_status(LEAVE_AS_IS_TEXT, _STATUS_SEMANTIC_LEAVE_AS_IS)
+            status_badge.set_status(
+                LEAVE_AS_IS_TEXT, _STATUS_SEMANTIC_LEAVE_AS_IS,
+                tooltip="This code will be passed through unchanged in the output.",
+            )
         else:
-            status_badge.set_status(NEEDS_MAPPING_LABEL, _STATUS_SEMANTIC_NEEDS_MAPPING)
+            status_badge.set_status(
+                NEEDS_MAPPING_LABEL, _STATUS_SEMANTIC_NEEDS_MAPPING,
+                tooltip="No automatic match was found. Choose a Standard Format code, or check 'Leave as-is'.",
+            )
         self._update_confirm_button()
 
     def _on_input_changed(self) -> None:
