@@ -19,11 +19,7 @@ _TOOLS_ITEMS = [
     ("converter", "Data converter", "arrows-left-right"),
     ("history", "History", "clock-counter-clockwise"),
 ]
-_SYSTEM_ITEMS = [
-    ("settings", "Settings", "gear"),
-]
-
-USER_NAME = "Tyler Chambers"
+_SETTINGS_ITEM = ("settings", "Settings", "gear")
 
 
 class _NavButton(QPushButton):
@@ -101,31 +97,21 @@ class Sidebar(QWidget):
         for item_id, label, icon_name in _TOOLS_ITEMS:
             layout.addWidget(self._add_nav_button(item_id, label, icon_name))
 
-        layout.addSpacing(Spacing.LG)
-        layout.addWidget(self._section_label("System"))
-        for item_id, label, icon_name in _SYSTEM_ITEMS:
-            layout.addWidget(self._add_nav_button(item_id, label, icon_name))
-
         layout.addStretch(1)
 
-        user_row = QFrame()
-        user_row.setStyleSheet(f"border-top: 1px solid {Color.BORDER};")
-        user_layout = QHBoxLayout(user_row)
-        user_layout.setContentsMargins(Spacing.SM, Spacing.MD, Spacing.SM, 0)
-        avatar = QLabel("TC")
-        avatar.setFixedSize(28, 28)
-        avatar.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        avatar.setStyleSheet(
-            f"background-color: {Color.ACCENT_BG_TINT}; color: {Color.ACCENT_TEXT}; "
-            f"border-radius: 14px; font-size: {FontSize.SMALL}px; font-weight: 600;"
-        )
-        user_layout.addWidget(avatar)
-        user_layout.addSpacing(Spacing.SM)
-        user_label = QLabel(USER_NAME)
-        user_label.setStyleSheet(f"color: {Color.TEXT_SECONDARY}; font-size: {FontSize.SMALL}px;")
-        user_layout.addWidget(user_label)
-        user_layout.addStretch(1)
-        layout.addWidget(user_row)
+        # Settings sits alone at the bottom, set apart from the tools list by
+        # a top border rather than a "SYSTEM" section label - with only one
+        # item and no user/account row above it anymore, a section heading
+        # here would be redundant with the separator + bottom position doing
+        # that job visually.
+        settings_row = QFrame()
+        settings_row.setStyleSheet(f"border-top: 1px solid {Color.BORDER};")
+        settings_layout = QVBoxLayout(settings_row)
+        settings_layout.setContentsMargins(0, Spacing.SM, 0, 0)
+        settings_layout.setSpacing(0)
+        settings_id, settings_label, settings_icon_name = _SETTINGS_ITEM
+        settings_layout.addWidget(self._add_nav_button(settings_id, settings_label, settings_icon_name))
+        layout.addWidget(settings_row)
 
     def _section_label(self, text: str) -> QLabel:
         label = QLabel(text.upper())
