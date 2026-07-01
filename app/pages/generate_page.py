@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import html
 import logging
 from datetime import datetime
 from pathlib import Path
@@ -13,7 +14,6 @@ from PyQt6.QtGui import QDesktopServices
 from PyQt6.QtWidgets import (
     QCheckBox,
     QFileDialog,
-    QFrame,
     QGraphicsOpacityEffect,
     QHBoxLayout,
     QLabel,
@@ -26,13 +26,15 @@ from PyQt6.QtWidgets import (
 )
 
 from app.builder import TrackerData, TrackerItem, TrackerSection, build_tracker
+from app.design.icons import icon
+from app.design.tokens import Color, Radius
 from app.history import HistoryEntry, add_history_entry
 from app.logo import get_pixmap
 from app.pdf_export import export_tracker_pdf
 from app.project import ProjectConfig, sanitize_filename
-from app.styles import apply_card_shadow, color
 from app.validation import validate_tracker_output
 from app.widgets import HelpPanel
+from app.widgets.components import Card, PrimaryButton, SecondaryButton
 
 # --- UI text -------------------------------------------------------------
 
@@ -141,10 +143,8 @@ class GeneratePage(QWidget):
         header_row.addWidget(self.help_button)
         content_layout.addLayout(header_row)
 
-        self.summary_card = QFrame()
-        self.summary_card.setProperty("card", "true")
-        apply_card_shadow(self.summary_card)
-        summary_layout = QVBoxLayout(self.summary_card)
+        self.summary_card = Card()
+        summary_layout = self.summary_card.layout()
         summary_heading = QLabel(SUMMARY_TITLE)
         summary_heading.setProperty("role", "heading")
         summary_layout.addWidget(summary_heading)
@@ -154,18 +154,19 @@ class GeneratePage(QWidget):
         content_layout.addWidget(self.summary_card)
 
         folder_label = QLabel(OUTPUT_FOLDER_LABEL)
+        folder_label.setProperty("role", "label")
         content_layout.addWidget(folder_label)
         folder_row = QHBoxLayout()
         self.folder_edit = QLineEdit()
         self.folder_edit.setToolTip("Folder where the generated tracker will be saved")
         folder_row.addWidget(self.folder_edit, 1)
-        self.browse_button = QPushButton(BROWSE_TEXT)
-        self.browse_button.setProperty("flat", "true")
+        self.browse_button = SecondaryButton(BROWSE_TEXT)
         self.browse_button.clicked.connect(self._browse_folder)
         folder_row.addWidget(self.browse_button)
         content_layout.addLayout(folder_row)
 
         filename_label = QLabel(OUTPUT_FILENAME_LABEL)
+        filename_label.setProperty("role", "label")
         content_layout.addWidget(filename_label)
         self.filename_edit = QLineEdit()
         self.filename_edit.setToolTip("Name of the generated Excel file")
@@ -179,13 +180,22 @@ class GeneratePage(QWidget):
         self.progress_bar.setVisible(False)
         content_layout.addWidget(self.progress_bar)
 
-        self.success_card = QFrame()
-        self.success_card.setProperty("card", "true")
-        apply_card_shadow(self.success_card)
-        success_layout = QVBoxLayout(self.success_card)
+        self.success_card = Card()
+        self.success_card.setStyleSheet(
+            f"QFrame {{ background-color: {Color.CARD_BG}; border: 1px solid {Color.SUCCESS}; "
+            f"border-radius: {Radius.CARD}px; }}"
+        )
+        success_layout = self.success_card.layout()
+        success_heading_row = QHBoxLayout()
+        success_heading_icon = QLabel()
+        success_heading_icon.setPixmap(icon("check", color=Color.SUCCESS).pixmap(20, 20))
+        success_heading_row.addWidget(success_heading_icon)
         success_heading = QLabel(SUCCESS_TITLE)
         success_heading.setProperty("role", "heading")
-        success_layout.addWidget(success_heading)
+        success_heading.setStyleSheet(f"color: {Color.SUCCESS};")
+        success_heading_row.addWidget(success_heading)
+        success_heading_row.addStretch(1)
+        success_layout.addLayout(success_heading_row)
         success_logo = QLabel()
         success_logo.setPixmap(get_pixmap(180, 105))
         success_logo.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -194,28 +204,24 @@ class GeneratePage(QWidget):
         success_layout.addWidget(success_text)
         self.validation_warning_label = QLabel("")
         self.validation_warning_label.setWordWrap(True)
-        self.validation_warning_label.setStyleSheet(f"color: {color('warning')};")
+        self.validation_warning_label.setStyleSheet(f"color: {Color.WARNING};")
         self.validation_warning_label.setVisible(False)
         success_layout.addWidget(self.validation_warning_label)
         success_buttons = QHBoxLayout()
         self.open_file_button = QPushButton(OPEN_FILE_TEXT)
         self.open_file_button.clicked.connect(self._open_file)
         success_buttons.addWidget(self.open_file_button)
-        self.open_folder_button = QPushButton(OPEN_FOLDER_TEXT)
-        self.open_folder_button.setProperty("flat", "true")
+        self.open_folder_button = SecondaryButton(OPEN_FOLDER_TEXT)
         self.open_folder_button.clicked.connect(self._open_folder)
         success_buttons.addWidget(self.open_folder_button)
-        self.email_button = QPushButton(EMAIL_TEXT)
-        self.email_button.setProperty("flat", "true")
+        self.email_button = SecondaryButton(EMAIL_TEXT)
         self.email_button.setToolTip("Open your email client with the tracker details")
         self.email_button.clicked.connect(self._email_tracker)
         success_buttons.addWidget(self.email_button)
-        self.new_project_button = QPushButton(NEW_PROJECT_TEXT)
-        self.new_project_button.setProperty("flat", "true")
+        self.new_project_button = SecondaryButton(NEW_PROJECT_TEXT)
         self.new_project_button.clicked.connect(self.new_project_requested.emit)
         success_buttons.addWidget(self.new_project_button)
-        self.gen_email_button = QPushButton(GEN_EMAIL_TEXT)
-        self.gen_email_button.setProperty("accent", "true")
+        self.gen_email_button = PrimaryButton(GEN_EMAIL_TEXT)
         self.gen_email_button.setToolTip("Generate a formatted status update email for this project")
         self.gen_email_button.clicked.connect(self._on_email_requested)
         success_buttons.addWidget(self.gen_email_button)
@@ -235,13 +241,11 @@ class GeneratePage(QWidget):
         content_layout.addStretch(1)
 
         button_row = QHBoxLayout()
-        self.back_button = QPushButton(BACK_TEXT)
-        self.back_button.setProperty("flat", "true")
+        self.back_button = SecondaryButton(BACK_TEXT)
         self.back_button.clicked.connect(self.back_requested.emit)
         button_row.addWidget(self.back_button)
         button_row.addStretch(1)
-        self.generate_button = QPushButton(GENERATE_TEXT)
-        self.generate_button.setProperty("accent", "true")
+        self.generate_button = PrimaryButton(GENERATE_TEXT)
         self.generate_button.setToolTip("Create the formatted Excel tracker")
         self.generate_button.clicked.connect(self._on_generate)
         button_row.addWidget(self.generate_button)
@@ -262,12 +266,15 @@ class GeneratePage(QWidget):
 
         section_count = len(config.sections)
         elevation_count = sum(len(section.elevations) for section in config.sections)
+        # title/customer/location/equipment/date originate from parsed TRACE
+        # CSV file content (or user-edited free text), so they must be
+        # escaped before going into this RichText QLabel.
         self.summary_label.setText(
-            f"<b>Title:</b> {config.title}<br>"
-            f"<b>Customer:</b> {config.customer}<br>"
-            f"<b>Location:</b> {config.location}<br>"
-            f"<b>Equipment:</b> {config.equipment}<br>"
-            f"<b>Project Date:</b> {config.date}<br>"
+            f"<b>Title:</b> {html.escape(config.title)}<br>"
+            f"<b>Customer:</b> {html.escape(config.customer)}<br>"
+            f"<b>Location:</b> {html.escape(config.location)}<br>"
+            f"<b>Equipment:</b> {html.escape(config.equipment)}<br>"
+            f"<b>Project Date:</b> {html.escape(config.date)}<br>"
             f"<b>Sections:</b> {section_count}<br>"
             f"<b>Elevations:</b> {elevation_count}"
         )
@@ -350,8 +357,11 @@ class GeneratePage(QWidget):
         self._success_animation.start()
 
         if warnings:
+            # Warning messages embed the output filename, which is
+            # free-typed user input, so escape before rendering as RichText.
             self.validation_warning_label.setText(
-                VALIDATION_WARNING_PREFIX + "<br>".join(f"• {message}" for message in warnings)
+                VALIDATION_WARNING_PREFIX
+                + "<br>".join(f"• {html.escape(message)}" for message in warnings)
             )
             self.validation_warning_label.setVisible(True)
         else:
