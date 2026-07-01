@@ -29,7 +29,7 @@ from app.converters.flag_mapper import (
 )
 from app.converters.standard_format_writer import write_standard_format
 from app.design.icons import icon
-from app.design.tokens import Color, FontSize, Radius, Spacing
+from app.design.tokens import Color, Radius, Spacing
 from app.styles import color
 from app.widgets import HelpPanel
 from app.widgets.components import Card, PrimaryButton, SecondaryButton, StatCard
@@ -487,14 +487,8 @@ class ConverterPage(QWidget):
         self._flag_widget_layout.addWidget(flag_widget)
 
     def _set_flags_needing_review(self, count: int) -> None:
-        self._stat_flags.set_value(str(count))
-        # StatCard doesn't expose a public color setter, so this reaches into
-        # its private value label to swap the semantic color at runtime -
-        # matching the styling StatCard.__init__ applies for value_color.
         value_color = Color.WARNING if count > 0 else Color.TEXT_PRIMARY
-        self._stat_flags._value_label.setStyleSheet(
-            f"color: {value_color}; font-size: {FontSize.STAT_NUMBER}px; font-weight: 500;"
-        )
+        self._stat_flags.set_value(str(count), color=value_color)
 
     def _on_flags_confirmed(self, mapping: dict[str, str]) -> None:
         all_flags: dict[str, str] = {}

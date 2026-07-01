@@ -77,8 +77,12 @@ class StatCard(Card):
         )
         self.layout().addWidget(self._value_label)
 
-    def set_value(self, value: str) -> None:
+    def set_value(self, value: str, color: str | None = None) -> None:
         self._value_label.setText(value)
+        if color is not None:
+            self._value_label.setStyleSheet(
+                f"color: {color}; font-size: {FontSize.STAT_NUMBER}px; font-weight: 500;"
+            )
 
 
 class StatusBadge(QLabel):

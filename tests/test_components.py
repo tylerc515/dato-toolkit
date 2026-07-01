@@ -64,6 +64,25 @@ def test_stat_card_accepts_color_override():
     assert Color.WARNING in stat._value_label.styleSheet()
 
 
+def test_stat_card_set_value_accepts_optional_color():
+    from app.widgets.components import StatCard
+    from app.design.tokens import Color
+    stat = StatCard("Flags needing review", "0")
+    stat.set_value("5", color=Color.WARNING)
+    assert stat._value_label.text() == "5"
+    assert Color.WARNING in stat._value_label.styleSheet()
+
+
+def test_stat_card_set_value_without_color_preserves_prior_color():
+    from app.widgets.components import StatCard
+    from app.design.tokens import Color
+    stat = StatCard("Flags needing review", "0")
+    stat.set_value("3", color=Color.WARNING)
+    stat.set_value("5")
+    assert stat._value_label.text() == "5"
+    assert Color.WARNING in stat._value_label.styleSheet()
+
+
 def test_status_badge_accepts_known_semantics():
     from app.widgets.components import StatusBadge
     for semantic in ("success", "warning", "danger"):
