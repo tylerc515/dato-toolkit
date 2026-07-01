@@ -49,3 +49,30 @@ def test_set_and_get_active_theme_still_work():
     set_active_theme("light")
     assert get_active_theme() == "light"
     set_active_theme(DEFAULT_THEME)
+
+
+def test_build_stylesheet_contains_no_stray_pixel_literals():
+    """Every `<number>px` value in the generated QSS must trace back to a
+    Spacing/Radius/FontSize token value, with one narrow exception: a bare
+    `1px` border width. `1px solid ...` is a CSS/QSS border-width convention
+    (the universal "hairline" border), not a design-system spacing or radius
+    value - there is no Spacing/Radius token for it and it isn't meant to
+    scale with the rest of the design system, so it's excluded from this
+    check rather than forced onto an unrelated token.
+    """
+    from app.styles import build_stylesheet
+    from app.design.tokens import FontSize, Radius, Spacing
+
+    qss = build_stylesheet("dark")
+
+    token_values = set()
+    for token_class in (Spacing, Radius, FontSize):
+        for key, value in vars(token_class).items():
+            if not key.startswith("_") and isinstance(value, int):
+                token_values.add(value)
+
+    found_pixels = {int(n) for n in re.findall(r"(\d+)px", qss)}
+    stray = {n for n in found_pixels if n != 1 and n not in token_values}
+    assert not stray, (
+        f"QSS contains pixel literals not sourced from app.design.tokens: {stray}"
+    )

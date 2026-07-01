@@ -183,14 +183,14 @@ QScrollArea {{
 
 QScrollBar:vertical {{
     background: {Color.PAGE_BG};
-    width: 10px;
-    border-radius: 5px;
+    width: {Spacing.SM}px;
+    border-radius: {Radius.INPUT}px;
 }}
 
 QScrollBar::handle:vertical {{
     background: {Color.BORDER_STRONG};
-    border-radius: 5px;
-    min-height: 24px;
+    border-radius: {Radius.INPUT}px;
+    min-height: {Spacing.XXL}px;
 }}
 
 QScrollBar::handle:vertical:hover {{
@@ -202,12 +202,12 @@ QProgressBar {{
     border: 1px solid {Color.BORDER};
     border-radius: {Radius.BUTTON}px;
     text-align: center;
-    height: 18px;
+    height: {Spacing.LG}px;
 }}
 
 QProgressBar::chunk {{
     background-color: {Color.ACCENT};
-    border-radius: 7px;
+    border-radius: {Radius.INPUT}px;
 }}
 
 QStatusBar {{
@@ -220,14 +220,14 @@ QToolTip {{
     background-color: {Color.CARD_BG};
     color: {Color.TEXT_PRIMARY};
     border: 1px solid {Color.ACCENT};
-    border-radius: 6px;
-    padding: 4px 8px;
+    border-radius: {Radius.INPUT}px;
+    padding: {Spacing.XS}px {Spacing.SM}px;
 }}
 
 QCheckBox::indicator {{
-    width: 16px;
-    height: 16px;
-    border-radius: 4px;
+    width: {Spacing.LG}px;
+    height: {Spacing.LG}px;
+    border-radius: {Spacing.XS}px;
     border: 1px solid {Color.BORDER};
     background: {Color.INPUT_BG};
 }}
