@@ -1,22 +1,31 @@
-"""Settings page: appearance preferences (theme)."""
+"""Settings page: appearance preferences and keyboard shortcuts reference.
+
+Theme-selector decision (Task 23, Phase 8): this redesign ships ONE theme
+(dark, TRACE-inspired) - there is no light-mode QSS in this pass. The old
+Dark/Light QComboBox is kept in place but disabled, with a note explaining
+that light theme support is coming later, rather than being ripped out.
+This was the lower-churn option: the combo is a self-contained control
+(get_theme()/set_theme() have no other call sites in the app besides this
+page and the one-time read in main.py at startup), so no other file needed
+to change to make this decision.
+"""
 
 from __future__ import annotations
 
-from PyQt6.QtCore import pyqtSignal
+from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtWidgets import (
-    QApplication,
     QComboBox,
-    QFrame,
     QGridLayout,
     QHBoxLayout,
     QLabel,
-    QPushButton,
     QVBoxLayout,
     QWidget,
 )
 
-from app.settings import get_theme, set_theme
-from app.styles import THEME_DARK, THEME_LIGHT, apply_card_shadow, build_stylesheet, set_active_theme
+from app.design.tokens import Color, Spacing
+from app.settings import get_theme
+from app.styles import THEME_DARK, THEME_LIGHT
+from app.widgets.components import Card, SecondaryButton
 
 # --- UI text -------------------------------------------------------------
 
@@ -24,10 +33,7 @@ TITLE_TEXT = "Settings"
 BACK_TEXT = "← Back"
 APPEARANCE_TITLE = "Appearance"
 THEME_LABEL_TEXT = "Theme"
-THEME_RESTART_HINT = (
-    "Some elements (the title bar, step indicator, and splash screen) will pick up "
-    "the new theme's colors after you restart the app."
-)
+THEME_COMING_SOON_TEXT = "Light theme coming in a future update."
 SHORTCUTS_TITLE = "Keyboard Shortcuts"
 STATUS_HINT = "Tip: Adjust application appearance settings here."
 
@@ -50,7 +56,7 @@ KEYBOARD_SHORTCUTS = [
 
 
 class SettingsPage(QWidget):
-    """Settings page: theme selection and other preferences."""
+    """Settings page: theme preference (view-only for now) and keyboard shortcuts."""
 
     back_requested = pyqtSignal()
 
@@ -60,10 +66,11 @@ class SettingsPage(QWidget):
 
     def _build_ui(self) -> None:
         outer = QVBoxLayout(self)
+        outer.setContentsMargins(Spacing.LG, Spacing.LG, Spacing.LG, Spacing.LG)
+        outer.setSpacing(Spacing.LG)
 
         header_row = QHBoxLayout()
-        self.back_button = QPushButton(BACK_TEXT)
-        self.back_button.setProperty("flat", "true")
+        self.back_button = SecondaryButton(BACK_TEXT)
         self.back_button.clicked.connect(self.back_requested.emit)
         header_row.addWidget(self.back_button)
         header_row.addSpacing(12)
@@ -73,10 +80,13 @@ class SettingsPage(QWidget):
         header_row.addStretch(1)
         outer.addLayout(header_row)
 
-        card = QFrame()
-        card.setProperty("card", "true")
-        apply_card_shadow(card)
-        card_layout = QVBoxLayout(card)
+        outer.addWidget(self._build_appearance_card())
+        outer.addWidget(self._build_shortcuts_card())
+        outer.addStretch(1)
+
+    def _build_appearance_card(self) -> Card:
+        card = Card()
+        card_layout = card.layout()
 
         heading = QLabel(APPEARANCE_TITLE)
         heading.setProperty("role", "heading")
@@ -91,45 +101,46 @@ class SettingsPage(QWidget):
         index = self.theme_combo.findData(get_theme())
         if index >= 0:
             self.theme_combo.setCurrentIndex(index)
-        self.theme_combo.currentIndexChanged.connect(self._on_theme_changed)
+        # Only one theme ships in this release (dark) - the selector stays
+        # visible so the option is discoverable, but disabled so it can't
+        # be changed to an unsupported light theme. See module docstring.
+        # The global QSS (app/styles.py) has no QComboBox:disabled rule, so
+        # the muted text color is applied here directly (still token-driven,
+        # not a hardcoded value) to make the disabled state visually clear.
+        self.theme_combo.setEnabled(False)
+        self.theme_combo.setToolTip(THEME_COMING_SOON_TEXT)
+        self.theme_combo.setStyleSheet(f"color: {Color.TEXT_MUTED};")
         theme_row.addWidget(self.theme_combo)
         theme_row.addStretch(1)
         card_layout.addLayout(theme_row)
 
-        hint = QLabel(THEME_RESTART_HINT)
-        hint.setProperty("role", "muted")
-        hint.setWordWrap(True)
-        card_layout.addWidget(hint)
+        note = QLabel(THEME_COMING_SOON_TEXT)
+        note.setProperty("role", "muted")
+        note.setWordWrap(True)
+        card_layout.addWidget(note)
 
-        outer.addWidget(card)
+        return card
 
-        shortcuts_card = QFrame()
-        shortcuts_card.setProperty("card", "true")
-        apply_card_shadow(shortcuts_card)
-        shortcuts_layout = QVBoxLayout(shortcuts_card)
+    def _build_shortcuts_card(self) -> Card:
+        card = Card()
+        card_layout = card.layout()
 
-        shortcuts_heading = QLabel(SHORTCUTS_TITLE)
-        shortcuts_heading.setProperty("role", "heading")
-        shortcuts_layout.addWidget(shortcuts_heading)
+        heading = QLabel(SHORTCUTS_TITLE)
+        heading.setProperty("role", "heading")
+        card_layout.addWidget(heading)
 
         shortcuts_grid = QGridLayout()
         shortcuts_grid.setColumnStretch(1, 1)
+        shortcuts_grid.setHorizontalSpacing(Spacing.MD)
+        shortcuts_grid.setVerticalSpacing(Spacing.XS)
         for row, (keys, description) in enumerate(KEYBOARD_SHORTCUTS):
             keys_label = QLabel(keys)
+            keys_label.setTextFormat(Qt.TextFormat.PlainText)
             keys_label.setStyleSheet("font-weight: 600;")
             shortcuts_grid.addWidget(keys_label, row, 0)
-            shortcuts_grid.addWidget(QLabel(description), row, 1)
-        shortcuts_layout.addLayout(shortcuts_grid)
+            desc_label = QLabel(description)
+            desc_label.setTextFormat(Qt.TextFormat.PlainText)
+            shortcuts_grid.addWidget(desc_label, row, 1)
+        card_layout.addLayout(shortcuts_grid)
 
-        outer.addWidget(shortcuts_card)
-        outer.addStretch(1)
-
-    def _on_theme_changed(self, index: int) -> None:
-        theme = self.theme_combo.itemData(index)
-        if not theme:
-            return
-        set_theme(theme)
-        set_active_theme(theme)
-        app = QApplication.instance()
-        if app is not None:
-            app.setStyleSheet(build_stylesheet(theme))
+        return card
