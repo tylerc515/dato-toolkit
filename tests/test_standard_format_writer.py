@@ -248,9 +248,9 @@ def test_legend_always_written_in_full(tmp_path: Path):
     out = tmp_path / "output.csv"
     write_standard_format(result, {}, out)
     legend_rows = _find_legend_rows(out)
-    # At least 13 rows: 1 blank separator + 12 symbol rows (R/V/N excluded from output)
-    assert len(legend_rows) >= 13, (
-        f"Expected at least 13 legend rows, got {len(legend_rows)}"
+    # 16 rows: 1 blank separator + 12 symbol rows + 1 blank separator + R/V row + N row
+    assert len(legend_rows) >= 16, (
+        f"Expected at least 16 legend rows, got {len(legend_rows)}"
     )
 
 
@@ -319,26 +319,23 @@ def test_default_output_writes_plain_numeric_strings(tmp_path: Path):
 
 
 # ---------------------------------------------------------------------------
-# Fix 2 - R/V/N reading-suffix codes excluded from output legend
+# R/V/N rows must be present in output legend, excluded only from picker/matching
 # ---------------------------------------------------------------------------
 
-def test_output_legend_excludes_rvn(tmp_path: Path):
-    """R, V, N are reading-suffix codes and must not appear as legend entries."""
+def test_output_legend_includes_rvn(tmp_path: Path):
+    """R, V, N rows from the reference file must appear in the output legend."""
     from app.converters.standard_format_writer import write_standard_format
     result = _make_result()
     out = tmp_path / "output.csv"
     write_standard_format(result, {}, out)
     legend_rows = _find_legend_rows(out)
-    rvn = {"R", "V", "N"}
+    # Collect leading tokens from all legend cells
+    leading_symbols = set()
     for row in legend_rows:
         for cell in row:
-            # Exact-value check: no bare R/V/N cell (avoids false positives from
-            # words that contain those letters, e.g. "REMOVAL")
-            assert cell.strip() not in rvn, (
-                f"Legend row contains bare R/V/N cell value: {row}"
-            )
-            # First-token check: no cell whose leading symbol is R, V, or N
             parts = cell.strip().split()
-            assert not (parts and parts[0] in rvn), (
-                f"Legend row contains R/V/N symbol entry: {row}"
-            )
+            if parts:
+                leading_symbols.add(parts[0])
+    assert "R" in leading_symbols, "Expected 'R' symbol row in output legend"
+    assert "V" in leading_symbols, "Expected 'V' symbol row in output legend"
+    assert "N" in leading_symbols, "Expected 'N' symbol row in output legend"

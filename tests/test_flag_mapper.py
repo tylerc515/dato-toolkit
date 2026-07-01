@@ -19,6 +19,14 @@ def test_default_map_contains_no_codes():
         assert code not in DEFAULT_ATS_FLAG_MAP
 
 
+def test_standard_symbol_descriptions_excludes_rvn():
+    """R, V, N must not appear in STANDARD_SYMBOL_DESCRIPTIONS (picker/matching exclusion)."""
+    from app.converters.flag_mapper import STANDARD_SYMBOL_DESCRIPTIONS
+    assert "R" not in STANDARD_SYMBOL_DESCRIPTIONS, "R should be excluded from picker/matching"
+    assert "V" not in STANDARD_SYMBOL_DESCRIPTIONS, "V should be excluded from picker/matching"
+    assert "N" not in STANDARD_SYMBOL_DESCRIPTIONS, "N should be excluded from picker/matching"
+
+
 def test_standard_symbol_descriptions_has_scaffold():
     """';' maps to 'Structural interference' as parsed from the reference file."""
     from app.converters.flag_mapper import STANDARD_SYMBOL_DESCRIPTIONS
