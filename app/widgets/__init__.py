@@ -13,8 +13,8 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from app.design.tokens import Color, FontSize, Radius, Spacing
 from app.logo import get_pixmap
-from app.styles import color
 
 HELP_PANEL_WIDTH = 320
 ONBOARDING_TITLE = "Welcome to DATO Toolkit"
@@ -55,7 +55,7 @@ class StepIndicator(QWidget):
             if index > 0:
                 connector = QFrame()
                 connector.setFixedHeight(2)
-                connector.setStyleSheet(f"background-color: {color('border')};")
+                connector.setStyleSheet(f"background-color: {Color.BORDER};")
                 layout.addWidget(connector, 1)
 
             button = QPushButton(f"{index + 1}. {label}")
@@ -73,22 +73,25 @@ class StepIndicator(QWidget):
             if index == current_index:
                 button.setText(f"{index + 1}. {self._labels[index]}")
                 button.setStyleSheet(
-                    f"background-color: {color('highlight')}; color: {color('text')}; "
-                    f"font-weight: 600; border-radius: 8px; padding: 8px 16px;"
+                    f"QPushButton {{ background-color: {Color.ACCENT}; color: {Color.TEXT_PRIMARY}; "
+                    f"font-size: {FontSize.BODY}px; font-weight: 600; border: none; "
+                    f"border-radius: {Radius.BUTTON}px; padding: {Spacing.SM}px {Spacing.LG}px; }}"
                 )
                 button.setEnabled(index < current_index or index in completed or index == current_index)
             elif index in completed or index < current_index:
                 button.setText(f"✓ {self._labels[index]}")
                 button.setStyleSheet(
-                    f"background-color: {color('surface')}; color: {color('success')}; "
-                    f"border: 1px solid {color('success')}; border-radius: 8px; padding: 8px 16px;"
+                    f"QPushButton {{ background-color: {Color.CARD_BG}; color: {Color.SUCCESS}; "
+                    f"font-size: {FontSize.BODY}px; border: 1px solid {Color.SUCCESS}; "
+                    f"border-radius: {Radius.BUTTON}px; padding: {Spacing.SM}px {Spacing.LG}px; }}"
                 )
                 button.setEnabled(True)
             else:
                 button.setText(f"{index + 1}. {self._labels[index]}")
                 button.setStyleSheet(
-                    f"background-color: {color('surface')}; color: {color('muted_text')}; "
-                    f"border: 1px solid {color('border')}; border-radius: 8px; padding: 8px 16px;"
+                    f"QPushButton {{ background-color: {Color.CARD_BG}; color: {Color.TEXT_MUTED}; "
+                    f"font-size: {FontSize.BODY}px; border: 1px solid {Color.BORDER}; "
+                    f"border-radius: {Radius.BUTTON}px; padding: {Spacing.SM}px {Spacing.LG}px; }}"
                 )
                 button.setEnabled(False)
 
