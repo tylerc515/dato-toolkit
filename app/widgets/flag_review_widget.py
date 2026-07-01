@@ -72,9 +72,15 @@ class FlagReviewWidget(QWidget):
 
     mappings_confirmed = pyqtSignal(dict)
 
-    def __init__(self, mapping_result: FlagMappingResult, parent: QWidget | None = None):
+    def __init__(
+        self,
+        mapping_result: FlagMappingResult,
+        ats_flags: dict[str, str] | None = None,
+        parent: QWidget | None = None,
+    ):
         super().__init__(parent)
         self._mapping_result = mapping_result
+        self._ats_flags: dict[str, str] = ats_flags if ats_flags is not None else {}
         self._code_inputs: dict[str, QComboBox] = {}
         self._leave_checks: dict[str, QCheckBox] = {}
         self._build_ui()
@@ -140,7 +146,7 @@ class FlagReviewWidget(QWidget):
 
         # Suggested flags (editable combo, pre-filled, no Leave as-is)
         for ats_code, std_symbol in self._mapping_result.suggested.items():
-            description = STANDARD_SYMBOL_DESCRIPTIONS.get(std_symbol, ats_code)
+            description = self._ats_flags.get(ats_code, ats_code)
             row = QHBoxLayout()
             row.addWidget(QLabel(ats_code), 1)
             row.addWidget(QLabel(description), 3)

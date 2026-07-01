@@ -451,7 +451,7 @@ class ConverterPage(QWidget):
             all_flags.update(result.ats_flags)
 
         mapping_result = build_flag_mapping(all_flags)
-        flag_widget = FlagReviewWidget(mapping_result, self)
+        flag_widget = FlagReviewWidget(mapping_result, all_flags, self)
         flag_widget.mappings_confirmed.connect(self._on_flags_confirmed)
         self._flag_widget_layout.addWidget(flag_widget)
 
