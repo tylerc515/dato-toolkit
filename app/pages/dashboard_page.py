@@ -6,11 +6,13 @@ from pathlib import Path
 
 from PyQt6.QtCore import QUrl, Qt, pyqtSignal
 from PyQt6.QtGui import QDesktopServices
-from PyQt6.QtWidgets import QFrame, QHBoxLayout, QLabel, QLayout, QPushButton, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import QHBoxLayout, QLabel, QLayout, QVBoxLayout, QWidget
 
+from app.design.icons import icon
+from app.design.tokens import Color, Spacing
 from app.history import HistoryEntry, NEVER_TEXT, format_timestamp, load_history
 from app.project import ProjectConfig, list_projects
-from app.styles import apply_card_shadow, color
+from app.widgets.components import Card, PrimaryButton, SecondaryButton, StatCard
 
 # --- UI text -------------------------------------------------------------
 
@@ -68,6 +70,8 @@ class DashboardPage(QWidget):
 
     def _build_ui(self) -> None:
         outer = QVBoxLayout(self)
+        outer.setContentsMargins(Spacing.LG, Spacing.LG, Spacing.LG, Spacing.LG)
+        outer.setSpacing(Spacing.LG)
 
         header_row = QHBoxLayout()
         title_column = QVBoxLayout()
@@ -80,44 +84,50 @@ class DashboardPage(QWidget):
         header_row.addLayout(title_column)
         header_row.addStretch(1)
 
-        self.batch_button = QPushButton(BATCH_GENERATE_TEXT)
-        self.batch_button.setProperty("flat", "true")
+        self.batch_button = SecondaryButton(BATCH_GENERATE_TEXT)
+        self.batch_button.setIcon(icon("table"))
         self.batch_button.setToolTip("Generate trackers for multiple projects from a folder of CSVs")
         self.batch_button.clicked.connect(self.batch_requested.emit)
         header_row.addWidget(self.batch_button)
 
-        self.email_button = QPushButton(GENERATE_EMAIL_TEXT)
-        self.email_button.setProperty("flat", "true")
+        self.email_button = SecondaryButton(GENERATE_EMAIL_TEXT)
+        self.email_button.setIcon(icon("envelope-simple"))
         self.email_button.setToolTip("Generate a formatted NDE status update email document")
         self.email_button.clicked.connect(self.email_requested.emit)
         header_row.addWidget(self.email_button)
 
-        self.converter_button = QPushButton(CONVERT_DATA_TEXT)
-        self.converter_button.setProperty("flat", "true")
+        self.converter_button = SecondaryButton(CONVERT_DATA_TEXT)
+        self.converter_button.setIcon(icon("arrows-left-right"))
         self.converter_button.setToolTip("Convert ATS inspection files to Standard Format CSV")
         self.converter_button.clicked.connect(self.converter_requested.emit)
         header_row.addWidget(self.converter_button)
 
-        self.new_tracker_button = QPushButton(NEW_TRACKER_TEXT)
-        self.new_tracker_button.setProperty("accent", "true")
+        self.new_tracker_button = PrimaryButton(NEW_TRACKER_TEXT)
+        self.new_tracker_button.setIcon(icon("plus", color=Color.TEXT_PRIMARY))
         self.new_tracker_button.clicked.connect(self.new_tracker_requested.emit)
         header_row.addWidget(self.new_tracker_button)
         outer.addLayout(header_row)
 
         self.stats_row = QHBoxLayout()
+        self.stats_row.setSpacing(Spacing.MD)
+        self._stat_projects = StatCard(STAT_PROJECTS_LABEL, "0")
+        self._stat_generated = StatCard(STAT_GENERATED_LABEL, "0")
+        self._stat_elevations = StatCard(STAT_ELEVATIONS_LABEL, "0")
+        self._stat_emails = StatCard(STAT_EMAILS_LABEL, "0")
+        for stat_card in (self._stat_projects, self._stat_generated, self._stat_elevations, self._stat_emails):
+            self.stats_row.addWidget(stat_card, 1)
         outer.addLayout(self.stats_row)
 
         lists_row = QHBoxLayout()
-        self.view_projects_button = QPushButton(VIEW_ALL_TEXT)
-        self.view_projects_button.setProperty("flat", "true")
+        lists_row.setSpacing(Spacing.MD)
+        self.view_projects_button = SecondaryButton(VIEW_ALL_TEXT)
         self.view_projects_button.clicked.connect(self.view_projects_requested.emit)
         self.recent_projects_card, self.recent_projects_layout = self._build_list_card(
             RECENT_PROJECTS_TITLE, action_button=self.view_projects_button
         )
         lists_row.addWidget(self.recent_projects_card, 1)
 
-        self.view_history_button = QPushButton(VIEW_ALL_TEXT)
-        self.view_history_button.setProperty("flat", "true")
+        self.view_history_button = SecondaryButton(VIEW_ALL_TEXT)
         self.view_history_button.clicked.connect(self.view_history_requested.emit)
         self.recent_exports_card, self.recent_exports_layout = self._build_list_card(
             RECENT_EXPORTS_TITLE, action_button=self.view_history_button
@@ -125,12 +135,10 @@ class DashboardPage(QWidget):
         lists_row.addWidget(self.recent_exports_card, 1)
         outer.addLayout(lists_row, 1)
 
-    def _build_list_card(self, title_text: str, action_button: QPushButton | None = None) -> tuple[QFrame, QVBoxLayout]:
-        card = QFrame()
-        card.setProperty("card", "true")
-        apply_card_shadow(card)
+    def _build_list_card(self, title_text: str, action_button: SecondaryButton | None = None) -> tuple[Card, QVBoxLayout]:
+        card = Card()
+        outer_layout = card.layout()
 
-        outer_layout = QVBoxLayout(card)
         heading_row = QHBoxLayout()
         heading = QLabel(title_text)
         heading.setProperty("role", "heading")
@@ -141,27 +149,11 @@ class DashboardPage(QWidget):
         outer_layout.addLayout(heading_row)
 
         rows_layout = QVBoxLayout()
-        rows_layout.setSpacing(6)
+        rows_layout.setSpacing(Spacing.SM)
         outer_layout.addLayout(rows_layout)
         outer_layout.addStretch(1)
 
         return card, rows_layout
-
-    def _make_stat_card(self, value: str, label: str) -> QFrame:
-        card = QFrame()
-        card.setProperty("card", "true")
-        apply_card_shadow(card)
-
-        layout = QVBoxLayout(card)
-        value_label = QLabel(value)
-        value_label.setStyleSheet(f"font-size: 24px; font-weight: 700; color: {color('highlight')};")
-        layout.addWidget(value_label)
-
-        text_label = QLabel(label)
-        text_label.setProperty("role", "muted")
-        layout.addWidget(text_label)
-
-        return card
 
     # --- Data loading ------------------------------------------------------
 
@@ -181,21 +173,14 @@ class DashboardPage(QWidget):
         self._refresh_recent_exports(history[:RECENT_EXPORTS_LIMIT])
 
     def _refresh_stats(self, total_projects: int, history: list[HistoryEntry]) -> None:
-        _clear_layout(self.stats_row)
-
         tracker_history = [e for e in history if e.entry_type != "update_email"]
         email_count = sum(1 for e in history if e.entry_type == "update_email")
         total_elevations = sum(entry.elevation_count for entry in tracker_history)
-        last_generated = format_timestamp(tracker_history[0].generated_at) if tracker_history else NEVER_TEXT
 
-        stats = [
-            (str(total_projects), STAT_PROJECTS_LABEL),
-            (str(len(tracker_history)), STAT_GENERATED_LABEL),
-            (str(total_elevations), STAT_ELEVATIONS_LABEL),
-            (str(email_count), STAT_EMAILS_LABEL),
-        ]
-        for value, label in stats:
-            self.stats_row.addWidget(self._make_stat_card(value, label), 1)
+        self._stat_projects.set_value(str(total_projects))
+        self._stat_generated.set_value(str(len(tracker_history)))
+        self._stat_elevations.set_value(str(total_elevations))
+        self._stat_emails.set_value(str(email_count))
 
     def _refresh_recent_projects(self, recent_projects: list[tuple[Path, ProjectConfig]]) -> None:
         _clear_layout(self.recent_projects_layout)
@@ -210,22 +195,21 @@ class DashboardPage(QWidget):
             self.recent_projects_layout.addWidget(self._make_project_row(path, config))
 
     def _make_project_row(self, path: Path, config: ProjectConfig) -> QWidget:
-        row = QFrame()
-        layout = QHBoxLayout(row)
-        layout.setContentsMargins(0, 0, 0, 0)
+        row = Card()
+        inner_layout = QHBoxLayout()
+        row.layout().addLayout(inner_layout)
 
         subtitle = " — ".join(part for part in (config.customer, config.location) if part)
         info = QLabel(
             f"<b>{config.title or '(Untitled)'}</b><br>"
-            f"<span style='color:{color('muted_text')};'>{subtitle}</span>"
+            f"<span style='color:{Color.TEXT_MUTED};'>{subtitle}</span>"
         )
         info.setTextFormat(Qt.TextFormat.RichText)
-        layout.addWidget(info, 1)
+        inner_layout.addWidget(info, 1)
 
-        open_button = QPushButton(OPEN_TEXT)
-        open_button.setProperty("flat", "true")
+        open_button = SecondaryButton(OPEN_TEXT)
         open_button.clicked.connect(lambda: self.project_selected.emit(path))
-        layout.addWidget(open_button)
+        inner_layout.addWidget(open_button)
 
         return row
 
@@ -242,27 +226,25 @@ class DashboardPage(QWidget):
             self.recent_exports_layout.addWidget(self._make_export_row(entry))
 
     def _make_export_row(self, entry: HistoryEntry) -> QWidget:
-        row = QFrame()
-        layout = QHBoxLayout(row)
-        layout.setContentsMargins(0, 0, 0, 0)
+        row = Card()
+        inner_layout = QHBoxLayout()
+        row.layout().addLayout(inner_layout)
 
         info = QLabel(
             f"<b>{entry.title or '(Untitled)'}</b><br>"
-            f"<span style='color:{color('muted_text')};'>{format_timestamp(entry.generated_at)}</span>"
+            f"<span style='color:{Color.TEXT_MUTED};'>{format_timestamp(entry.generated_at)}</span>"
         )
         info.setTextFormat(Qt.TextFormat.RichText)
-        layout.addWidget(info, 1)
+        inner_layout.addWidget(info, 1)
 
-        open_file_button = QPushButton(OPEN_FILE_TEXT)
-        open_file_button.setProperty("flat", "true")
+        open_file_button = SecondaryButton(OPEN_FILE_TEXT)
         open_file_button.clicked.connect(lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(entry.output_path)))
-        layout.addWidget(open_file_button)
+        inner_layout.addWidget(open_file_button)
 
-        open_folder_button = QPushButton(OPEN_FOLDER_TEXT)
-        open_folder_button.setProperty("flat", "true")
+        open_folder_button = SecondaryButton(OPEN_FOLDER_TEXT)
         open_folder_button.clicked.connect(
             lambda: QDesktopServices.openUrl(QUrl.fromLocalFile(str(Path(entry.output_path).parent)))
         )
-        layout.addWidget(open_folder_button)
+        inner_layout.addWidget(open_folder_button)
 
         return row
