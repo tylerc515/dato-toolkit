@@ -207,3 +207,30 @@ def test_batch_continues_after_one_file_fails(tmp_path: Path):
     assert received[0] == ("a.xlsx", False, received[0][2])
     assert received[1][0] == "b.xlsx"
     assert received[1][1] is True
+
+
+def test_output_filename_rejects_path_traversal_in_boiler_section(tmp_path: Path):
+    """boiler_section is parsed from an untrusted ATS xlsx file. A malicious or
+    corrupted value like a path-traversal payload must not let the output file
+    escape the chosen output directory."""
+    from app.pages.converter_page import _ConvertWorker
+
+    malicious_result = _make_ats_result(section="../../../../Windows/System32/evil")
+    worker = _ConvertWorker([("a.xlsx", malicious_result)], {}, tmp_path)
+    received: list[tuple[str, bool, str]] = []
+    worker.file_done.connect(lambda path, success, msg: received.append((path, success, msg)))
+
+    written_paths: list[Path] = []
+
+    def fake_write(res, mapping, out_path):
+        written_paths.append(Path(out_path))
+
+    with patch("app.pages.converter_page.write_standard_format", side_effect=fake_write):
+        worker.run()
+
+    assert len(written_paths) == 1
+    out_path = written_paths[0].resolve()
+    assert out_path.parent == tmp_path.resolve()
+    assert out_path.is_relative_to(tmp_path.resolve())
+    assert "/" not in out_path.name
+    assert "\\" not in out_path.name
