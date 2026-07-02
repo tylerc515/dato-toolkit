@@ -141,8 +141,12 @@ def build_payload(
 
     return {
         "content": f"<@&{analyst_role_id}> **New release available — {tool_display_name}**",
+        # Discord's API rejects "parse": ["roles"] combined with an explicit
+        # "roles" allowlist (400: "mutually exclusive") -- confirmed against
+        # the real webhook, not just the docs. Use the allowlist alone: it
+        # permits pinging exactly this role without blanket-parsing every
+        # role mention in the message content.
         "allowed_mentions": {
-            "parse": ["roles"],
             "roles": [analyst_role_id],
         },
         "embeds": [

@@ -18,7 +18,10 @@ from scripts.notify_discord_release import (
 def test_payload_includes_role_ping_in_content():
     payload = build_payload(sample_release_data(), analyst_role_id="123")
     assert "<@&123>" in payload["content"]
-    assert payload["allowed_mentions"] == {"parse": ["roles"], "roles": ["123"]}
+    # Discord's API rejects "parse": ["roles"] combined with an explicit
+    # "roles" allowlist (400: mutually exclusive) -- confirmed against the
+    # real webhook. The allowlist alone is the correct, working structure.
+    assert payload["allowed_mentions"] == {"roles": ["123"]}
 
 
 def test_payload_omits_empty_fields():
