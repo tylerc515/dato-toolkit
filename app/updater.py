@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import subprocess
 import tempfile
 import threading
@@ -120,7 +121,9 @@ def write_update_bat(
     All paths are double-quoted so spaces are safe.
     Returns the path to the written .bat file.
     """
-    bat_path = Path(tempfile.mktemp(suffix=".bat", prefix="dato_update_"))
+    fd, bat_path_str = tempfile.mkstemp(suffix=".bat", prefix="dato_update_")
+    os.close(fd)
+    bat_path = Path(bat_path_str)
 
     if remove_old and new_exe_dest.resolve() != current_exe.resolve():
         remove_line = f'del /F /Q "{current_exe}"'
@@ -169,7 +172,8 @@ class DownloadWorker(QThread):
         self._cancel.set()
 
     def run(self) -> None:
-        dest = tempfile.mktemp(suffix=".exe", prefix="DATOToolkit_update_")
+        fd, dest = tempfile.mkstemp(suffix=".exe", prefix="DATOToolkit_update_")
+        os.close(fd)
         try:
             response = requests.get(self._url, stream=True, timeout=DOWNLOAD_TIMEOUT_SECONDS)
             response.raise_for_status()
