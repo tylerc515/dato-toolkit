@@ -24,6 +24,10 @@ Thumbs.db
 # Editor/tooling
 .claude/
 
+# Local secrets (never commit real credentials)
+.env
+.env.local
+
 # Local reference files (client data, not for repo)
 *.docx
 *.xlsx
