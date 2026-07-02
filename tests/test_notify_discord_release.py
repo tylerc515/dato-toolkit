@@ -75,6 +75,22 @@ def test_full_notes_link_always_present():
     assert "📄 Full Release Notes" in field_names
 
 
+def test_wiki_field_present_when_url_configured():
+    payload = build_payload(
+        sample_release_data(), analyst_role_id="123", tool_wiki_url="https://github.com/tylerc515/dato-toolkit/wiki"
+    )
+    field_names = [f["name"] for f in payload["embeds"][0]["fields"]]
+    assert "📚 Documentation" in field_names
+    field = next(f for f in payload["embeds"][0]["fields"] if f["name"] == "📚 Documentation")
+    assert "https://github.com/tylerc515/dato-toolkit/wiki" in field["value"]
+
+
+def test_wiki_field_absent_when_no_url_configured():
+    payload = build_payload(sample_release_data(), analyst_role_id="123", tool_wiki_url=None)
+    field_names = [f["name"] for f in payload["embeds"][0]["fields"]]
+    assert "📚 Documentation" not in field_names
+
+
 def test_raw_fallback_field_truncated_and_capped():
     release = sample_release_data()
     release["body"] = "x" * 2000  # unstructured, exceeds Discord's 1024 field cap

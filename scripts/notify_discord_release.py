@@ -44,6 +44,7 @@ TOOL_BRAND_COLOR = 0x2563EB  # matches the new design system accent
 TOOL_HAS_IN_APP_UPDATER = True
 TOOL_ICON_URL = "https://raw.githubusercontent.com/tylerc515/dato-toolkit/main/assets/discord-icon.png"
 GITHUB_REPO = "tylerc515/dato-toolkit"
+TOOL_WIKI_URL = "https://github.com/tylerc515/dato-toolkit/wiki"  # set to None to omit the field
 
 # --- End config -------------------------------------------------------------
 
@@ -78,6 +79,7 @@ def build_payload(
     tool_brand_color: int = TOOL_BRAND_COLOR,
     tool_icon_url: str = TOOL_ICON_URL,
     has_in_app_updater: bool = TOOL_HAS_IN_APP_UPDATER,
+    tool_wiki_url: str | None = TOOL_WIKI_URL,
 ) -> dict:
     """Build the Discord webhook payload for a GitHub release event's `release` object."""
     tag_name = release.get("tag_name", "")
@@ -138,6 +140,13 @@ def build_payload(
         "value": f"[View on GitHub]({html_url})",
         "inline": False,
     })
+
+    if tool_wiki_url:
+        fields.append({
+            "name": "📚 Documentation",
+            "value": f"[{tool_display_name} Wiki]({tool_wiki_url})",
+            "inline": False,
+        })
 
     return {
         "content": f"<@&{analyst_role_id}> **New release available — {tool_display_name}**",
