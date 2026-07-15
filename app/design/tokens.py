@@ -32,6 +32,7 @@ class Color:
 
     # Semantic
     SUCCESS = "#00B050"
+    SUCCESS_HOVER = "#009a45"
     WARNING = "#f4b13b"
     DANGER = "#ef4444"
 

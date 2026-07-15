@@ -136,6 +136,20 @@ QPushButton[accent="true"]:disabled {{
     color: {Color.TEXT_MUTED};
 }}
 
+QPushButton[variant="success"] {{
+    background-color: {Color.SUCCESS};
+    color: {Color.TEXT_PRIMARY};
+    font-weight: 600;
+    font-size: {FontSize.SECTION}px;
+    padding: {Spacing.MD}px {Spacing.XXL}px;
+    border: none;
+    border-radius: {Radius.BUTTON}px;
+}}
+
+QPushButton[variant="success"]:hover {{
+    background-color: {Color.SUCCESS_HOVER};
+}}
+
 QPushButton[flat="true"] {{
     background-color: transparent;
     border: 1px solid {Color.BORDER};

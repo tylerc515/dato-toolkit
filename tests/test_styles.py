@@ -44,6 +44,12 @@ def test_build_stylesheet_same_regardless_of_theme_arg():
     assert build_stylesheet("dark") == build_stylesheet("light")
 
 
+def test_build_stylesheet_has_success_variant_button():
+    from app.styles import build_stylesheet
+    qss = build_stylesheet("dark")
+    assert 'QPushButton[variant="success"]' in qss
+
+
 def test_set_and_get_active_theme_still_work():
     from app.styles import set_active_theme, get_active_theme, DEFAULT_THEME
     set_active_theme("light")
