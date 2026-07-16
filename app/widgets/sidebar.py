@@ -1,6 +1,8 @@
 """Left sidebar navigation - replaces the old top header nav bar."""
 from __future__ import annotations
 
+import webbrowser
+
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
 
@@ -24,6 +26,12 @@ _TOOLS_ITEMS = [
     ("history", "History", "clock-counter-clockwise"),
 ]
 _SETTINGS_ITEM = ("settings", "Settings", "gear")
+
+# External tool that opens in the browser, not an in-app page. It sits in the
+# Tools list after "Data converter" but is NOT a nav target: clicking it opens
+# the URL and never changes the active nav state.
+ASME_CALCULATOR_URL = "https://tylerc515.github.io/asme-tube-calculator/"
+ASME_CALCULATOR_ICON = "arrow-square-out"  # external-link glyph implies "opens elsewhere"
 
 
 class _NavButton(QPushButton):
@@ -100,6 +108,8 @@ class Sidebar(QWidget):
         layout.addWidget(self._section_label("Tools"))
         for item_id, label, icon_name in _TOOLS_ITEMS:
             layout.addWidget(self._add_nav_button(item_id, label, icon_name))
+            if item_id == "converter":
+                layout.addWidget(self._add_asme_link())
 
         layout.addStretch(1)
 
@@ -129,6 +139,16 @@ class Sidebar(QWidget):
         btn = _NavButton(item_id, label, icon_name)
         btn.clicked.connect(lambda: self.nav_item_clicked.emit(item_id))
         self._nav_buttons[item_id] = btn
+        return btn
+
+    def _add_asme_link(self) -> _NavButton:
+        """External link styled like a nav item but that opens the browser.
+        Deliberately NOT registered in `_nav_buttons`: it never emits
+        `nav_item_clicked` and never receives active state."""
+        btn = _NavButton("asme_calculator", "ASME Calculator", ASME_CALCULATOR_ICON)
+        btn.setToolTip("Opens in your browser")
+        btn.clicked.connect(lambda: webbrowser.open(ASME_CALCULATOR_URL))
+        self._asme_button = btn
         return btn
 
     def set_active(self, item_id: str) -> None:
