@@ -60,8 +60,8 @@ class FontSize:
     SMALL = 15
     BODY = 16
     SECTION = 16
-    PAGE_TITLE = 22
-    STAT_NUMBER = 28
+    PAGE_TITLE = 24
+    STAT_NUMBER = 30
 
 
 FONT_FAMILY = "Segoe UI"
