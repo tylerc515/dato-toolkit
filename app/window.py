@@ -337,7 +337,7 @@ class MainWindow(QMainWindow):
 
         self.update_available_label = QPushButton(UPDATE_AVAILABLE_LABEL_TEXT)
         self.update_available_label.setProperty("flat", "true")
-        self.update_available_label.setStyleSheet(f"color: {Color.WARNING}; font-size: 9pt;")
+        self.update_available_label.setStyleSheet(f"color: {Color.WARNING}; font-size: {FontSize.LABEL}px;")
         self.update_available_label.setVisible(False)
         self.update_available_label.setCursor(Qt.CursorShape.PointingHandCursor)
         self.update_available_label.clicked.connect(self._open_update_dialog)
@@ -391,7 +391,7 @@ class MainWindow(QMainWindow):
             "border: none;"
             "border-radius: 6px;"
             "padding: 0px;"
-            "font-size: 14px;"
+            f"font-size: {FontSize.BODY}px;"
             f"color: {Color.TEXT_PRIMARY};"
             "}"
             "QPushButton:hover {"
@@ -418,7 +418,7 @@ class MainWindow(QMainWindow):
         self.update_banner_version_label.setStyleSheet(f"color: {Color.TEXT_PRIMARY}; font-weight: 600;")
         text_col.addWidget(self.update_banner_version_label)
         self.update_banner_date_label = QLabel("")
-        self.update_banner_date_label.setStyleSheet(f"color: {UPDATE_BANNER_BORDER_COLOR}; font-size: 10pt;")
+        self.update_banner_date_label.setStyleSheet(f"color: {UPDATE_BANNER_BORDER_COLOR}; font-size: {FontSize.LABEL}px;")
         text_col.addWidget(self.update_banner_date_label)
         layout.addLayout(text_col, 1)
 

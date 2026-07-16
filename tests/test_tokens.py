@@ -27,7 +27,7 @@ def test_color_tokens_have_expected_values():
 def test_spacing_tokens_have_expected_values():
     from app.design.tokens import Spacing
     assert (Spacing.XS, Spacing.SM, Spacing.MD, Spacing.LG, Spacing.XL, Spacing.XXL, Spacing.XXXL) == (
-        4, 8, 12, 16, 20, 24, 32,
+        4, 8, 12, 18, 22, 28, 36,
     )
 
 
@@ -41,7 +41,7 @@ def test_radius_tokens_have_expected_values():
 def test_font_size_tokens_have_expected_values():
     from app.design.tokens import FontSize
     assert (FontSize.LABEL, FontSize.SMALL, FontSize.BODY, FontSize.SECTION, FontSize.PAGE_TITLE, FontSize.STAT_NUMBER) == (
-        12, 13, 14, 15, 20, 24,
+        15, 15, 16, 16, 24, 30,
     )
 
 

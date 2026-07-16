@@ -7,7 +7,7 @@ import webbrowser
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QHBoxLayout, QLabel, QWidget
 
-from app.design.tokens import Color, FONT_FAMILY
+from app.design.tokens import Color, FONT_FAMILY, FontSize
 
 
 class _LinkLabel(QLabel):
@@ -18,7 +18,7 @@ class _LinkLabel(QLabel):
         self._url = url
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setStyleSheet(
-            f"QLabel {{ color: {Color.TEXT_MUTED}; font-family: '{FONT_FAMILY}'; font-size: 9pt; }}"
+            f"QLabel {{ color: {Color.TEXT_MUTED}; font-family: '{FONT_FAMILY}'; font-size: {FontSize.LABEL}px; }}"
             f"QLabel:hover {{ color: {hover_color}; }}"
         )
 
@@ -50,7 +50,7 @@ class FooterBar(QWidget):
         )
         separator = QLabel(" · ")
         separator.setStyleSheet(
-            f"QLabel {{ color: {Color.TEXT_MUTED}; font-family: '{FONT_FAMILY}'; font-size: 9pt; }}"
+            f"QLabel {{ color: {Color.TEXT_MUTED}; font-family: '{FONT_FAMILY}'; font-size: {FontSize.LABEL}px; }}"
         )
         docs_link = _LinkLabel(
             "Documentation",

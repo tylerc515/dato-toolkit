@@ -19,9 +19,9 @@ def test_sidebar_has_expected_nav_items():
 def test_sidebar_fixed_width():
     from app.widgets.sidebar import Sidebar, SIDEBAR_WIDTH
     sidebar = Sidebar()
-    assert SIDEBAR_WIDTH == 220
-    assert sidebar.minimumWidth() == 220
-    assert sidebar.maximumWidth() == 220
+    assert SIDEBAR_WIDTH == 248
+    assert sidebar.minimumWidth() == 248
+    assert sidebar.maximumWidth() == 248
 
 
 def test_clicking_nav_item_emits_signal_with_item_id(qtbot):

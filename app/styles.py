@@ -38,6 +38,7 @@ def build_stylesheet(theme: str) -> str:
     return f"""
 * {{
     font-family: "{FONT_FAMILY}", "Calibri", sans-serif;
+    font-size: {FontSize.BODY}px;
     color: {Color.TEXT_PRIMARY};
 }}
 
