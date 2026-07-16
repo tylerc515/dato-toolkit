@@ -166,6 +166,24 @@ def test_session_memory_is_description_scoped():
     clear_session_mappings()
 
 
+def test_check_team_flags_all_known():
+    from app.converters.flag_mapper import check_team_flags
+    result = check_team_flags({"*", "<", ";", "[", "&"})
+    assert result.unknown == {}
+    assert result.known == {"*": "*", "<": "<", ";": ";", "[": "[", "&": "&"}
+    assert result.suggested == {}
+    assert result.final == result.known
+
+
+def test_check_team_flags_unknown_symbol():
+    from app.converters.flag_mapper import check_team_flags
+    result = check_team_flags({"*", "Q"})
+    assert "Q" in result.unknown
+    assert result.unknown["Q"] == ""
+    assert "*" in result.known
+    assert result.suggested == {}   # no smart-match suggestion attached
+
+
 def test_confirm_session_mappings_helper():
     """confirm_session_mappings() records all pairs from confirmed + ats_flags dicts."""
     from app.converters.flag_mapper import (
