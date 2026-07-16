@@ -111,7 +111,7 @@ OVERWRITE_MESSAGE = (
     "{names}\n\nOverwrite them?"
 )
 PERMISSION_ERROR_MESSAGE = (
-    "Could not save {name} — it may be open in another program "
+    "Could not save {name}. It may be open in another program "
     "(such as Excel). Close it and try converting again."
 )
 OS_ERROR_MESSAGE = "Could not save {name}: {reason}"
