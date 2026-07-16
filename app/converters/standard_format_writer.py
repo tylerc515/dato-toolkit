@@ -119,12 +119,22 @@ def write_standard_format(
     # Row 15: blank
     rows.append([""] * n_cols)
 
+    # Lazy import to avoid a circular import: flag_mapper imports
+    # load_standard_legend_block from this module at module load time
+    # (to build STANDARD_SYMBOL_DESCRIPTIONS), so this module cannot
+    # import flag_mapper at module top level.
+    from app.converters.flag_mapper import STANDARD_SYMBOL_DESCRIPTIONS
+
     def _translate(val: str) -> str:
         """Substitute known ATS flag codes with Standard Format equivalents."""
         if not val:
             return val
         translated = flag_mapping.get(val, val)
-        if translated == val and not val.isdigit():
+        if (
+            translated == val
+            and not val.isdigit()
+            and val not in STANDARD_SYMBOL_DESCRIPTIONS
+        ):
             logger.warning("Unrecognized flag code in reading: %r", val)
         return translated
 
@@ -138,7 +148,7 @@ def write_standard_format(
 
         # Sub-row 2: tech code / CNTR / readings
         # Single uppercase letter is a crew/shift code - write "ATS" instead
-        tech_code = elevation.tech_code
+        tech_code = getattr(elevation, "tech_code", "TEAM")
         if not tech_code or (len(tech_code) == 1 and tech_code.isupper()):
             tech_code = "ATS"
         r2: dict[int, str] = {0: tech_code, 4: "CNTR"}

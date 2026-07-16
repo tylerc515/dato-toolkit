@@ -132,3 +132,33 @@ def build_flag_mapping(ats_flags: dict[str, str]) -> FlagMappingResult:
         unknown=unknown,
         final=dict(known),
     )
+
+
+def check_team_flags(flags_found: set[str]) -> FlagMappingResult:
+    """Split TEAM flag symbols into known/unknown tiers.
+
+    TEAM inspection files already carry Standard Format symbols, so no
+    code-to-symbol translation is needed (unlike ATS). There is no
+    per-flag description text to fuzzy-match against, so there is no
+    Tier-2 smart-match tier for TEAM: suggested stays empty and nothing
+    is pre-filled for an unknown symbol.
+
+    Args:
+        flags_found: set of flag symbols encountered in the TEAM file.
+
+    Returns:
+        FlagMappingResult where known maps each recognized symbol to
+        itself, unknown maps each unrecognized symbol to "" (empty,
+        pending manual review via FlagReviewWidget), suggested is
+        always empty, and final mirrors known.
+    """
+    known = {s: s for s in flags_found if s in STANDARD_SYMBOL_DESCRIPTIONS}
+    suggested: dict[str, str] = {}
+    unknown = {s: "" for s in flags_found if s not in STANDARD_SYMBOL_DESCRIPTIONS}
+
+    return FlagMappingResult(
+        known=known,
+        suggested=suggested,
+        unknown=unknown,
+        final=dict(known),
+    )
