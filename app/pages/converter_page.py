@@ -10,6 +10,7 @@ from typing import Optional
 
 from PyQt6.QtCore import QSettings, QThread, Qt, pyqtSignal
 from PyQt6.QtWidgets import (
+    QCheckBox,
     QComboBox,
     QFileDialog,
     QFrame,
@@ -36,11 +37,12 @@ from app.converters.team_parser import (
     TEAMConversionInput,
     TEAMParseError,
     TEAMParseResult,
+    filter_team_elevations,
     parse_team_file,
 )
 from app.converters.standard_format_writer import write_standard_format
 from app.design.icons import icon
-from app.design.tokens import Color, Radius, Spacing
+from app.design.tokens import Color, FontSize, Radius, Spacing
 from app.widgets import HelpPanel
 from app.widgets.components import Card, PrimaryButton, SecondaryButton, StatCard
 from app.widgets.flag_review_widget import FlagReviewWidget
@@ -277,10 +279,12 @@ class _TeamFileCard(Card):
         info.addWidget(name_lbl)
 
         flags = ", ".join(sorted(result.flags_found)) if result.flags_found else "none"
-        elev_count = len(result.elevations)
+        total = len(result.elevations)
+        measured = sum(1 for e in result.elevations if e.has_data)
         detail = QLabel(
             f"{result.num_tubes} tubes, {result.numbering_direction}, "
-            f"{elev_count} elevation{'s' if elev_count != 1 else ''} - "
+            f"{total} elevation{'s' if total != 1 else ''} "
+            f"({measured} with data) - "
             f"flags: {flags}"
         )
         detail.setProperty("role", "muted")
@@ -855,6 +859,9 @@ class ConverterPage(QWidget):
         self._team_drop_zone = _AtsDropZone(
             self, text=TEAM_DROP_ZONE_TEXT, tooltip=TEAM_DROP_ZONE_TOOLTIP
         )
+        # TEAM copy is a wrapped 4-line message; the ATS default (80px) clips it.
+        # 130px clears 4 lines at the 900x600 minimum window (see report).
+        self._team_drop_zone.setMinimumHeight(130)
         self._team_drop_zone.clicked.connect(self._on_browse_team_files)
         self._team_drop_zone.files_dropped.connect(
             lambda paths: [self._import_team_file(p) for p in paths]
@@ -909,7 +916,7 @@ class ConverterPage(QWidget):
         meta_layout.addLayout(date_row)
 
         self._team_nde_edit = QLineEdit()
-        self._team_nde_edit.setPlaceholderText("e.g. ATS")
+        self._team_nde_edit.setText("TEAM")
         meta_layout.addLayout(self._team_labeled_field("NDE Laboratory", self._team_nde_edit))
 
         for edit in (
@@ -924,6 +931,30 @@ class ConverterPage(QWidget):
         )
         self._team_year_combo.currentIndexChanged.connect(
             lambda _i: self._update_team_convert_button()
+        )
+
+        # Batch-wide toggle: include blank/unmeasured elevation positions.
+        self._team_include_blank = QCheckBox("Include unmeasured elevations in output")
+        self._team_include_blank.setChecked(False)
+        self._team_include_blank.setToolTip(
+            "When checked, every elevation position is written to the output, "
+            "including ones with no readings this inspection."
+        )
+        meta_layout.addWidget(self._team_include_blank)
+
+        include_hint = QLabel(
+            "TEAM exports include every possible elevation position, even ones "
+            "that weren't measured this inspection. Leave unchecked to only "
+            "include elevations with actual data."
+        )
+        include_hint.setProperty("role", "muted")
+        include_hint.setWordWrap(True)
+        include_hint.setStyleSheet(f"font-size: {FontSize.LABEL}px;")
+        meta_layout.addWidget(include_hint)
+
+        # Toggling after import must not require re-importing; just refresh stats.
+        self._team_include_blank.stateChanged.connect(
+            lambda _=None: self._update_team_file_stats()
         )
 
         self._team_metadata_card.setVisible(False)
@@ -1083,9 +1114,12 @@ class ConverterPage(QWidget):
 
     def _update_team_file_stats(self) -> None:
         self._team_stat_files.set_value(str(len(self._team_imported)))
-        self._team_stat_elevations.set_value(
-            str(sum(len(r.elevations) for r in self._team_imported.values()))
+        include = self._team_include_blank.isChecked()
+        total = sum(
+            len(filter_team_elevations(r.elevations, include))
+            for r in self._team_imported.values()
         )
+        self._team_stat_elevations.set_value(str(total))
 
     # --- TEAM flag review ---
 
@@ -1170,9 +1204,11 @@ class ConverterPage(QWidget):
         boiler = self._team_boiler_edit.text().strip()
         nde = self._team_nde_edit.text().strip()
 
+        include_blank = self._team_include_blank.isChecked()
         jobs: list[tuple[str, TEAMConversionInput]] = []
         for path, result in self._team_imported.items():
             section = self._team_section_names.get(path, "").strip()
+            elevations = filter_team_elevations(result.elevations, include_blank)
             jobs.append(
                 (
                     path,
@@ -1186,7 +1222,7 @@ class ConverterPage(QWidget):
                         num_tubes=result.num_tubes,
                         numbering_direction=result.numbering_direction,
                         tube_numbers=result.tube_numbers,
-                        elevations=result.elevations,
+                        elevations=elevations,
                     ),
                 )
             )

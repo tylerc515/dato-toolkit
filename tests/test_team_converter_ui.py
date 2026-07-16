@@ -4,7 +4,7 @@ from __future__ import annotations
 import sys
 from unittest.mock import MagicMock, patch
 
-from PyQt6.QtWidgets import QApplication
+from PyQt6.QtWidgets import QApplication, QLabel
 
 _qapp = QApplication.instance() or QApplication(sys.argv)
 
@@ -36,6 +36,32 @@ def _make_team_result():
                 has_data=True,
             ),
         ],
+        flags_found=set(),
+    )
+
+
+def _make_mixed_team_result(measured=2, blank=3):
+    """TEAMParseResult with a mix of measured and blank elevations."""
+    from app.converters.team_parser import TEAMElevation, TEAMParseResult
+
+    elevations = []
+    for i in range(measured):
+        elevations.append(TEAMElevation(
+            label=f"{i} FT",
+            left=["220"], cntr=["218"], rght=["222"],
+            has_data=True,
+        ))
+    for i in range(blank):
+        elevations.append(TEAMElevation(
+            label=f"BLANK {i}",
+            left=[""], cntr=[""], rght=[""],
+            has_data=False,
+        ))
+    return TEAMParseResult(
+        tube_numbers=[1],
+        numbering_direction="Left-to-Right",
+        num_tubes=1,
+        elevations=elevations,
         flags_found=set(),
     )
 
@@ -140,3 +166,59 @@ def test_batch_flag_mapping_applies_to_all_files(tmp_path):
         )
         sections.add(inp.boiler_section)
     assert sections == {"FLOOR", "ROOF"}
+
+
+# ---------------------------------------------------------------------------
+# Refinement task 2: NDE default, blank-elevation toggle, card counts
+# ---------------------------------------------------------------------------
+
+def test_nde_laboratory_defaults_to_team():
+    page = _make_page()
+    assert page._team_nde_edit.text() == "TEAM"
+    assert page._team_nde_edit.isReadOnly() is False
+
+
+def test_include_blank_toggle_changes_output_elevation_count():
+    page = _make_page()
+    path = "C:/x/FLOOR.xlsx"
+    result = _make_mixed_team_result(measured=2, blank=3)
+    page._team_imported[path] = result
+    page._team_section_names[path] = "FLOOR"
+    _fill_team_metadata(page)
+
+    # Unchecked -> only measured elevations reach the conversion input.
+    page._team_include_blank.setChecked(False)
+    jobs = page._team_conversion_inputs()
+    assert len(jobs) == 1
+    _p, inp = jobs[0]
+    assert len(inp.elevations) == 2
+
+    # Checked -> all elevations (measured + blank) are included.
+    page._team_include_blank.setChecked(True)
+    jobs = page._team_conversion_inputs()
+    _p, inp = jobs[0]
+    assert len(inp.elevations) == 5
+
+
+def test_include_blank_toggle_updates_elevation_stat_live():
+    page = _make_page()
+    path = "C:/x/FLOOR.xlsx"
+    page._team_imported[path] = _make_mixed_team_result(measured=2, blank=3)
+
+    page._team_include_blank.setChecked(False)
+    page._update_team_file_stats()
+    assert page._team_stat_elevations._value_label.text() == "2"
+
+    # Flipping the toggle updates the stat live via its signal connection.
+    page._team_include_blank.setChecked(True)
+    assert page._team_stat_elevations._value_label.text() == "5"
+
+
+def test_file_card_shows_measured_vs_total_elevation_count():
+    from app.pages.converter_page import _TeamFileCard
+
+    result = _make_mixed_team_result(measured=2, blank=3)  # 5 total, 2 measured
+    card = _TeamFileCard("C:/x/FLOOR.xlsx", result, "FLOOR")
+    combined = " ".join(w.text() for w in card.findChildren(QLabel))
+    assert "5 elevations" in combined
+    assert "2 with data" in combined
