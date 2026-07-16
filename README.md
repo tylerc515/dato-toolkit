@@ -1,5 +1,7 @@
 # DATO Toolkit
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 DATO Toolkit is a suite of field operations tools for NDE inspection teams.
 Generate tracksheets, update emails, and manage outage scope from TRACE export data.
 
