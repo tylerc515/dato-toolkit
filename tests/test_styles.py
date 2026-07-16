@@ -2,22 +2,16 @@
 from __future__ import annotations
 
 import re
+from pathlib import Path
 
 
-def test_legacy_color_keys_still_resolve():
-    from app.styles import color
-    from app.design.tokens import Color as T
-    assert color("surface") == T.CARD_BG
-    assert color("border") == T.BORDER
-    assert color("highlight") == T.ACCENT
-    assert color("accent") == T.CARD_BG
-    assert color("text") == T.TEXT_PRIMARY
-    assert color("muted_text") == T.TEXT_MUTED
-    assert color("success") == T.SUCCESS
-    assert color("warning") == T.WARNING
-    assert color("error") == T.DANGER
-    assert color("background") == T.PAGE_BG
-    assert color("chrome_hover") == T.BORDER_STRONG
+def test_no_color_shim_calls_remain():
+    app_dir = Path(__file__).resolve().parent.parent / "app"
+    offenders = []
+    for py in app_dir.rglob("*.py"):
+        if re.search(r"\bcolor\(['\"]", py.read_text(encoding="utf-8")):
+            offenders.append(str(py.relative_to(app_dir)))
+    assert offenders == [], f"color() shim still called in: {offenders}"
 
 
 def test_build_stylesheet_contains_no_old_palette_hex():

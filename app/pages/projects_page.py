@@ -7,10 +7,11 @@ from pathlib import Path
 from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtWidgets import QFrame, QHBoxLayout, QLabel, QLineEdit, QPushButton, QScrollArea, QVBoxLayout, QWidget
 
+from app.design.tokens import Color
 from app.history import format_timestamp
 from app.project import ProjectConfig, list_projects
 from app.search import matches_search
-from app.styles import apply_card_shadow, color
+from app.styles import apply_card_shadow
 
 # --- UI text -------------------------------------------------------------
 
@@ -106,7 +107,7 @@ class ProjectsPage(QWidget):
         subtitle = " — ".join(part for part in (config.customer, config.location, config.equipment, config.date) if part)
         info = QLabel(
             f"<b>{config.title or '(Untitled)'}</b><br>"
-            f"<span style='color:{color('muted_text')};'>"
+            f"<span style='color:{Color.TEXT_MUTED};'>"
             f"{subtitle} &nbsp;&middot;&nbsp; "
             f"Last modified {format_timestamp(config.last_modified)}</span>"
         )

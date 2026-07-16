@@ -49,7 +49,6 @@ from app.pages.settings_page import SettingsPage
 from app.pages.settings_page import STATUS_HINT as SETTINGS_STATUS_HINT
 from app.parser import TraceFileData
 from app.project import APP_DIR_NAME, ProjectConfig, ProjectError, get_app_data_dir, load_project
-from app.styles import color
 from app.design.tokens import Color, FontSize, Spacing
 from app.updater import GITHUB_RELEASES_PAGE_URL, UpdateCheckResult, UpdateCheckWorker, format_published_at, launch_update_bat, write_update_bat
 from app.widgets.update_dialog import PENDING_KEY_DEST, PENDING_KEY_TEMP, UpdateDialog
@@ -225,7 +224,7 @@ class MainWindow(QMainWindow):
     def _build_ui(self) -> None:
         central = QFrame()
         central.setObjectName("AppFrame")
-        central.setStyleSheet(f"QFrame#AppFrame {{ border: 1px solid {color('border')}; }}")
+        central.setStyleSheet(f"QFrame#AppFrame {{ border: 1px solid {Color.BORDER}; }}")
         layout = QVBoxLayout(central)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
@@ -338,7 +337,7 @@ class MainWindow(QMainWindow):
 
         self.update_available_label = QPushButton(UPDATE_AVAILABLE_LABEL_TEXT)
         self.update_available_label.setProperty("flat", "true")
-        self.update_available_label.setStyleSheet(f"color: {color('warning')}; font-size: 9pt;")
+        self.update_available_label.setStyleSheet(f"color: {Color.WARNING}; font-size: 9pt;")
         self.update_available_label.setVisible(False)
         self.update_available_label.setCursor(Qt.CursorShape.PointingHandCursor)
         self.update_available_label.clicked.connect(self._open_update_dialog)
@@ -393,7 +392,7 @@ class MainWindow(QMainWindow):
             "border-radius: 6px;"
             "padding: 0px;"
             "font-size: 14px;"
-            f"color: {color('text')};"
+            f"color: {Color.TEXT_PRIMARY};"
             "}"
             "QPushButton:hover {"
             f"background-color: {hover_color};"
@@ -498,13 +497,13 @@ class MainWindow(QMainWindow):
             return
 
         if result.update_available:
-            self.update_indicator.set_color(color("warning"))
+            self.update_indicator.set_color(Color.WARNING)
             self.update_indicator.setToolTip(f"Update available: v{result.latest_version}")
             self._start_pulse_animation()
             self.update_available_label.setVisible(True)
             QTimer.singleShot(UPDATE_BANNER_DELAY_MS, self._show_update_banner)
         else:
-            self.update_indicator.set_color(color("success"))
+            self.update_indicator.set_color(Color.SUCCESS)
             self.update_indicator.setToolTip("You're on the latest version")
 
     def _start_pulse_animation(self) -> None:

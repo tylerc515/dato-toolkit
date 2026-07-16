@@ -5,12 +5,6 @@ defined in app.design.tokens). THEME_LIGHT / theme-switching machinery
 is kept at the function-signature level only, so app/settings.py and
 main.py don't need changes in this pass - see docs/superpowers/plans/
 2026-07-01-visual-redesign.md Task 2 for why. Light mode is future work.
-
-The color() function is a TRANSITIONAL SHIM: it maps the old semantic
-palette key names (used by pages not yet rebuilt in this redesign) onto
-the new Color tokens, so unmigrated pages keep rendering correctly
-during the phased rollout. Delete it once every page has been rebuilt
-(Phase 9) and a grep confirms no callers remain.
 """
 
 from __future__ import annotations
@@ -25,26 +19,6 @@ THEME_LIGHT = "light"
 THEME_NAMES = (THEME_DARK, THEME_LIGHT)
 DEFAULT_THEME = THEME_DARK
 
-# TRANSITIONAL: old semantic key -> new token. See module docstring.
-_LEGACY_COLOR_MAP: dict[str, str] = {
-    "background": Color.PAGE_BG,
-    "surface": Color.CARD_BG,
-    "accent": Color.CARD_BG,
-    "button_hover": Color.BORDER_STRONG,
-    "button_pressed": Color.SIDEBAR_BG,
-    "button_disabled_bg": Color.CARD_BG,
-    "highlight": Color.ACCENT,
-    "highlight_hover": Color.ACCENT_HOVER,
-    "highlight_disabled_bg": Color.BORDER_STRONG,
-    "text": Color.TEXT_PRIMARY,
-    "muted_text": Color.TEXT_MUTED,
-    "border": Color.BORDER,
-    "success": Color.SUCCESS,
-    "warning": Color.WARNING,
-    "error": Color.DANGER,
-    "chrome_hover": Color.BORDER_STRONG,
-}
-
 _active_theme = DEFAULT_THEME
 
 
@@ -56,11 +30,6 @@ def set_active_theme(theme: str) -> None:
 
 def get_active_theme() -> str:
     return _active_theme
-
-
-def color(name: str, theme: str | None = None) -> str:
-    """TRANSITIONAL: look up a legacy palette key, mapped to its new token."""
-    return _LEGACY_COLOR_MAP[name]
 
 
 def build_stylesheet(theme: str) -> str:

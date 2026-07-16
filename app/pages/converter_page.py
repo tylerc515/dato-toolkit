@@ -31,7 +31,6 @@ from app.converters.flag_mapper import (
 from app.converters.standard_format_writer import write_standard_format
 from app.design.icons import icon
 from app.design.tokens import Color, Radius, Spacing
-from app.styles import color
 from app.widgets import HelpPanel
 from app.widgets.components import Card, PrimaryButton, SecondaryButton, StatCard
 from app.widgets.flag_review_widget import FlagReviewWidget
@@ -94,12 +93,12 @@ class _AtsDropZone(QFrame):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._base_style = (
-            f"QFrame {{ border: 2px dashed {color('border')}; border-radius: 8px; "
+            f"QFrame {{ border: 2px dashed {Color.BORDER}; border-radius: 8px; "
             f"background: transparent; }}"
-            f"QFrame:hover {{ border-color: {color('highlight')}; }}"
+            f"QFrame:hover {{ border-color: {Color.ACCENT}; }}"
         )
         self._drag_style = (
-            f"QFrame {{ border: 2px dashed {color('highlight')}; border-radius: 8px; "
+            f"QFrame {{ border: 2px dashed {Color.ACCENT}; border-radius: 8px; "
             f"background: transparent; }}"
         )
         self.setAcceptDrops(True)
@@ -110,7 +109,7 @@ class _AtsDropZone(QFrame):
         layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         lbl = QLabel(DROP_ZONE_TEXT)
         lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        lbl.setStyleSheet(f"color: {color('muted_text')};")
+        lbl.setStyleSheet(f"color: {Color.TEXT_MUTED};")
         layout.addWidget(lbl)
 
         self.setToolTip(
@@ -607,7 +606,7 @@ class ConverterPage(QWidget):
     def _on_file_done(self, path: str, success: bool, error: str) -> None:
         self._progress_bar.setValue(self._progress_bar.value() + 1)
         status_icon = "✓" if success else "✗"
-        style_color = color("success") if success else color("error")
+        style_color = Color.SUCCESS if success else Color.DANGER
         text = f"{status_icon} {Path(path).name}" + (f": {error}" if error else "")
         lbl = QLabel(text)
         lbl.setStyleSheet(f"color: {style_color};")
