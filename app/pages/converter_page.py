@@ -5,6 +5,7 @@ import datetime
 import html
 import logging
 import os
+import re
 from pathlib import Path
 from typing import Optional
 
@@ -30,15 +31,26 @@ from app.converters.ats_parser import ATSParseError, ATSParseResult, parse_ats_f
 from app.converters.flag_mapper import (
     FlagMappingResult,
     build_flag_mapping,
-    check_team_flags,
+    check_known_symbols,
     confirm_session_mappings,
 )
 from app.converters.team_parser import (
     TEAMConversionInput,
     TEAMParseError,
     TEAMParseResult,
-    filter_team_elevations,
+    filter_elevations_by_data,
     parse_team_file,
+)
+from app.converters.tds_detector import detect_tds_format
+from app.converters.tds_new_parser import (
+    TDSNewParseResult,
+    TDSParseError,
+    parse_tds_new_file,
+)
+from app.converters.tds_old_parser import (
+    TDSOldConversionInput,
+    TDSOldParseResult,
+    parse_tds_old_file,
 )
 from app.converters.standard_format_writer import write_standard_format
 from app.design.icons import icon
@@ -77,6 +89,15 @@ TEAM_DROP_ZONE_TOOLTIP = (
     "file browser. Every file in a batch shares the same company, mill, "
     "boiler, and inspection date."
 )
+TDS_DROP_ZONE_TEXT = (
+    "Drop TDS .csv files here, or click to browse. Files are automatically "
+    "detected as TDS pre-5.3 or 5.3+ format."
+)
+TDS_DROP_ZONE_TOOLTIP = (
+    "Drop one or more TDS inspection .csv files here, or click to open a "
+    "file browser. Each file's format (pre-5.3 or 5.3+) is detected "
+    "automatically and its metadata read per file."
+)
 CLEAR_ALL_TEXT = "Clear All"
 OUTPUT_FOLDER_LABEL = "Output Folder"
 BROWSE_TEXT = "Browse..."
@@ -111,6 +132,37 @@ def _output_filename(result: ATSParseResult) -> str:
     return f"{section}_Standard_Format.csv"
 
 
+_TDS_NUMERIC_SUFFIX_RE = re.compile(r"^\d+[A-Za-z]$")
+
+
+def _tds_is_numeric_reading(value: str) -> bool:
+    """True if a stripped TDS reading cell is a numeric measurement (a plain
+    number or a number with a single trailing letter suffix, e.g. '210V').
+
+    Mirrors team_parser's flag detection so TDS symbol collection classifies
+    readings the same way the shared writer does."""
+    if _TDS_NUMERIC_SUFFIX_RE.match(value):
+        return True
+    try:
+        float(value)
+        return True
+    except ValueError:
+        return False
+
+
+def _tds_symbols_in_elevations(elevations) -> set[str]:
+    """Collect every non-numeric, non-empty flag symbol found in the reading
+    cells of a list of TDS elevations. TDS parse results carry no
+    `flags_found`, so the convert flow scans the parsed cells directly."""
+    symbols: set[str] = set()
+    for elev in elevations:
+        for cell in (*elev.left, *elev.cntr, *elev.rght):
+            stripped = cell.strip()
+            if stripped and not _tds_is_numeric_reading(stripped):
+                symbols.add(stripped)
+    return symbols
+
+
 def _default_section_name(filename: str) -> str:
     """Default per-file section name from a TEAM filename: drop the extension
     and turn underscores into spaces (the real files already use spaces, so
@@ -130,8 +182,13 @@ class _AtsDropZone(QFrame):
         parent=None,
         text: str = DROP_ZONE_TEXT,
         tooltip: str | None = None,
+        extensions: tuple[str, ...] = (".xlsx",),
     ):
         super().__init__(parent)
+        # Accepted file extensions (lowercase, with dot). ATS/TEAM use
+        # ".xlsx"; the TDS flow passes ".csv". Kept configurable so the same
+        # drop widget serves every flow without duplicating drag handling.
+        self._extensions = extensions
         self._base_style = (
             f"QFrame {{ border: 2px dashed {Color.BORDER}; border-radius: 8px; "
             f"background: transparent; }}"
@@ -173,9 +230,9 @@ class _AtsDropZone(QFrame):
     def dropEvent(self, event):
         self.setStyleSheet(self._base_style)
         paths = [url.toLocalFile() for url in event.mimeData().urls() if url.isLocalFile()]
-        xlsx_paths = [p for p in paths if p.lower().endswith(".xlsx")]
-        if xlsx_paths:
-            self.files_dropped.emit(xlsx_paths)
+        matched = [p for p in paths if p.lower().endswith(self._extensions)]
+        if matched:
+            self.files_dropped.emit(matched)
 
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
@@ -315,6 +372,184 @@ class _TeamFileCard(Card):
         row.addWidget(remove_btn)
 
 
+_TDS_METADATA_FIELDS = (
+    ("company_name", "Company Name"),
+    ("mill_location", "Mill Location"),
+    ("boiler_name", "Boiler Name"),
+    ("inspection_date", "Inspection Date"),
+    ("boiler_section", "Boiler Section"),
+    ("nde_laboratory", "NDE Laboratory"),
+)
+
+TDS_CONFIRM_NOTE = "Please verify - auto-detected from position."
+TDS_NDE_REQUIRED_PLACEHOLDER = "Required - Old-format files carry no NDE Laboratory"
+
+
+class _TdsFileCard(Card):
+    """One imported TDS file with its own editable per-file metadata form.
+
+    Unlike the TEAM card (one shared batch form for every file), each TDS
+    file carries its own company/mill/boiler/date/section/NDE, because the
+    values are read from the file itself. New (5.3+) files arrive fully
+    pre-filled; Old (pre-5.3) files have the five positional fields
+    pre-filled but flagged for confirmation and an empty, required NDE.
+
+    Task 6 reads the current (possibly edited) values via `metadata()` and
+    checks `fmt` / `needs_confirmation` / `nde_required()`.
+    """
+
+    remove_requested = pyqtSignal(str)   # path
+    metadata_changed = pyqtSignal(str)   # path
+
+    def __init__(
+        self,
+        path: str,
+        fmt: str,
+        result: TDSNewParseResult | TDSOldParseResult,
+        parent: QWidget | None = None,
+    ):
+        super().__init__(parent)
+        self._path = path
+        self.fmt = fmt
+        self.needs_confirmation = fmt == "old"
+        self._edits: dict[str, QLineEdit] = {}
+        self.layout().setContentsMargins(Spacing.MD, Spacing.SM, Spacing.MD, Spacing.SM)
+
+        # --- Top row: filename + format badge, then remove button ---
+        top_row = QHBoxLayout()
+        self.layout().addLayout(top_row)
+
+        info = QVBoxLayout()
+        title_row = QHBoxLayout()
+        name_lbl = QLabel(Path(path).name)
+        name_lbl.setStyleSheet("font-weight: 600;")
+        title_row.addWidget(name_lbl)
+
+        self._badge = QLabel("Old" if fmt == "old" else "New")
+        if fmt == "old":
+            badge_bg, badge_fg = Color.WARNING, Color.PAGE_BG
+            self._badge.setToolTip(
+                "TDS pre-5.3 format. Metadata was auto-detected from cell "
+                "position - please verify before converting."
+            )
+        else:
+            badge_bg, badge_fg = Color.ACCENT_BG_TINT, Color.ACCENT_TEXT
+            self._badge.setToolTip("TDS 5.3+ format. Metadata was read from labeled fields.")
+        self._badge.setStyleSheet(
+            f"background-color: {badge_bg}; color: {badge_fg}; "
+            f"font-size: {FontSize.LABEL}px; font-weight: 600; "
+            f"border-radius: {Radius.PILL}px; padding: 2px {Spacing.SM}px;"
+        )
+        title_row.addWidget(self._badge)
+        title_row.addStretch(1)
+        info.addLayout(title_row)
+
+        total = len(result.elevations)
+        measured = sum(1 for e in result.elevations if e.has_data)
+        detail = QLabel(
+            f"{result.num_tubes} tubes, {result.numbering_direction}, "
+            f"{total} elevation{'s' if total != 1 else ''} "
+            f"({measured} with data)"
+        )
+        detail.setProperty("role", "muted")
+        info.addWidget(detail)
+        top_row.addLayout(info, 1)
+
+        remove_btn = QPushButton("✕")
+        remove_btn.setFixedSize(24, 24)
+        remove_btn.setProperty("flat", "true")
+        remove_btn.setToolTip("Remove this file")
+        remove_btn.clicked.connect(lambda: self.remove_requested.emit(self._path))
+        top_row.addWidget(remove_btn, 0, Qt.AlignmentFlag.AlignTop)
+
+        # --- Per-file metadata form (its own group) ---
+        self._meta_group = QFrame()
+        if self.needs_confirmation:
+            # Warning-tinted border marks the whole group as needing review.
+            self._meta_group.setStyleSheet(
+                f"QFrame {{ border: 1px solid {Color.WARNING}; "
+                f"border-radius: {Radius.INPUT}px; }}"
+            )
+        meta_layout = QVBoxLayout(self._meta_group)
+        meta_layout.setContentsMargins(Spacing.SM, Spacing.SM, Spacing.SM, Spacing.SM)
+        meta_layout.setSpacing(Spacing.XS)
+
+        if self.needs_confirmation:
+            self._confirm_note = QLabel(TDS_CONFIRM_NOTE)
+            self._confirm_note.setStyleSheet(
+                f"color: {Color.WARNING}; font-size: {FontSize.LABEL}px;"
+            )
+            meta_layout.addWidget(self._confirm_note)
+
+        prefilled = self._prefill_values(fmt, result)
+        for key, label in _TDS_METADATA_FIELDS:
+            edit = QLineEdit(prefilled.get(key, ""))
+            edit.setToolTip(self._field_tooltip(key))
+            if key == "nde_laboratory" and fmt == "old":
+                edit.setPlaceholderText(TDS_NDE_REQUIRED_PLACEHOLDER)
+                edit.setProperty("required", "true")
+            edit.textChanged.connect(lambda _text: self.metadata_changed.emit(self._path))
+            self._edits[key] = edit
+            meta_layout.addLayout(self._labeled_field(label, edit))
+
+        self.layout().addWidget(self._meta_group)
+
+    @staticmethod
+    def _prefill_values(fmt: str, result) -> dict[str, str]:
+        values = {
+            "company_name": result.company_name,
+            "mill_location": result.mill_location,
+            "boiler_name": result.boiler_name,
+            "inspection_date": result.inspection_date,
+            "boiler_section": result.boiler_section,
+        }
+        # New results carry NDE; Old results have no such field (empty, required).
+        values["nde_laboratory"] = getattr(result, "nde_laboratory", "")
+        return values
+
+    @staticmethod
+    def _field_tooltip(key: str) -> str:
+        if key == "boiler_section":
+            return (
+                "Boiler section for this file. Used for the header and the "
+                "output filename ({section}_Standard_Format.csv)."
+            )
+        if key == "nde_laboratory":
+            return "NDE laboratory that performed the inspection."
+        return "Auto-filled from the file. Edit if it needs correcting."
+
+    @staticmethod
+    def _labeled_field(label: str, field: QWidget) -> QHBoxLayout:
+        row = QHBoxLayout()
+        lbl = QLabel(label)
+        lbl.setMinimumWidth(120)
+        lbl.setStyleSheet(f"color: {Color.TEXT_MUTED};")
+        row.addWidget(lbl)
+        row.addWidget(field, 1)
+        return row
+
+    def metadata(self) -> dict[str, str]:
+        """Current (possibly edited) per-file metadata values."""
+        return {key: edit.text().strip() for key, edit in self._edits.items()}
+
+    def nde_required(self) -> bool:
+        """True for Old-format files (their NDE Laboratory must be supplied)."""
+        return self.fmt == "old"
+
+    # Convenience accessors used by tests / Task 6.
+    @property
+    def _company_edit(self) -> QLineEdit:
+        return self._edits["company_name"]
+
+    @property
+    def _section_edit(self) -> QLineEdit:
+        return self._edits["boiler_section"]
+
+    @property
+    def _nde_edit(self) -> QLineEdit:
+        return self._edits["nde_laboratory"]
+
+
 class _ErrorCard(QFrame):
     """An import error shown inline in the file list."""
 
@@ -352,6 +587,16 @@ class ConverterPage(QWidget):
         self._team_flag_mapping: dict[str, str] = {}
         self._team_flags_confirmed = False
         self._team_worker: Optional[_ConvertWorker] = None
+
+        # TDS flow state (kept fully separate from ATS/TEAM above). Each path
+        # maps to a (fmt, parse-result) tuple; per-file editable metadata lives
+        # on the card widgets in self._tds_cards (Task 6 reads them there).
+        self._tds_imported: dict[str, tuple[str, object]] = {}
+        self._tds_errors: dict[str, str] = {}
+        self._tds_cards: dict[str, _TdsFileCard] = {}
+        self._tds_flag_mapping: dict[str, str] = {}
+        self._tds_flags_confirmed = False
+        self._tds_worker: Optional[_ConvertWorker] = None
 
         self._build_ui()
 
@@ -412,9 +657,8 @@ class ConverterPage(QWidget):
         tab_row.addWidget(self._team_tab_btn)
 
         self._tds_tab_btn = QPushButton(TDS_TAB_TEXT)
-        self._tds_tab_btn.setEnabled(False)
-        self._tds_tab_btn.setToolTip(COMING_SOON_TOOLTIP)
         self._tds_tab_btn.setStyleSheet(self._inactive_tab_style)
+        self._tds_tab_btn.clicked.connect(self._show_tds_tab)
         tab_row.addWidget(self._tds_tab_btn)
 
         tab_row.addStretch(1)
@@ -566,6 +810,13 @@ class ConverterPage(QWidget):
         self._build_team_view()
         self._tab_stack.addWidget(self._team_view)
 
+        # --- TDS view (index 2) ---
+        self._tds_view = QWidget()
+        self._tds_view_layout = QVBoxLayout(self._tds_view)
+        self._tds_view_layout.setContentsMargins(0, 0, 0, 0)
+        self._build_tds_view()
+        self._tab_stack.addWidget(self._tds_view)
+
         # Start on the ATS tab (index 0, ATS pill active) - matches prior appearance.
         self._tab_stack.setCurrentIndex(0)
 
@@ -578,11 +829,21 @@ class ConverterPage(QWidget):
 
     def _show_ats_tab(self) -> None:
         self._tab_stack.setCurrentIndex(0)
-        self._style_active_tab(self._ats_tab_btn, [self._team_tab_btn])
+        self._style_active_tab(
+            self._ats_tab_btn, [self._team_tab_btn, self._tds_tab_btn]
+        )
 
     def _show_team_tab(self) -> None:
         self._tab_stack.setCurrentIndex(1)
-        self._style_active_tab(self._team_tab_btn, [self._ats_tab_btn])
+        self._style_active_tab(
+            self._team_tab_btn, [self._ats_tab_btn, self._tds_tab_btn]
+        )
+
+    def _show_tds_tab(self) -> None:
+        self._tab_stack.setCurrentIndex(2)
+        self._style_active_tab(
+            self._tds_tab_btn, [self._ats_tab_btn, self._team_tab_btn]
+        )
 
     # --- Import ---
 
@@ -1116,7 +1377,7 @@ class ConverterPage(QWidget):
         self._team_stat_files.set_value(str(len(self._team_imported)))
         include = self._team_include_blank.isChecked()
         total = sum(
-            len(filter_team_elevations(r.elevations, include))
+            len(filter_elevations_by_data(r.elevations, include))
             for r in self._team_imported.values()
         )
         self._team_stat_elevations.set_value(str(total))
@@ -1135,7 +1396,7 @@ class ConverterPage(QWidget):
         for result in self._team_imported.values():
             all_flags |= result.flags_found
 
-        mapping_result = check_team_flags(all_flags)
+        mapping_result = check_known_symbols(all_flags)
         self._set_team_flags_needing_review(
             len(mapping_result.unknown) + len(mapping_result.suggested)
         )
@@ -1208,7 +1469,7 @@ class ConverterPage(QWidget):
         jobs: list[tuple[str, TEAMConversionInput]] = []
         for path, result in self._team_imported.items():
             section = self._team_section_names.get(path, "").strip()
-            elevations = filter_team_elevations(result.elevations, include_blank)
+            elevations = filter_elevations_by_data(result.elevations, include_blank)
             jobs.append(
                 (
                     path,
@@ -1285,3 +1546,433 @@ class ConverterPage(QWidget):
         self._clear_layout(self._team_results_layout)
         self._team_open_folder_btn.setVisible(False)
         self._team_convert_more_btn.setVisible(False)
+
+    # ==================================================================
+    # TDS flow (import + display half; the convert half is Task 6)
+    # ==================================================================
+
+    def _build_tds_view(self) -> None:
+        """Populate self._tds_view_layout with the TDS import/display flow,
+        mirroring the TEAM view's structure. The convert half (blank toggle,
+        flag review, output, Convert button, conversion) is Task 6."""
+        # Stat card row (files + elevations; flag review is Task 6).
+        stats_row = QHBoxLayout()
+        stats_row.setSpacing(Spacing.MD)
+        self._tds_stat_files = StatCard(
+            "Files loaded", "0",
+            tooltip="Number of TDS files currently imported.",
+        )
+        self._tds_stat_elevations = StatCard(
+            "Elevations", "0",
+            tooltip=(
+                "Inspection elevations that will be written to output across "
+                "all imported files (respects the unmeasured-elevations toggle)."
+            ),
+        )
+        self._tds_stat_flags = StatCard(
+            "Flags needing review", "0",
+            tooltip=(
+                "Flag symbols in these files that are not recognized Standard "
+                "Format symbols and need your confirmation before converting."
+            ),
+        )
+        stats_row.addWidget(self._tds_stat_files)
+        stats_row.addWidget(self._tds_stat_elevations)
+        stats_row.addWidget(self._tds_stat_flags)
+        stats_row.addStretch(1)
+        self._tds_view_layout.addLayout(stats_row)
+
+        # Scrollable content
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        content = QWidget()
+        self._tds_content_layout = QVBoxLayout(content)
+        self._tds_content_layout.setSpacing(Spacing.MD)
+        scroll.setWidget(content)
+        self._tds_view_layout.addWidget(scroll, 1)
+
+        # Section 1: Import
+        import_card = Card()
+        import_layout = import_card.layout()
+        import_header = QHBoxLayout()
+        import_header.addWidget(QLabel("<b>Import TDS Files</b>"))
+        import_header.addStretch(1)
+        self._tds_clear_all_btn = QPushButton(CLEAR_ALL_TEXT)
+        self._tds_clear_all_btn.setProperty("flat", "true")
+        self._tds_clear_all_btn.setToolTip("Remove every imported file and start over.")
+        self._tds_clear_all_btn.setEnabled(False)
+        self._tds_clear_all_btn.clicked.connect(self._on_tds_clear_all)
+        import_header.addWidget(self._tds_clear_all_btn)
+        import_layout.addLayout(import_header)
+
+        self._tds_drop_zone = _AtsDropZone(
+            self,
+            text=TDS_DROP_ZONE_TEXT,
+            tooltip=TDS_DROP_ZONE_TOOLTIP,
+            extensions=(".csv",),
+        )
+        # TDS copy is a wrapped 2-line message; give it headroom like TEAM's.
+        self._tds_drop_zone.setMinimumHeight(100)
+        self._tds_drop_zone.clicked.connect(self._on_browse_tds_files)
+        self._tds_drop_zone.files_dropped.connect(
+            lambda paths: [self._import_tds_file(p) for p in paths]
+        )
+        import_layout.addWidget(self._tds_drop_zone)
+
+        self._tds_file_list_layout = QVBoxLayout()
+        self._tds_file_list_layout.setSpacing(Spacing.SM)
+        import_layout.addLayout(self._tds_file_list_layout)
+
+        self._tds_content_layout.addWidget(import_card)
+
+        # Section 2: Batch-wide options (unmeasured-elevations toggle).
+        # Per-file metadata lives on each card (unlike TEAM's shared form), so
+        # the only batch-wide control here is this toggle.
+        options_card = Card()
+        options_layout = options_card.layout()
+        options_layout.addWidget(QLabel("<b>Options</b>"))
+
+        # NOTE: TDS defaults this toggle UNCHECKED (only measured elevations in
+        # output) per Tyler's TDS spec. This intentionally differs from TEAM,
+        # whose exports carry every possible position so it defaults CHECKED.
+        self._tds_include_blank = QCheckBox("Include unmeasured elevations in output")
+        self._tds_include_blank.setChecked(False)
+        self._tds_include_blank.setToolTip(
+            "When checked, every elevation position is written to the output, "
+            "including ones with no readings this inspection."
+        )
+        options_layout.addWidget(self._tds_include_blank)
+
+        include_hint = QLabel(
+            "By default only elevations with actual readings are written. "
+            "Check this to also include elevation positions that weren't "
+            "measured this inspection."
+        )
+        include_hint.setProperty("role", "muted")
+        include_hint.setWordWrap(True)
+        include_hint.setStyleSheet(f"font-size: {FontSize.LABEL}px;")
+        options_layout.addWidget(include_hint)
+
+        # Toggling after import must not require re-importing; just refresh stats.
+        self._tds_include_blank.stateChanged.connect(
+            lambda _=None: self._update_tds_file_stats()
+        )
+
+        self._tds_options_card = options_card
+        self._tds_options_card.setVisible(False)
+        self._tds_content_layout.addWidget(options_card)
+
+        # Section 3: Flag review (batch-wide, union of every file's symbols).
+        self._tds_flag_widget_container = QWidget()
+        self._tds_flag_widget_layout = QVBoxLayout(self._tds_flag_widget_container)
+        self._tds_flag_widget_layout.setContentsMargins(0, 0, 0, 0)
+        self._tds_content_layout.addWidget(self._tds_flag_widget_container)
+
+        # Section 4: Output
+        output_card = Card()
+        output_layout = output_card.layout()
+        output_layout.addWidget(QLabel("<b>Output</b>"))
+
+        folder_row = QHBoxLayout()
+        folder_row.addWidget(QLabel(OUTPUT_FOLDER_LABEL))
+        self._tds_output_folder_edit = QLineEdit()
+        self._tds_output_folder_edit.setPlaceholderText("Choose output folder...")
+        self._tds_output_folder_edit.setReadOnly(True)
+        self._tds_output_folder_edit.setToolTip(
+            "Where the converted Standard Format CSV files will be saved. "
+            "Defaults to the folder of the first file you import; use Browse to change it."
+        )
+        saved = self._load_output_folder()
+        self._tds_output_folder_edit.setText(saved if saved else "")
+        folder_row.addWidget(self._tds_output_folder_edit, 1)
+        tds_browse_btn = SecondaryButton(BROWSE_TEXT)
+        tds_browse_btn.clicked.connect(self._on_browse_tds_output)
+        folder_row.addWidget(tds_browse_btn)
+        output_layout.addLayout(folder_row)
+
+        self._tds_convert_btn = PrimaryButton(CONVERT_ALL_TEXT)
+        self._tds_convert_btn.setIcon(icon("play", color=Color.TEXT_PRIMARY))
+        self._tds_convert_btn.setToolTip(
+            "Convert every imported file to Standard Format CSV. Enabled once "
+            "each file's metadata is filled in (including the NDE Laboratory for "
+            "Old-format files) and any flag codes have been reviewed."
+        )
+        self._tds_convert_btn.setEnabled(False)
+        self._tds_convert_btn.clicked.connect(self._on_tds_convert)
+        output_layout.addWidget(self._tds_convert_btn)
+
+        self._tds_content_layout.addWidget(output_card)
+
+        # Progress
+        self._tds_progress_bar = QProgressBar()
+        self._tds_progress_bar.setVisible(False)
+        self._tds_content_layout.addWidget(self._tds_progress_bar)
+
+        # Results
+        self._tds_results_layout = QVBoxLayout()
+        self._tds_content_layout.addLayout(self._tds_results_layout)
+
+        # Post-convert actions
+        self._tds_post_btn_row = QHBoxLayout()
+        self._tds_open_folder_btn = QPushButton(OPEN_FOLDER_TEXT)
+        self._tds_open_folder_btn.setProperty("flat", "true")
+        self._tds_open_folder_btn.setVisible(False)
+        self._tds_open_folder_btn.clicked.connect(self._on_tds_open_output_folder)
+        self._tds_post_btn_row.addWidget(self._tds_open_folder_btn)
+        self._tds_convert_more_btn = QPushButton(CONVERT_MORE_TEXT)
+        self._tds_convert_more_btn.setProperty("flat", "true")
+        self._tds_convert_more_btn.setVisible(False)
+        self._tds_convert_more_btn.clicked.connect(self._tds_reset)
+        self._tds_post_btn_row.addWidget(self._tds_convert_more_btn)
+        self._tds_post_btn_row.addStretch(1)
+        self._tds_content_layout.addLayout(self._tds_post_btn_row)
+
+        self._tds_content_layout.addStretch(1)
+
+    # --- TDS import ---
+
+    def _on_browse_tds_files(self) -> None:
+        paths, _ = QFileDialog.getOpenFileNames(
+            self, "Import TDS Files", "", "TDS Inspection Files (*.csv)"
+        )
+        for path in paths:
+            self._import_tds_file(path)
+
+    def _import_tds_file(self, path: str) -> None:
+        if path in self._tds_imported or path in self._tds_errors:
+            return
+        try:
+            fmt = detect_tds_format(path)
+            if fmt == "new":
+                result = parse_tds_new_file(path)
+            else:
+                result = parse_tds_old_file(path)
+            self._tds_imported[path] = (fmt, result)
+            if len(self._tds_imported) == 1 and not self._tds_output_folder_edit.text():
+                self._tds_output_folder_edit.setText(str(Path(path).parent))
+            card = _TdsFileCard(path, fmt, result, self)
+            card.remove_requested.connect(self._on_remove_tds_file)
+            card.metadata_changed.connect(self._on_tds_metadata_changed)
+            self._tds_cards[path] = card
+            self._tds_file_list_layout.addWidget(card)
+        except TDSParseError as exc:
+            self._tds_errors[path] = str(exc)
+            self._tds_file_list_layout.addWidget(_ErrorCard(path, str(exc), self))
+        self._after_tds_files_changed()
+
+    def _on_remove_tds_file(self, path: str) -> None:
+        # Remove only the target card so edits on the OTHER cards survive (the
+        # card widgets are the source of truth for per-file metadata, unlike
+        # TEAM's externally-stored section names). Only file cards emit
+        # remove_requested - error cards have no remove button.
+        card = self._tds_cards.pop(path, None)
+        self._tds_imported.pop(path, None)
+        if card is not None:
+            self._tds_file_list_layout.removeWidget(card)
+            card.deleteLater()
+        self._after_tds_files_changed()
+
+    def _on_tds_clear_all(self) -> None:
+        self._tds_imported.clear()
+        self._tds_errors.clear()
+        self._tds_cards.clear()
+        self._clear_layout(self._tds_file_list_layout)
+        self._after_tds_files_changed()
+
+    def _after_tds_files_changed(self) -> None:
+        """Shared bookkeeping after any change to the imported TDS files."""
+        self._tds_clear_all_btn.setEnabled(
+            bool(self._tds_imported) or bool(self._tds_errors)
+        )
+        self._tds_flags_confirmed = False
+        self._tds_flag_mapping = {}
+        self._update_tds_file_stats()
+        self._refresh_tds_flag_widget()
+        self._tds_options_card.setVisible(bool(self._tds_imported))
+        self._update_tds_convert_button()
+
+    def _on_tds_metadata_changed(self, _path: str) -> None:
+        """Re-gate the Convert button when a card's per-file metadata is
+        edited (e.g. an Old-format file's required NDE is filled in)."""
+        self._update_tds_convert_button()
+
+    def _update_tds_file_stats(self) -> None:
+        self._tds_stat_files.set_value(str(len(self._tds_imported)))
+        include = self._tds_include_blank.isChecked()
+        total = sum(
+            len(filter_elevations_by_data(result.elevations, include))
+            for _fmt, result in self._tds_imported.values()
+        )
+        self._tds_stat_elevations.set_value(str(total))
+
+    # --- TDS flag review ---
+
+    def _tds_collect_symbols(self) -> set[str]:
+        """Union of every non-numeric flag symbol across all imported TDS
+        files. TDS parse results carry no `flags_found`, so the symbols are
+        scanned from the parsed elevation reading cells directly."""
+        symbols: set[str] = set()
+        for _fmt, result in self._tds_imported.values():
+            symbols |= _tds_symbols_in_elevations(result.elevations)
+        return symbols
+
+    def _refresh_tds_flag_widget(self) -> None:
+        self._clear_layout(self._tds_flag_widget_layout)
+        if not self._tds_imported:
+            self._tds_flags_confirmed = False
+            self._tds_flag_mapping = {}
+            self._set_tds_flags_needing_review(0)
+            return
+
+        symbols = self._tds_collect_symbols()
+        mapping_result = check_known_symbols(symbols)
+        self._set_tds_flags_needing_review(
+            len(mapping_result.unknown) + len(mapping_result.suggested)
+        )
+        flag_widget = FlagReviewWidget(mapping_result, None, self)
+        flag_widget.mappings_confirmed.connect(self._on_tds_flags_confirmed)
+        self._tds_flag_widget_layout.addWidget(flag_widget)
+
+    def _set_tds_flags_needing_review(self, count: int) -> None:
+        value_color = Color.WARNING if count > 0 else Color.TEXT_PRIMARY
+        self._tds_stat_flags.set_value(str(count), color=value_color)
+
+    def _on_tds_flags_confirmed(self, mapping: dict[str, str]) -> None:
+        self._tds_flag_mapping = mapping
+        self._tds_flags_confirmed = True
+        self._update_tds_convert_button()
+
+    # --- TDS metadata / convert-button gating ---
+
+    def _tds_metadata_complete(self) -> bool:
+        """Every imported file must have all six metadata fields filled in.
+        For Old-format files this specifically requires the NDE Laboratory
+        (blank on import), enforced explicitly for clarity."""
+        if not self._tds_cards:
+            return False
+        for card in self._tds_cards.values():
+            meta = card.metadata()
+            if not all(value.strip() for value in meta.values()):
+                return False
+            if card.nde_required() and not meta["nde_laboratory"].strip():
+                return False
+        return True
+
+    def _update_tds_convert_button(self) -> None:
+        ready = (
+            bool(self._tds_imported)
+            and self._tds_flags_confirmed
+            and self._tds_metadata_complete()
+        )
+        self._tds_convert_btn.setEnabled(ready)
+
+    # --- TDS output / conversion ---
+
+    def _on_browse_tds_output(self) -> None:
+        folder = QFileDialog.getExistingDirectory(
+            self, "Select Output Folder", self._tds_output_folder_edit.text()
+        )
+        if folder:
+            self._tds_output_folder_edit.setText(folder)
+            self._save_output_folder(folder)
+
+    def _tds_conversion_jobs(self) -> list[tuple[str, object]]:
+        """Build a (path, writer_input) job for every imported file.
+
+        Per-file (edited) metadata comes from each card, not the original
+        parse. New files become a TDSNewParseResult; Old files become a
+        TDSOldConversionInput carrying the user-supplied NDE. Both are
+        duck-typed to what write_standard_format() reads. The blank-elevation
+        toggle governs the whole batch."""
+        include_blank = self._tds_include_blank.isChecked()
+        jobs: list[tuple[str, object]] = []
+        for path, (fmt, result) in self._tds_imported.items():
+            meta = self._tds_cards[path].metadata()
+            elevations = filter_elevations_by_data(result.elevations, include_blank)
+            if fmt == "new":
+                writer_input: object = TDSNewParseResult(
+                    company_name=meta["company_name"],
+                    mill_location=meta["mill_location"],
+                    boiler_name=meta["boiler_name"],
+                    inspection_date=meta["inspection_date"],
+                    boiler_section=meta["boiler_section"],
+                    num_tubes=result.num_tubes,
+                    numbering_direction=result.numbering_direction,
+                    nde_laboratory=meta["nde_laboratory"],
+                    tube_numbers=result.tube_numbers,
+                    elevations=elevations,
+                )
+            else:
+                writer_input = TDSOldConversionInput(
+                    company_name=meta["company_name"],
+                    mill_location=meta["mill_location"],
+                    boiler_name=meta["boiler_name"],
+                    inspection_date=meta["inspection_date"],
+                    boiler_section=meta["boiler_section"],
+                    nde_laboratory=meta["nde_laboratory"],
+                    num_tubes=result.num_tubes,
+                    numbering_direction=result.numbering_direction,
+                    tube_numbers=result.tube_numbers,
+                    elevations=elevations,
+                )
+            jobs.append((path, writer_input))
+        return jobs
+
+    def _on_tds_convert(self) -> None:
+        output_dir = Path(self._tds_output_folder_edit.text())
+        self._save_output_folder(str(output_dir))
+        try:
+            output_dir.mkdir(parents=True, exist_ok=True)
+        except OSError as exc:
+            logger.error("Cannot create output folder: %s", exc)
+            return
+
+        jobs = self._tds_conversion_jobs()
+        conflicts = self._existing_output_paths(
+            output_dir, [inp for _path, inp in jobs]
+        )
+        if conflicts and not self._confirm_overwrite(conflicts):
+            return
+
+        self._tds_progress_bar.setMaximum(len(jobs))
+        self._tds_progress_bar.setValue(0)
+        self._tds_progress_bar.setVisible(True)
+        self._tds_convert_btn.setEnabled(False)
+
+        self._clear_layout(self._tds_results_layout)
+
+        self._tds_worker = _ConvertWorker(
+            jobs,
+            self._tds_flag_mapping,
+            output_dir,
+            parent=self,
+        )
+        self._tds_worker.file_done.connect(self._on_tds_file_done)
+        self._tds_worker.all_done.connect(self._on_tds_all_done)
+        self._tds_worker.start()
+
+    def _on_tds_file_done(self, path: str, success: bool, error: str) -> None:
+        self._tds_progress_bar.setValue(self._tds_progress_bar.value() + 1)
+        status_icon = "✓" if success else "✗"
+        style_color = Color.SUCCESS if success else Color.DANGER
+        text = f"{status_icon} {Path(path).name}" + (f": {error}" if error else "")
+        lbl = QLabel(text)
+        lbl.setStyleSheet(f"color: {style_color};")
+        self._tds_results_layout.addWidget(lbl)
+
+    def _on_tds_all_done(self) -> None:
+        self._tds_progress_bar.setVisible(False)
+        self._tds_open_folder_btn.setVisible(True)
+        self._tds_convert_more_btn.setVisible(True)
+
+    def _on_tds_open_output_folder(self) -> None:
+        folder = self._tds_output_folder_edit.text()
+        if folder:
+            os.startfile(folder)  # Windows only
+
+    def _tds_reset(self) -> None:
+        self._on_tds_clear_all()
+        self._clear_layout(self._tds_results_layout)
+        self._tds_open_folder_btn.setVisible(False)
+        self._tds_convert_more_btn.setVisible(False)

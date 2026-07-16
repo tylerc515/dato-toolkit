@@ -13,6 +13,8 @@ import pytest
 
 from app.converters.ats_parser import ATSElevation, ATSParseResult
 from app.converters.team_parser import TEAMConversionInput, TEAMElevation
+from app.converters.tds_new_parser import TDSElevation, TDSNewParseResult
+from app.converters.tds_old_parser import TDSOldConversionInput
 from app.parser import parse_trace_csv
 
 
@@ -375,6 +377,20 @@ def test_unknown_non_symbol_code_still_warns(tmp_path: Path, caplog: pytest.LogC
     assert unrecognized, "Expected a warning for a genuinely unmapped, non-symbol code"
 
 
+def test_suffix_letter_reading_does_not_warn(tmp_path: Path, caplog: pytest.LogCaptureFixture):
+    """A thickness reading with a trailing letter suffix (e.g. "230V") is a
+    valid reading, not an unrecognized flag code - it must not trigger the
+    warning, and must appear unchanged in the output."""
+    from app.converters.standard_format_writer import write_standard_format
+    result = _make_result_with_flags(["230V"])
+    out = tmp_path / "output.csv"
+    with caplog.at_level("WARNING"):
+        write_standard_format(result, {}, out)
+    unrecognized = [r for r in caplog.records if "Unrecognized flag code" in r.message]
+    assert not unrecognized, f"Unexpected warnings: {[r.message for r in unrecognized]}"
+    assert "230V" in out.read_text(encoding="utf-8")
+
+
 def test_write_standard_format_accepts_team_conversion_input(tmp_path: Path):
     """write_standard_format() must handle TEAMConversionInput without raising,
     produce a parseable file, and mark the tech-code cell as 'TEAM' (not 'ATS')
@@ -415,4 +431,101 @@ def test_write_standard_format_accepts_team_conversion_input(tmp_path: Path):
     assert cntr_col0_values, "No CNTR row found in output"
     assert all(v == "TEAM" for v in cntr_col0_values), (
         f"Expected all CNTR col-0 values to be 'TEAM', got: {cntr_col0_values}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# TDS compatibility - write_standard_format() must accept TDSNewParseResult
+# directly and TDSOldConversionInput, with correct per-format tech codes.
+# ---------------------------------------------------------------------------
+
+def test_write_standard_format_accepts_tds_new_result(tmp_path: Path):
+    """write_standard_format() must handle a TDSNewParseResult without
+    raising, produce a parseable file, and write the New-format elevation's
+    own tech_code (read from the file) into the CNTR tech-code cell - never
+    the 'TEAM' getattr default."""
+    from app.converters.standard_format_writer import write_standard_format
+    result = TDSNewParseResult(
+        company_name="SYNTHETIC PAPER CO",
+        mill_location="Somewhere, MS",
+        boiler_name="Recovery Boiler 3",
+        inspection_date="June 2025",
+        boiler_section="03 FLOOR",
+        num_tubes=3,
+        numbering_direction="Left-to-Right",
+        nde_laboratory="Synthetic NDE Lab",
+        tube_numbers=[1, 2, 3],
+        elevations=[
+            TDSElevation(
+                label="10 FT",
+                left=["220", "215", "210"],
+                cntr=["218", "213", "208"],
+                rght=["222", "216", "212"],
+                has_data=True,
+                tech_code="RW",
+            ),
+        ],
+    )
+    out = tmp_path / "tds_new_output.csv"
+
+    write_standard_format(result, {}, out)
+
+    assert out.exists()
+    parsed = parse_trace_csv(str(out))
+    assert parsed.company_name == "SYNTHETIC PAPER CO"
+    assert len(parsed.elevations) == 1
+
+    rows = list(csv.reader(out.read_text(encoding="utf-8").splitlines()))
+    cntr_col0_values = [r[0] for r in rows if len(r) > 4 and r[4] == "CNTR"]
+    assert cntr_col0_values, "No CNTR row found in output"
+    assert all(v == "RW" for v in cntr_col0_values), (
+        f"Expected all CNTR col-0 values to be 'RW', got: {cntr_col0_values}"
+    )
+
+
+def test_write_standard_format_accepts_tds_old_conversion_input(tmp_path: Path):
+    """write_standard_format() must handle a TDSOldConversionInput without
+    raising, produce a parseable file, write the user-supplied
+    nde_laboratory into the NDE Laboratory row, and write 'TDS' (the
+    TDSElevation default tech_code) into the CNTR tech-code cell - never
+    'TEAM'."""
+    from app.converters.standard_format_writer import write_standard_format
+    result = TDSOldConversionInput(
+        company_name="SYNTHETIC PAPER CO",
+        mill_location="Elsewhere, AL",
+        boiler_name="Recovery Boiler 4",
+        inspection_date="July 2025",
+        boiler_section="04 FLOOR",
+        nde_laboratory="Test Lab",
+        num_tubes=3,
+        numbering_direction="Left-to-Right",
+        tube_numbers=[1, 2, 3],
+        elevations=[
+            TDSElevation(
+                label="12 FT",
+                left=["220", "215", "210"],
+                cntr=["218", "213", "208"],
+                rght=["222", "216", "212"],
+                has_data=True,
+                # tech_code left at TDSElevation's default ("TDS")
+            ),
+        ],
+    )
+    out = tmp_path / "tds_old_output.csv"
+
+    write_standard_format(result, {}, out)
+
+    assert out.exists()
+    parsed = parse_trace_csv(str(out))
+    assert parsed.company_name == "SYNTHETIC PAPER CO"
+    assert len(parsed.elevations) == 1
+
+    content = out.read_text(encoding="utf-8")
+    assert "Test Lab" in content
+
+    rows = list(csv.reader(out.read_text(encoding="utf-8").splitlines()))
+    cntr_col0_values = [r[0] for r in rows if len(r) > 4 and r[4] == "CNTR"]
+    assert cntr_col0_values, "No CNTR row found in output"
+    assert all(v == "TDS" for v in cntr_col0_values), (
+        f"Expected all CNTR col-0 values to be 'TDS', got: {cntr_col0_values}"
     )

@@ -186,7 +186,7 @@ def parse_team_file(filepath: str | Path) -> TEAMParseResult:
         wb.close()
 
 
-def filter_team_elevations(
+def filter_elevations_by_data(
     elevations: list[TEAMElevation],
     include_blank: bool,
 ) -> list[TEAMElevation]:

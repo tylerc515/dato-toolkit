@@ -134,7 +134,7 @@ def build_flag_mapping(ats_flags: dict[str, str]) -> FlagMappingResult:
     )
 
 
-def check_team_flags(flags_found: set[str]) -> FlagMappingResult:
+def check_known_symbols(flags_found: set[str]) -> FlagMappingResult:
     """Split TEAM flag symbols into known/unknown tiers.
 
     TEAM inspection files already carry Standard Format symbols, so no

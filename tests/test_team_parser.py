@@ -131,18 +131,18 @@ def _make_elevations():
     ]
 
 
-def test_filter_team_elevations_excludes_blank_by_default():
-    from app.converters.team_parser import filter_team_elevations
+def test_filter_elevations_by_data_excludes_blank_by_default():
+    from app.converters.team_parser import filter_elevations_by_data
 
     elevs = _make_elevations()
-    result = filter_team_elevations(elevs, include_blank=False)
+    result = filter_elevations_by_data(elevs, include_blank=False)
     assert [e.label for e in result] == ["A", "C"]
     assert all(e.has_data for e in result)
 
 
-def test_filter_team_elevations_includes_blank_when_requested():
-    from app.converters.team_parser import filter_team_elevations
+def test_filter_elevations_by_data_includes_blank_when_requested():
+    from app.converters.team_parser import filter_elevations_by_data
 
     elevs = _make_elevations()
-    result = filter_team_elevations(elevs, include_blank=True)
+    result = filter_elevations_by_data(elevs, include_blank=True)
     assert result == elevs

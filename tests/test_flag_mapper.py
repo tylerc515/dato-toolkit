@@ -166,18 +166,18 @@ def test_session_memory_is_description_scoped():
     clear_session_mappings()
 
 
-def test_check_team_flags_all_known():
-    from app.converters.flag_mapper import check_team_flags
-    result = check_team_flags({"*", "<", ";", "[", "&"})
+def test_check_known_symbols_all_known():
+    from app.converters.flag_mapper import check_known_symbols
+    result = check_known_symbols({"*", "<", ";", "[", "&"})
     assert result.unknown == {}
     assert result.known == {"*": "*", "<": "<", ";": ";", "[": "[", "&": "&"}
     assert result.suggested == {}
     assert result.final == result.known
 
 
-def test_check_team_flags_unknown_symbol():
-    from app.converters.flag_mapper import check_team_flags
-    result = check_team_flags({"*", "Q"})
+def test_check_known_symbols_unknown_symbol():
+    from app.converters.flag_mapper import check_known_symbols
+    result = check_known_symbols({"*", "Q"})
     assert "Q" in result.unknown
     assert result.unknown["Q"] == ""
     assert "*" in result.known
