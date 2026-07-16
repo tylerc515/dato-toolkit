@@ -1,4 +1,4 @@
-"""Tests for the ATS/TEAM sub-tab switching on the Data Converter page."""
+"""Tests for the ATS/TEAM sub-tab switching and TEAM flow on the Data Converter page."""
 from __future__ import annotations
 
 import sys
@@ -17,6 +17,33 @@ def _make_page():
         MockSettings.return_value = instance
         from app.pages.converter_page import ConverterPage
         return ConverterPage()
+
+
+def _make_team_result():
+    """Minimal TEAMParseResult for TEAM-flow tests."""
+    from app.converters.team_parser import TEAMElevation, TEAMParseResult
+
+    return TEAMParseResult(
+        tube_numbers=[1, 2],
+        numbering_direction="Left-to-Right",
+        num_tubes=2,
+        elevations=[
+            TEAMElevation(
+                label="10 FT",
+                left=["220", "215"],
+                cntr=["218", "213"],
+                rght=["222", "216"],
+            ),
+        ],
+        flags_found=set(),
+    )
+
+
+def _fill_team_metadata(page, company="TEST CO", mill="Mill, TX", boiler="Boiler 1", nde="ATS Lab"):
+    page._team_company_edit.setText(company)
+    page._team_mill_edit.setText(mill)
+    page._team_boiler_edit.setText(boiler)
+    page._team_nde_edit.setText(nde)
 
 
 def test_team_tab_is_enabled():
@@ -43,3 +70,72 @@ def test_tab_switch_preserves_ats_imported_state():
 def test_page_starts_on_ats_tab():
     page = _make_page()
     assert page._tab_stack.currentIndex() == 0
+
+
+# ---------------------------------------------------------------------------
+# TEAM flow
+# ---------------------------------------------------------------------------
+
+def test_convert_all_disabled_until_metadata_complete():
+    page = _make_page()
+    path = "C:/x/FLOOR.xlsx"
+    page._team_imported[path] = _make_team_result()
+    page._team_section_names[path] = "FLOOR"
+    page._team_flags_confirmed = True
+    page._team_flag_mapping = {}
+
+    # Metadata blank -> convert stays disabled.
+    _fill_team_metadata(page, company="", mill="", boiler="", nde="")
+    page._update_team_convert_button()
+    assert page._team_convert_btn.isEnabled() is False
+
+    # All five metadata fields (+ section name) set -> convert enabled.
+    _fill_team_metadata(page)
+    page._update_team_convert_button()
+    assert page._team_convert_btn.isEnabled() is True
+
+    # Blanking a section name disables it again.
+    page._team_section_names[path] = ""
+    page._update_team_convert_button()
+    assert page._team_convert_btn.isEnabled() is False
+
+
+def test_section_name_defaults_from_filename():
+    from app.pages.converter_page import _default_section_name
+
+    assert _default_section_name("SOOTBLOWER_PASS_A.xlsx") == "SOOTBLOWER PASS A"
+    assert _default_section_name("FLOOR MLO.xlsx") == "FLOOR MLO"
+    assert _default_section_name("FLOOR.xlsx") == "FLOOR"
+
+
+def test_batch_flag_mapping_applies_to_all_files(tmp_path):
+    page = _make_page()
+    r1, r2 = _make_team_result(), _make_team_result()
+    page._team_imported = {"a/FLOOR.xlsx": r1, "b/ROOF.xlsx": r2}
+    page._team_section_names = {"a/FLOOR.xlsx": "FLOOR", "b/ROOF.xlsx": "ROOF"}
+    _fill_team_metadata(page, company="CO", mill="Mill", boiler="B1", nde="Lab")
+    page._team_flags_confirmed = True
+    page._team_flag_mapping = {"@": "@"}
+    page._team_output_folder_edit.setText(str(tmp_path))
+
+    with patch("app.pages.converter_page._ConvertWorker") as MockWorker:
+        page._on_team_convert()
+
+    args, _ = MockWorker.call_args
+    jobs, mapping, output_dir = args[0], args[1], args[2]
+
+    assert len(jobs) == 2
+    # One batch-wide flag mapping for the whole worker (applies to every job).
+    assert mapping == {"@": "@"}
+    # Every job carries the identical batch metadata; only the section differs.
+    sections = set()
+    for _path, inp in jobs:
+        assert inp.company_name == "CO"
+        assert inp.mill_location == "Mill"
+        assert inp.boiler_name == "B1"
+        assert inp.nde_laboratory == "Lab"
+        assert inp.inspection_date == (
+            f"{page._team_month_combo.currentText()} {page._team_year_combo.currentText()}"
+        )
+        sections.add(inp.boiler_section)
+    assert sections == {"FLOOR", "ROOF"}
