@@ -935,7 +935,7 @@ class ConverterPage(QWidget):
 
         # Batch-wide toggle: include blank/unmeasured elevation positions.
         self._team_include_blank = QCheckBox("Include unmeasured elevations in output")
-        self._team_include_blank.setChecked(False)
+        self._team_include_blank.setChecked(True)
         self._team_include_blank.setToolTip(
             "When checked, every elevation position is written to the output, "
             "including ones with no readings this inspection."
@@ -944,8 +944,8 @@ class ConverterPage(QWidget):
 
         include_hint = QLabel(
             "TEAM exports include every possible elevation position, even ones "
-            "that weren't measured this inspection. Leave unchecked to only "
-            "include elevations with actual data."
+            "that weren't measured this inspection. Uncheck to only include "
+            "elevations with actual data."
         )
         include_hint.setProperty("role", "muted")
         include_hint.setWordWrap(True)

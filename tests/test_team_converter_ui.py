@@ -178,6 +178,11 @@ def test_nde_laboratory_defaults_to_team():
     assert page._team_nde_edit.isReadOnly() is False
 
 
+def test_include_blank_defaults_to_checked():
+    page = _make_page()
+    assert page._team_include_blank.isChecked() is True
+
+
 def test_include_blank_toggle_changes_output_elevation_count():
     page = _make_page()
     path = "C:/x/FLOOR.xlsx"
