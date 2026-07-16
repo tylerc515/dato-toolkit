@@ -377,6 +377,20 @@ def test_unknown_non_symbol_code_still_warns(tmp_path: Path, caplog: pytest.LogC
     assert unrecognized, "Expected a warning for a genuinely unmapped, non-symbol code"
 
 
+def test_suffix_letter_reading_does_not_warn(tmp_path: Path, caplog: pytest.LogCaptureFixture):
+    """A thickness reading with a trailing letter suffix (e.g. "230V") is a
+    valid reading, not an unrecognized flag code - it must not trigger the
+    warning, and must appear unchanged in the output."""
+    from app.converters.standard_format_writer import write_standard_format
+    result = _make_result_with_flags(["230V"])
+    out = tmp_path / "output.csv"
+    with caplog.at_level("WARNING"):
+        write_standard_format(result, {}, out)
+    unrecognized = [r for r in caplog.records if "Unrecognized flag code" in r.message]
+    assert not unrecognized, f"Unexpected warnings: {[r.message for r in unrecognized]}"
+    assert "230V" in out.read_text(encoding="utf-8")
+
+
 def test_write_standard_format_accepts_team_conversion_input(tmp_path: Path):
     """write_standard_format() must handle TEAMConversionInput without raising,
     produce a parseable file, and mark the tech-code cell as 'TEAM' (not 'ATS')

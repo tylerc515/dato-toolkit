@@ -3,12 +3,17 @@ from __future__ import annotations
 
 import csv
 import logging
+import re
 import sys
 from pathlib import Path
 
 from app.converters.ats_parser import ATSParseResult
 
 logger = logging.getLogger(__name__)
+
+# A thickness reading with a trailing letter suffix (e.g. "230V", "014V") -
+# a valid reading, not an unrecognized flag code.
+_SUFFIX_READING = re.compile(r"^\d+[A-Za-z]$")
 
 _FORMAT_COMMENT = (
     "This Excel file is in the 'Standard Format' for sharing the raw UT data between the labs."
@@ -133,6 +138,7 @@ def write_standard_format(
         if (
             translated == val
             and not val.isdigit()
+            and not _SUFFIX_READING.match(val)
             and val not in STANDARD_SYMBOL_DESCRIPTIONS
         ):
             logger.warning("Unrecognized flag code in reading: %r", val)
