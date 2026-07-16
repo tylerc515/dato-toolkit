@@ -169,12 +169,12 @@ def build_email_doc(data: EmailData, output_path: str | Path) -> Path:
     doc.add_paragraph(data.overall_summary)
     _add_blank(doc)
 
-    # Discovery — scope work
+    # Discovery - scope work
     _add_bold(doc, "Discovery based on scope work:")
     _add_findings(doc, data.scope_work_findings)
     _add_blank(doc)
 
-    # Discovery — visual
+    # Discovery - visual
     _add_bold(doc, "Discovery based on visual inspection:")
     _add_findings(doc, data.visual_findings)
     _add_blank(doc)
