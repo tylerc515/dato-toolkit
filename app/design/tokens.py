@@ -41,10 +41,10 @@ class Spacing:
     XS = 4
     SM = 8
     MD = 12
-    LG = 16
-    XL = 20
-    XXL = 24
-    XXXL = 32
+    LG = 18
+    XL = 22
+    XXL = 28
+    XXXL = 36
 
 
 class Radius:
@@ -56,12 +56,12 @@ class Radius:
 
 
 class FontSize:
-    LABEL = 12
-    SMALL = 13
-    BODY = 14
-    SECTION = 15
-    PAGE_TITLE = 20
-    STAT_NUMBER = 24
+    LABEL = 13
+    SMALL = 14
+    BODY = 15
+    SECTION = 16
+    PAGE_TITLE = 22
+    STAT_NUMBER = 28
 
 
 FONT_FAMILY = "Segoe UI"

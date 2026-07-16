@@ -8,7 +8,11 @@ from app.design.icons import icon
 from app.design.tokens import Color, FontSize, Radius, Spacing
 from app.logo import get_pixmap
 
-SIDEBAR_WIDTH = 220
+# Widened from 220 to 248 so the longest nav label ("Data converter")
+# fits on one line at the larger FontSize.SECTION (16px). The button's
+# sizeHint is 219px; with the sidebar's 12px content margins each side
+# (24px total) that needs at least 243px, so 248 leaves a small cushion.
+SIDEBAR_WIDTH = 248
 
 # (item_id, label, icon name, section) - icon names confirmed to resolve
 # under the ph. prefix; see docs/superpowers/plans/2026-07-01-visual-redesign.md
