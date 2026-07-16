@@ -18,6 +18,7 @@ from PyQt6.QtWidgets import (
     QProgressBar,
     QPushButton,
     QScrollArea,
+    QStackedWidget,
     QVBoxLayout,
     QWidget,
 )
@@ -270,27 +271,48 @@ class ConverterPage(QWidget):
         header_row.addWidget(help_btn)
         main_layout.addLayout(header_row)
 
-        # Sub-navigation tabs (pill-style)
-        tab_row = QHBoxLayout()
-        ats_tab = QPushButton(ATS_TAB_TEXT)
-        ats_tab.setStyleSheet(
+        # Sub-navigation tabs (pill-style). The active/inactive stylesheet
+        # strings are stored so tab switching can restyle the pills without
+        # changing the ATS tab's original active appearance.
+        self._active_tab_style = (
             f"QPushButton {{ background-color: {Color.ACCENT}; color: {Color.TEXT_PRIMARY}; "
             f"font-weight: 600; border: none; border-radius: {Radius.PILL}px; "
             f"padding: {Spacing.SM}px {Spacing.LG}px; }}"
         )
-        tab_row.addWidget(ats_tab)
-        for tab_text in (TEAM_TAB_TEXT, TDS_TAB_TEXT):
-            btn = QPushButton(tab_text)
-            btn.setEnabled(False)
-            btn.setToolTip(COMING_SOON_TOOLTIP)
-            btn.setStyleSheet(
-                f"QPushButton {{ background-color: transparent; color: {Color.TEXT_MUTED}; "
-                f"border: 1px solid {Color.BORDER}; border-radius: {Radius.PILL}px; "
-                f"padding: {Spacing.SM}px {Spacing.LG}px; }}"
-            )
-            tab_row.addWidget(btn)
+        self._inactive_tab_style = (
+            f"QPushButton {{ background-color: transparent; color: {Color.TEXT_MUTED}; "
+            f"border: 1px solid {Color.BORDER}; border-radius: {Radius.PILL}px; "
+            f"padding: {Spacing.SM}px {Spacing.LG}px; }}"
+        )
+
+        tab_row = QHBoxLayout()
+        self._ats_tab_btn = QPushButton(ATS_TAB_TEXT)
+        self._ats_tab_btn.setStyleSheet(self._active_tab_style)
+        self._ats_tab_btn.clicked.connect(self._show_ats_tab)
+        tab_row.addWidget(self._ats_tab_btn)
+
+        self._team_tab_btn = QPushButton(TEAM_TAB_TEXT)
+        self._team_tab_btn.setStyleSheet(self._inactive_tab_style)
+        self._team_tab_btn.clicked.connect(self._show_team_tab)
+        tab_row.addWidget(self._team_tab_btn)
+
+        self._tds_tab_btn = QPushButton(TDS_TAB_TEXT)
+        self._tds_tab_btn.setEnabled(False)
+        self._tds_tab_btn.setToolTip(COMING_SOON_TOOLTIP)
+        self._tds_tab_btn.setStyleSheet(self._inactive_tab_style)
+        tab_row.addWidget(self._tds_tab_btn)
+
         tab_row.addStretch(1)
         main_layout.addLayout(tab_row)
+
+        # Stacked views: ATS flow (index 0) and TEAM placeholder (index 1).
+        self._tab_stack = QStackedWidget()
+        main_layout.addWidget(self._tab_stack, 1)
+
+        # --- ATS view (index 0) ---
+        ats_view = QWidget()
+        ats_view_layout = QVBoxLayout(ats_view)
+        ats_view_layout.setContentsMargins(0, 0, 0, 0)
 
         # Stat card row
         stats_row = QHBoxLayout()
@@ -313,7 +335,7 @@ class ConverterPage(QWidget):
         stats_row.addWidget(self._stat_files)
         stats_row.addWidget(self._stat_elevations)
         stats_row.addWidget(self._stat_flags)
-        main_layout.addLayout(stats_row)
+        ats_view_layout.addLayout(stats_row)
 
         # Scrollable content area
         scroll = QScrollArea()
@@ -323,7 +345,7 @@ class ConverterPage(QWidget):
         self._content_layout = QVBoxLayout(content)
         self._content_layout.setSpacing(Spacing.MD)
         scroll.setWidget(content)
-        main_layout.addWidget(scroll, 1)
+        ats_view_layout.addWidget(scroll, 1)
 
         # Section 1: Import
         import_card = Card()
@@ -418,6 +440,38 @@ class ConverterPage(QWidget):
         self._content_layout.addLayout(self._post_btn_row)
 
         self._content_layout.addStretch(1)
+
+        # Add the assembled ATS view as stack index 0.
+        self._tab_stack.addWidget(ats_view)
+
+        # --- TEAM view (index 1) - placeholder, filled in a later task ---
+        self._team_view = QWidget()
+        self._team_view_layout = QVBoxLayout(self._team_view)
+        self._team_view_layout.setContentsMargins(0, 0, 0, 0)
+        team_placeholder = QLabel("TEAM converter - coming in the next step")
+        team_placeholder.setProperty("role", "muted")
+        team_placeholder.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._team_view_layout.addWidget(team_placeholder)
+        self._team_view_layout.addStretch(1)
+        self._tab_stack.addWidget(self._team_view)
+
+        # Start on the ATS tab (index 0, ATS pill active) - matches prior appearance.
+        self._tab_stack.setCurrentIndex(0)
+
+    # --- Sub-tab switching ---
+
+    def _style_active_tab(self, active_btn: QPushButton, inactive_btns: list[QPushButton]) -> None:
+        active_btn.setStyleSheet(self._active_tab_style)
+        for btn in inactive_btns:
+            btn.setStyleSheet(self._inactive_tab_style)
+
+    def _show_ats_tab(self) -> None:
+        self._tab_stack.setCurrentIndex(0)
+        self._style_active_tab(self._ats_tab_btn, [self._team_tab_btn])
+
+    def _show_team_tab(self) -> None:
+        self._tab_stack.setCurrentIndex(1)
+        self._style_active_tab(self._team_tab_btn, [self._ats_tab_btn])
 
     # --- Import ---
 
