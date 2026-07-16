@@ -76,6 +76,41 @@ class TDSOldParseResult:
     # supplies it at conversion time (later UI task).
 
 
+@dataclass
+class TDSOldConversionInput:
+    """A TDSOldParseResult plus the user-supplied NDE Laboratory, shaped
+    for write_standard_format(). Built per file at conversion time."""
+    company_name: str
+    mill_location: str
+    boiler_name: str
+    inspection_date: str
+    boiler_section: str
+    nde_laboratory: str        # supplied by the user (Old files lack it)
+    num_tubes: int
+    numbering_direction: str
+    tube_numbers: list[int]
+    elevations: list[TDSElevation]
+
+
+def old_conversion_input(
+    result: TDSOldParseResult, nde_laboratory: str
+) -> TDSOldConversionInput:
+    """Build a TDSOldConversionInput from a parsed TDSOldParseResult plus the
+    user-supplied NDE Laboratory value (Old-format files never contain it)."""
+    return TDSOldConversionInput(
+        company_name=result.company_name,
+        mill_location=result.mill_location,
+        boiler_name=result.boiler_name,
+        inspection_date=result.inspection_date,
+        boiler_section=result.boiler_section,
+        nde_laboratory=nde_laboratory,
+        num_tubes=result.num_tubes,
+        numbering_direction=result.numbering_direction,
+        tube_numbers=result.tube_numbers,
+        elevations=result.elevations,
+    )
+
+
 def _cell(row: list[str], idx: int) -> str:
     """Safe positional cell access; short/ragged CSV rows return ""."""
     return row[idx] if idx < len(row) else ""
