@@ -396,6 +396,7 @@ def test_write_standard_format_accepts_team_conversion_input(tmp_path: Path):
                 left=["220", "215", "210"],
                 cntr=["218", "213", "208"],
                 rght=["222", "216", "212"],
+                has_data=True,
             ),
         ],
     )

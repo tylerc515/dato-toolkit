@@ -60,12 +60,23 @@ def test_right_to_left_direction_synthetic(tmp_path):
     assert result.numbering_direction == "Right-to-Left"
 
 
-def test_blank_template_rows_skipped():
+def test_parser_returns_all_blocks_with_has_data():
     from app.converters.team_parser import parse_team_file
 
     result = parse_team_file(FLOOR_MLO)
-    # Only 2 of the ~23 template block positions are populated in this file.
-    assert len(result.elevations) == 2
+    # FLOOR MLO has 23 total template block positions; only 2 are measured.
+    assert len(result.elevations) == 23
+
+    measured = [e for e in result.elevations if e.has_data]
+    blank = [e for e in result.elevations if not e.has_data]
+    assert len(measured) == 2
+    assert len(blank) == 21
+
+    measured_labels = {e.label for e in measured}
+    assert measured_labels == {
+        'Floor to Wall Bend Weld Line Rear Wall +1"',
+        'Floor to Wall Bend Weld Line Frnt Wall +1"',
+    }
 
 
 def test_reading_zero_padding():
@@ -107,3 +118,31 @@ def test_parse_invalid_file_raises():
 
     with pytest.raises(TEAMParseError):
         parse_team_file("nonexistent_file_that_does_not_exist.xlsx")
+
+
+def _make_elevations():
+    from app.converters.team_parser import TEAMElevation
+
+    return [
+        TEAMElevation(label="A", left=["100"], cntr=["101"], rght=["102"], has_data=True),
+        TEAMElevation(label="B", left=[""], cntr=[""], rght=[""], has_data=False),
+        TEAMElevation(label="C", left=["200"], cntr=["201"], rght=["202"], has_data=True),
+        TEAMElevation(label="D", left=[""], cntr=[""], rght=[""], has_data=False),
+    ]
+
+
+def test_filter_team_elevations_excludes_blank_by_default():
+    from app.converters.team_parser import filter_team_elevations
+
+    elevs = _make_elevations()
+    result = filter_team_elevations(elevs, include_blank=False)
+    assert [e.label for e in result] == ["A", "C"]
+    assert all(e.has_data for e in result)
+
+
+def test_filter_team_elevations_includes_blank_when_requested():
+    from app.converters.team_parser import filter_team_elevations
+
+    elevs = _make_elevations()
+    result = filter_team_elevations(elevs, include_blank=True)
+    assert result == elevs

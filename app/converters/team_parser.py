@@ -18,6 +18,7 @@ class TEAMElevation:
     left: list[str]
     cntr: list[str]
     rght: list[str]
+    has_data: bool   # True if any reading cell in this block is non-blank
 
 
 @dataclass
@@ -151,10 +152,7 @@ def parse_team_file(filepath: str | Path) -> TEAMParseResult:
                 for row in raw_rows
                 for cell in row
             )
-
-            if all_blank:
-                row_idx += 3
-                continue
+            has_data = not all_blank
 
             left = [convert_team_reading(v) for v in raw_rows[0]]
             cntr = [convert_team_reading(v) for v in raw_rows[1]]
@@ -173,6 +171,7 @@ def parse_team_file(filepath: str | Path) -> TEAMParseResult:
                 left=left,
                 cntr=cntr,
                 rght=rght,
+                has_data=has_data,
             ))
             row_idx += 3
 
@@ -185,3 +184,14 @@ def parse_team_file(filepath: str | Path) -> TEAMParseResult:
         )
     finally:
         wb.close()
+
+
+def filter_team_elevations(
+    elevations: list[TEAMElevation],
+    include_blank: bool,
+) -> list[TEAMElevation]:
+    """If include_blank is True, return all elevations unchanged.
+    If False, return only elevations whose has_data is True."""
+    if include_blank:
+        return list(elevations)
+    return [e for e in elevations if e.has_data]

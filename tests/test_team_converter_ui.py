@@ -33,6 +33,7 @@ def _make_team_result():
                 left=["220", "215"],
                 cntr=["218", "213"],
                 rght=["222", "216"],
+                has_data=True,
             ),
         ],
         flags_found=set(),
