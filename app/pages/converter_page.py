@@ -30,14 +30,14 @@ from app.converters.ats_parser import ATSParseError, ATSParseResult, parse_ats_f
 from app.converters.flag_mapper import (
     FlagMappingResult,
     build_flag_mapping,
-    check_team_flags,
+    check_known_symbols,
     confirm_session_mappings,
 )
 from app.converters.team_parser import (
     TEAMConversionInput,
     TEAMParseError,
     TEAMParseResult,
-    filter_team_elevations,
+    filter_elevations_by_data,
     parse_team_file,
 )
 from app.converters.standard_format_writer import write_standard_format
@@ -1116,7 +1116,7 @@ class ConverterPage(QWidget):
         self._team_stat_files.set_value(str(len(self._team_imported)))
         include = self._team_include_blank.isChecked()
         total = sum(
-            len(filter_team_elevations(r.elevations, include))
+            len(filter_elevations_by_data(r.elevations, include))
             for r in self._team_imported.values()
         )
         self._team_stat_elevations.set_value(str(total))
@@ -1135,7 +1135,7 @@ class ConverterPage(QWidget):
         for result in self._team_imported.values():
             all_flags |= result.flags_found
 
-        mapping_result = check_team_flags(all_flags)
+        mapping_result = check_known_symbols(all_flags)
         self._set_team_flags_needing_review(
             len(mapping_result.unknown) + len(mapping_result.suggested)
         )
@@ -1208,7 +1208,7 @@ class ConverterPage(QWidget):
         jobs: list[tuple[str, TEAMConversionInput]] = []
         for path, result in self._team_imported.items():
             section = self._team_section_names.get(path, "").strip()
-            elevations = filter_team_elevations(result.elevations, include_blank)
+            elevations = filter_elevations_by_data(result.elevations, include_blank)
             jobs.append(
                 (
                     path,
