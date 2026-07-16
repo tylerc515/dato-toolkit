@@ -26,7 +26,7 @@ from PyQt6.QtWidgets import (
 )
 
 from app import __version__
-from app.logo import get_icon, get_pixmap
+from app.logo import get_icon
 from app.pages.batch_page import BatchPage
 from app.pages.batch_page import STATUS_HINT as BATCH_STATUS_HINT
 from app.pages.dashboard_page import DashboardPage
@@ -39,6 +39,8 @@ from app.pages.import_page import ImportPage
 from app.pages.import_page import STATUS_HINT as IMPORT_STATUS_HINT
 from app.pages.email_page import EmailPage
 from app.pages.email_page import STATUS_HINT as EMAIL_STATUS_HINT
+from app.pages.converter_page import ConverterPage
+from app.pages.converter_page import STATUS_HINT as CONVERTER_STATUS_HINT
 from app.pages.projects_page import ProjectsPage
 from app.pages.projects_page import STATUS_HINT as PROJECTS_STATUS_HINT
 from app.pages.reorder_page import ReorderPage
@@ -47,11 +49,12 @@ from app.pages.settings_page import SettingsPage
 from app.pages.settings_page import STATUS_HINT as SETTINGS_STATUS_HINT
 from app.parser import TraceFileData
 from app.project import APP_DIR_NAME, ProjectConfig, ProjectError, get_app_data_dir, load_project
-from app.styles import color
+from app.design.tokens import Color, FontSize, Spacing
 from app.updater import GITHUB_RELEASES_PAGE_URL, UpdateCheckResult, UpdateCheckWorker, format_published_at, launch_update_bat, write_update_bat
 from app.widgets.update_dialog import PENDING_KEY_DEST, PENDING_KEY_TEMP, UpdateDialog
 from app.widgets import OnboardingDialog, StepIndicator
 from app.widgets.footer import FooterBar
+from app.widgets.sidebar import Sidebar
 
 # --- UI text -------------------------------------------------------------
 
@@ -62,11 +65,12 @@ STEP_LABELS = ["Import Files", "Arrange Sections", "Generate Tracker"]
 ONBOARDING_FLAG_FILENAME = "onboarding_complete"
 
 UPDATE_BANNER_BG = "#1a3a2a"
-UPDATE_BANNER_BORDER_COLOR = "#00B050"
+UPDATE_BANNER_BORDER_COLOR = "#00B050"  # matches Color.SUCCESS
 UPDATE_BANNER_HEIGHT = 44
 UPDATE_BANNER_DELAY_MS = 2000
 UPDATE_BANNER_ANIM_MS = 250
 UPDATE_AVAILABLE_LABEL_TEXT = "Update available"
+PENDING_BANNER_BG = "#1a2a3a"
 PENDING_BANNER_TEXT = "An update is ready to install."
 INSTALL_NOW_TEXT = "Install Now"
 VIEW_INSTALL_TEXT = "View & Install"
@@ -90,15 +94,31 @@ STATUS_HINTS = [
     BATCH_STATUS_HINT,
     PROJECTS_STATUS_HINT,
     EMAIL_STATUS_HINT,
+    CONVERTER_STATUS_HINT,
 ]
 HISTORY_PAGE_INDEX = 4
 SETTINGS_PAGE_INDEX = 5
 BATCH_PAGE_INDEX = 6
 PROJECTS_PAGE_INDEX = 7
 EMAIL_PAGE_INDEX = 8
-HOME_BUTTON_TEXT = "⌂ Dashboard"
-SETTINGS_BUTTON_TEXT = "⚙ Settings"
-EMAIL_BUTTON_TEXT = "✉ Update Email"
+CONVERTER_PAGE_INDEX = 9
+# Stack index -> (sidebar item_id, breadcrumb text). Batch/Projects pages
+# aren't top-level sidebar items per the spec, so they highlight "dashboard"
+# as the closest parent while showing their own breadcrumb text - the same
+# pattern TRACE-style apps use for pages reached via a dashboard quick action
+# rather than primary nav.
+SIDEBAR_ITEM_BY_INDEX = {
+    0: ("dashboard", "Dashboard"),
+    1: ("tracksheet", "Tools > Tracksheet > Import"),
+    2: ("tracksheet", "Tools > Tracksheet > Arrange"),
+    3: ("tracksheet", "Tools > Tracksheet > Generate"),
+    HISTORY_PAGE_INDEX: ("history", "Tools > History"),
+    SETTINGS_PAGE_INDEX: ("settings", "System > Settings"),
+    BATCH_PAGE_INDEX: ("dashboard", "Tools > Batch Generate"),
+    PROJECTS_PAGE_INDEX: ("dashboard", "Tools > All Projects"),
+    EMAIL_PAGE_INDEX: ("email", "Tools > Update email"),
+    CONVERTER_PAGE_INDEX: ("converter", "Tools > Data converter"),
+}
 
 # --- Window chrome ---------------------------------------------------------
 
@@ -106,7 +126,7 @@ GEOMETRY_SETTINGS_KEY = "geometry"
 DEFAULT_WINDOW_SIZE = (1100, 750)
 RESIZE_MARGIN = 8
 WINDOW_BUTTON_SIZE = 32
-WINDOW_CLOSE_HOVER = "#e94560"
+WINDOW_CLOSE_HOVER = Color.DANGER
 
 _CURSOR_BY_DIRECTION = {
     "left": Qt.CursorShape.SizeHorCursor,
@@ -204,7 +224,7 @@ class MainWindow(QMainWindow):
     def _build_ui(self) -> None:
         central = QFrame()
         central.setObjectName("AppFrame")
-        central.setStyleSheet(f"QFrame#AppFrame {{ border: 1px solid {color('border')}; }}")
+        central.setStyleSheet(f"QFrame#AppFrame {{ border: 1px solid {Color.BORDER}; }}")
         layout = QVBoxLayout(central)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
@@ -217,13 +237,25 @@ class MainWindow(QMainWindow):
         self.pending_banner = self._build_pending_banner()
         layout.addWidget(self.pending_banner)
 
+        body_row = QHBoxLayout()
+        body_row.setContentsMargins(0, 0, 0, 0)
+        body_row.setSpacing(0)
+        self.sidebar = Sidebar()
+        self.sidebar.nav_item_clicked.connect(self._on_sidebar_nav)
+        body_row.addWidget(self.sidebar)
+
+        content_col = QVBoxLayout()
+        content_col.setContentsMargins(0, 0, 0, 0)
+        content_col.setSpacing(0)
+        content_col.addWidget(self._build_breadcrumb())
+
         self.step_container = QWidget()
         step_layout = QHBoxLayout(self.step_container)
         step_layout.setContentsMargins(16, 12, 16, 12)
         self.step_indicator = StepIndicator(STEP_LABELS)
         self.step_indicator.step_clicked.connect(self._go_to_step)
         step_layout.addWidget(self.step_indicator)
-        layout.addWidget(self.step_container)
+        content_col.addWidget(self.step_container)
 
         self.stack = QStackedWidget()
         self.dashboard_page = DashboardPage()
@@ -235,6 +267,7 @@ class MainWindow(QMainWindow):
         self.batch_page = BatchPage()
         self.projects_page = ProjectsPage()
         self.email_page = EmailPage()
+        self.converter_page = ConverterPage()
         self.stack.addWidget(self.dashboard_page)
         self.stack.addWidget(self.import_page)
         self.stack.addWidget(self.reorder_page)
@@ -244,7 +277,11 @@ class MainWindow(QMainWindow):
         self.stack.addWidget(self.batch_page)
         self.stack.addWidget(self.projects_page)
         self.stack.addWidget(self.email_page)
-        layout.addWidget(self.stack, 1)
+        self.stack.addWidget(self.converter_page)
+        content_col.addWidget(self.stack, 1)
+        body_row.addLayout(content_col, 1)
+
+        layout.addLayout(body_row, 1)
         layout.addWidget(FooterBar())
 
         self.dashboard_page.new_tracker_requested.connect(self._on_new_project)
@@ -253,10 +290,13 @@ class MainWindow(QMainWindow):
         self.dashboard_page.view_projects_requested.connect(self._go_to_projects)
         self.dashboard_page.batch_requested.connect(self._go_to_batch)
         self.dashboard_page.email_requested.connect(self._go_to_email)
+        self.dashboard_page.converter_requested.connect(self._go_to_converter)
         self.email_page.back_requested.connect(self._go_to_dashboard)
+        self.converter_page.back_requested.connect(self._go_to_dashboard)
         self.generate_page.email_requested.connect(self._go_to_email_with_config)
         self.import_page.files_ready.connect(self._on_files_ready)
         self.import_page.project_load_requested.connect(self._on_project_load_requested)
+        self.import_page.back_requested.connect(self._go_to_dashboard)
         self.reorder_page.back_requested.connect(lambda: self._go_to_step(0))
         self.reorder_page.continue_requested.connect(self._on_reorder_continue)
         self.generate_page.back_requested.connect(lambda: self._go_to_step(1))
@@ -282,44 +322,9 @@ class MainWindow(QMainWindow):
 
     def _build_header(self) -> QFrame:
         header = _DragHeader(self)
-        header.setStyleSheet(f"background-color: {color('surface')};")
+        header.setStyleSheet(f"background-color: {Color.SIDEBAR_BG};")
         layout = QHBoxLayout(header)
         layout.setContentsMargins(16, 10, 16, 10)
-
-        logo_label = QLabel()
-        logo_label.setPixmap(get_pixmap(160, 93))
-        logo_label.setMinimumWidth(160)
-        layout.addWidget(logo_label)
-
-        layout.addSpacing(12)
-
-        name_label = QLabel(APP_NAME)
-        name_label.setProperty("role", "heading")
-        layout.addWidget(name_label)
-
-        version_label = QLabel(f"v{__version__}")
-        version_label.setProperty("role", "muted")
-        layout.addWidget(version_label)
-
-        layout.addSpacing(12)
-
-        self.home_button = QPushButton(HOME_BUTTON_TEXT)
-        self.home_button.setProperty("flat", "true")
-        self.home_button.setToolTip("Go to dashboard")
-        self.home_button.clicked.connect(self._go_to_dashboard)
-        layout.addWidget(self.home_button)
-
-        self.settings_button = QPushButton(SETTINGS_BUTTON_TEXT)
-        self.settings_button.setProperty("flat", "true")
-        self.settings_button.setToolTip("Open settings")
-        self.settings_button.clicked.connect(self._go_to_settings)
-        layout.addWidget(self.settings_button)
-
-        self.email_nav_button = QPushButton(EMAIL_BUTTON_TEXT)
-        self.email_nav_button.setProperty("flat", "true")
-        self.email_nav_button.setToolTip("Generate a formatted NDE status update email")
-        self.email_nav_button.clicked.connect(self._go_to_email)
-        layout.addWidget(self.email_nav_button)
 
         layout.addStretch(1)
 
@@ -332,7 +337,7 @@ class MainWindow(QMainWindow):
 
         self.update_available_label = QPushButton(UPDATE_AVAILABLE_LABEL_TEXT)
         self.update_available_label.setProperty("flat", "true")
-        self.update_available_label.setStyleSheet(f"color: {color('warning')}; font-size: 9pt;")
+        self.update_available_label.setStyleSheet(f"color: {Color.WARNING}; font-size: 9pt;")
         self.update_available_label.setVisible(False)
         self.update_available_label.setCursor(Qt.CursorShape.PointingHandCursor)
         self.update_available_label.clicked.connect(self._open_update_dialog)
@@ -340,12 +345,12 @@ class MainWindow(QMainWindow):
 
         layout.addSpacing(12)
 
-        self.minimize_button = self._make_window_button("−", color("chrome_hover"))
+        self.minimize_button = self._make_window_button("−", Color.BORDER_STRONG)
         self.minimize_button.setToolTip("Minimize")
         self.minimize_button.clicked.connect(self.showMinimized)
         layout.addWidget(self.minimize_button, 0, Qt.AlignmentFlag.AlignTop)
 
-        self.maximize_button = self._make_window_button("□", color("chrome_hover"))
+        self.maximize_button = self._make_window_button("□", Color.BORDER_STRONG)
         self.maximize_button.setToolTip("Maximize")
         self.maximize_button.clicked.connect(self._toggle_maximize_restore)
         layout.addWidget(self.maximize_button, 0, Qt.AlignmentFlag.AlignTop)
@@ -357,6 +362,26 @@ class MainWindow(QMainWindow):
 
         return header
 
+    def _build_breadcrumb(self) -> QWidget:
+        container = QWidget()
+        layout = QHBoxLayout(container)
+        layout.setContentsMargins(Spacing.LG, Spacing.SM, Spacing.LG, Spacing.SM)
+        self.breadcrumb_label = QLabel()
+        self.breadcrumb_label.setStyleSheet(f"color: {Color.TEXT_FAINT}; font-size: {FontSize.SMALL}px;")
+        layout.addWidget(self.breadcrumb_label)
+        layout.addStretch(1)
+        return container
+
+    def _on_sidebar_nav(self, item_id: str) -> None:
+        {
+            "dashboard": self._go_to_dashboard,
+            "tracksheet": lambda: self._go_to_step(0),
+            "email": self._go_to_email,
+            "converter": self._go_to_converter,
+            "history": self._go_to_history,
+            "settings": self._go_to_settings,
+        }[item_id]()
+
     def _make_window_button(self, text: str, hover_color: str) -> QPushButton:
         button = QPushButton(text)
         button.setFixedSize(WINDOW_BUTTON_SIZE, WINDOW_BUTTON_SIZE)
@@ -367,7 +392,7 @@ class MainWindow(QMainWindow):
             "border-radius: 6px;"
             "padding: 0px;"
             "font-size: 14px;"
-            f"color: {color('text')};"
+            f"color: {Color.TEXT_PRIMARY};"
             "}"
             "QPushButton:hover {"
             f"background-color: {hover_color};"
@@ -390,7 +415,7 @@ class MainWindow(QMainWindow):
         text_col = QVBoxLayout()
         text_col.setSpacing(0)
         self.update_banner_version_label = QLabel("")
-        self.update_banner_version_label.setStyleSheet("color: #eaeaea; font-weight: 600;")
+        self.update_banner_version_label.setStyleSheet(f"color: {Color.TEXT_PRIMARY}; font-weight: 600;")
         text_col.addWidget(self.update_banner_version_label)
         self.update_banner_date_label = QLabel("")
         self.update_banner_date_label.setStyleSheet(f"color: {UPDATE_BANNER_BORDER_COLOR}; font-size: 10pt;")
@@ -399,9 +424,9 @@ class MainWindow(QMainWindow):
 
         view_install_btn = QPushButton(VIEW_INSTALL_TEXT)
         view_install_btn.setStyleSheet(
-            f"QPushButton {{ background: #e94560; color: white; border-radius: 4px; "
+            f"QPushButton {{ background: {Color.ACCENT}; color: white; border-radius: 4px; "
             f"padding: 4px 12px; font-weight: 600; }}"
-            f"QPushButton:hover {{ background: #ff5c75; }}"
+            f"QPushButton:hover {{ background: {Color.ACCENT_HOVER}; }}"
         )
         view_install_btn.clicked.connect(self._open_update_dialog)
         layout.addWidget(view_install_btn)
@@ -417,7 +442,7 @@ class MainWindow(QMainWindow):
     def _build_pending_banner(self) -> QFrame:
         banner = QFrame()
         banner.setStyleSheet(
-            "QFrame { background-color: #1a2a3a; border-left: 4px solid #2f80ed; }"
+            f"QFrame {{ background-color: {PENDING_BANNER_BG}; border-left: 4px solid {Color.ACCENT}; }}"
         )
         banner.setFixedHeight(UPDATE_BANNER_HEIGHT)
         banner.setVisible(False)
@@ -425,20 +450,20 @@ class MainWindow(QMainWindow):
         layout.setContentsMargins(16, 0, 16, 0)
 
         lbl = QLabel(PENDING_BANNER_TEXT)
-        lbl.setStyleSheet("color: #eaeaea;")
+        lbl.setStyleSheet(f"color: {Color.TEXT_PRIMARY};")
         layout.addWidget(lbl, 1)
 
         install_btn = QPushButton(INSTALL_NOW_TEXT)
         install_btn.setStyleSheet(
-            "QPushButton { background: #2f80ed; color: white; border-radius: 4px; padding: 4px 12px; }"
-            "QPushButton:hover { background: #4a94f5; }"
+            f"QPushButton {{ background: {Color.ACCENT}; color: white; border-radius: 4px; padding: 4px 12px; }}"
+            f"QPushButton:hover {{ background: {Color.ACCENT_HOVER}; }}"
         )
         install_btn.clicked.connect(self._install_pending_update)
         layout.addWidget(install_btn)
 
         dismiss_btn = QPushButton(DISMISS_TEXT)
         dismiss_btn.setProperty("flat", "true")
-        dismiss_btn.setStyleSheet("color: #9aa0b4;")
+        dismiss_btn.setStyleSheet(f"color: {Color.TEXT_MUTED};")
         dismiss_btn.clicked.connect(lambda: banner.setVisible(False))
         layout.addWidget(dismiss_btn)
 
@@ -472,13 +497,13 @@ class MainWindow(QMainWindow):
             return
 
         if result.update_available:
-            self.update_indicator.set_color(color("warning"))
+            self.update_indicator.set_color(Color.WARNING)
             self.update_indicator.setToolTip(f"Update available: v{result.latest_version}")
             self._start_pulse_animation()
             self.update_available_label.setVisible(True)
             QTimer.singleShot(UPDATE_BANNER_DELAY_MS, self._show_update_banner)
         else:
-            self.update_indicator.set_color(color("success"))
+            self.update_indicator.set_color(Color.SUCCESS)
             self.update_indicator.setToolTip("You're on the latest version")
 
     def _start_pulse_animation(self) -> None:
@@ -614,6 +639,9 @@ class MainWindow(QMainWindow):
     def _go_to_email(self) -> None:
         self.stack.setCurrentIndex(EMAIL_PAGE_INDEX)
 
+    def _go_to_converter(self) -> None:
+        self.stack.setCurrentIndex(CONVERTER_PAGE_INDEX)
+
     def _go_to_email_with_config(self, config: ProjectConfig) -> None:
         self.email_page.set_project(config)
         self.stack.setCurrentIndex(EMAIL_PAGE_INDEX)
@@ -628,6 +656,10 @@ class MainWindow(QMainWindow):
             self.history_page.refresh()
         elif index == PROJECTS_PAGE_INDEX:
             self.projects_page.refresh()
+
+        item_id, breadcrumb_text = SIDEBAR_ITEM_BY_INDEX.get(index, ("dashboard", "Dashboard"))
+        self.sidebar.set_active(item_id)
+        self.breadcrumb_label.setText(breadcrumb_text)
 
     def _on_files_ready(self, files: list[TraceFileData]) -> None:
         self.reorder_page.set_files(files)
@@ -663,6 +695,7 @@ class MainWindow(QMainWindow):
         self._add_shortcut("Ctrl+H", self._go_to_history)
         self._add_shortcut("Ctrl+,", self._go_to_settings)
         self._add_shortcut("Ctrl+B", self._go_to_batch)
+        self._add_shortcut("Ctrl+T", self._go_to_converter)
         self._add_shortcut("Ctrl+Right", self._activate_primary_action)
         self._add_shortcut("Ctrl+Return", self._activate_primary_action)
         self._add_shortcut("Ctrl+Left", self._activate_back_action)
@@ -687,23 +720,18 @@ class MainWindow(QMainWindow):
     def _activate_back_action(self) -> None:
         index = self.stack.currentIndex()
         if index == 1:
-            self._go_to_dashboard()
+            self.import_page.back_button.click()
         elif index == 2:
             self.reorder_page.back_button.click()
         elif index == 3:
             self.generate_page.back_button.click()
-        elif index in (HISTORY_PAGE_INDEX, SETTINGS_PAGE_INDEX, BATCH_PAGE_INDEX, PROJECTS_PAGE_INDEX):
+        elif index in (HISTORY_PAGE_INDEX, SETTINGS_PAGE_INDEX, BATCH_PAGE_INDEX, PROJECTS_PAGE_INDEX, CONVERTER_PAGE_INDEX):
             self._go_to_dashboard()
 
     def _toggle_current_help(self) -> None:
-        page = {
-            1: self.import_page,
-            2: self.reorder_page,
-            3: self.generate_page,
-            BATCH_PAGE_INDEX: self.batch_page,
-        }.get(self.stack.currentIndex())
-        if page is not None:
-            page.help_panel.toggle()
+        panel = getattr(self.stack.currentWidget(), "help_panel", None)
+        if panel is not None:
+            panel.toggle()
 
     @staticmethod
     def _click_if_enabled(button: QPushButton) -> None:

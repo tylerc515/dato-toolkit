@@ -22,7 +22,8 @@ from PyQt6.QtWidgets import (
 )
 
 from app.batch import BatchGenerateResult, BatchProjectGroup, BatchScanResult, generate_group, scan_folder
-from app.styles import apply_card_shadow, color
+from app.design.tokens import Color
+from app.styles import apply_card_shadow
 from app.widgets import HelpPanel
 
 # --- UI text -------------------------------------------------------------
@@ -65,7 +66,7 @@ def _summary_text(group: BatchProjectGroup) -> str:
     subtitle = " — ".join(part for part in (group.customer, group.location) if part)
     return (
         f"<b>{group.title}</b><br>"
-        f"<span style='color:{color('muted_text')};'>{subtitle} • "
+        f"<span style='color:{Color.TEXT_MUTED};'>{subtitle} • "
         f"{section_count} section{'s' if section_count != 1 else ''}, "
         f"{elevation_count} elevation{'s' if elevation_count != 1 else ''}</span>"
     )
@@ -99,15 +100,15 @@ class _GroupCard(QFrame):
     def set_result(self, result: BatchGenerateResult) -> None:
         if result.error:
             self.status_label.setText(STATUS_ERROR)
-            self.status_label.setStyleSheet(f"color: {color('error')};")
+            self.status_label.setStyleSheet(f"color: {Color.DANGER};")
             self.setToolTip(result.error)
         elif result.warnings:
             self.status_label.setText(STATUS_WARNING)
-            self.status_label.setStyleSheet(f"color: {color('warning')};")
+            self.status_label.setStyleSheet(f"color: {Color.WARNING};")
             self.setToolTip("\n".join(result.warnings))
         else:
             self.status_label.setText(STATUS_OK)
-            self.status_label.setStyleSheet(f"color: {color('success')};")
+            self.status_label.setStyleSheet(f"color: {Color.SUCCESS};")
 
 
 class _ErrorCard(QFrame):
@@ -116,13 +117,13 @@ class _ErrorCard(QFrame):
     def __init__(self, path: str, error: str, parent: QWidget | None = None):
         super().__init__(parent)
         self.setProperty("card", "true")
-        self.setStyleSheet(f"QFrame {{ border: 1px solid {color('error')}; border-radius: 12px; }}")
+        self.setStyleSheet(f"QFrame {{ border: 1px solid {Color.DANGER}; border-radius: 12px; }}")
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(14, 10, 14, 10)
 
         name_label = QLabel(f"⚠ {Path(path).name}")
-        name_label.setStyleSheet(f"color: {color('error')}; font-weight: 600;")
+        name_label.setStyleSheet(f"color: {Color.DANGER}; font-weight: 600;")
         layout.addWidget(name_label)
 
         error_label = QLabel(error)

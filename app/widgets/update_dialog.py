@@ -29,6 +29,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from app.design.tokens import Color, FONT_FAMILY, FontSize, Radius, Spacing
 from app.logo import get_pixmap
 from app.project import APP_DIR_NAME
 from app.updater import (
@@ -43,15 +44,6 @@ from app.updater import (
 logger = logging.getLogger(__name__)
 
 IS_FROZEN = getattr(sys, "frozen", False)
-
-_BG = "#1a1a2e"
-_SURFACE = "#16213e"
-_BORDER = "#2c3759"
-_NOTES_BG = "#0d1117"
-_NOTES_TEXT = "#eaeaea"
-_MUTED = "#9aa0b4"
-_ACCENT_RED = "#e94560"
-_ACCENT_GREEN = "#00B050"
 
 PENDING_KEY_TEMP = "pending_update/temp_path"
 PENDING_KEY_DEST = "pending_update/dest_path"
@@ -87,7 +79,7 @@ class _MarkdownConverter:
                     in_ul = False
                 heading = _MarkdownConverter._inline(stripped[3:].strip())
                 parts.append(
-                    f'<h3 style="color:{_NOTES_TEXT};font-size:12pt;'
+                    f'<h3 style="color:{Color.TEXT_PRIMARY};font-size:{FontSize.SECTION}px;'
                     f'font-weight:bold;margin-top:8px;margin-bottom:4px;">'
                     f"{heading}</h3>"
                 )
@@ -131,13 +123,13 @@ class UpdateDialog(QDialog):
         self._install_dir: Optional[Path] = None
 
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Dialog)
-        self.setFixedSize(620, 520)
-        self.setStyleSheet(f"QDialog {{ background-color: {_BG}; }}")
+        self.setFixedSize(620, 560)
+        self.setStyleSheet(f"QDialog {{ background-color: {Color.PAGE_BG}; }}")
         self.setModal(True)
 
         if parent is not None:
             g = parent.geometry()
-            self.move(g.x() + (g.width() - 620) // 2, g.y() + (g.height() - 520) // 2)
+            self.move(g.x() + (g.width() - 620) // 2, g.y() + (g.height() - 560) // 2)
 
         self._build_ui()
 
@@ -154,8 +146,8 @@ class UpdateDialog(QDialog):
     def _build_header(self) -> QFrame:
         header = QFrame()
         header.setStyleSheet(
-            f"QFrame {{ background-color: {_SURFACE}; "
-            f"border-bottom: 1px solid {_BORDER}; }}"
+            f"QFrame {{ background-color: {Color.SIDEBAR_BG}; "
+            f"border-bottom: 1px solid {Color.BORDER}; }}"
         )
         header.setFixedHeight(80)
         layout = QHBoxLayout(header)
@@ -168,18 +160,20 @@ class UpdateDialog(QDialog):
 
         info_col = QVBoxLayout()
         title_lbl = QLabel("DATO Toolkit Update Available")
-        title_lbl.setStyleSheet(f"font-size: 16pt; font-weight: bold; color: {_NOTES_TEXT};")
+        title_lbl.setStyleSheet(
+            f"font-size: {FontSize.PAGE_TITLE}px; font-weight: 600; color: {Color.TEXT_PRIMARY};"
+        )
         info_col.addWidget(title_lbl)
 
         current = self._info.current_version or "?"
         latest = self._info.latest_version or "?"
         ver_lbl = QLabel(f"{current} → {latest}")
-        ver_lbl.setStyleSheet(f"font-size: 12pt; color: {_MUTED};")
+        ver_lbl.setStyleSheet(f"font-size: {FontSize.BODY}px; color: {Color.TEXT_MUTED};")
         info_col.addWidget(ver_lbl)
 
         if self._info.published_at:
             date_lbl = QLabel(f"Released {format_published_at(self._info.published_at)}")
-            date_lbl.setStyleSheet(f"font-size: 11pt; color: {_MUTED};")
+            date_lbl.setStyleSheet(f"font-size: {FontSize.SMALL}px; color: {Color.TEXT_MUTED};")
             info_col.addWidget(date_lbl)
 
         layout.addLayout(info_col, 1)
@@ -188,8 +182,8 @@ class UpdateDialog(QDialog):
         close_btn.setFixedSize(32, 32)
         close_btn.setStyleSheet(
             f"QPushButton {{ background: transparent; border: none; "
-            f"color: {_MUTED}; font-size: 18pt; }}"
-            f"QPushButton:hover {{ color: {_ACCENT_RED}; }}"
+            f"color: {Color.TEXT_MUTED}; font-size: {FontSize.PAGE_TITLE}px; }}"
+            f"QPushButton:hover {{ color: {Color.TEXT_PRIMARY}; }}"
         )
         close_btn.clicked.connect(self.reject)
         layout.addWidget(close_btn, 0, Qt.AlignmentFlag.AlignTop)
@@ -203,16 +197,17 @@ class UpdateDialog(QDialog):
 
         latest = self._info.latest_version or "?"
         label = QLabel(f"What's New in {latest}")
-        label.setStyleSheet(f"font-size: 10pt; font-weight: bold; color: {_MUTED};")
+        label.setStyleSheet(
+            f"font-size: {FontSize.LABEL}px; font-weight: bold; color: {Color.TEXT_MUTED};"
+        )
         layout.addWidget(label)
 
         self._notes_browser = QTextBrowser()
         self._notes_browser.setOpenExternalLinks(True)
         self._notes_browser.setStyleSheet(
-            f"QTextBrowser {{ background: {_NOTES_BG}; color: {_NOTES_TEXT}; "
-            f"border: none; padding: 12px; font-family: 'Segoe UI'; font-size: 11pt; }}"
-            f"QScrollBar:vertical {{ background: {_BG}; width: 8px; }}"
-            f"QScrollBar::handle:vertical {{ background: {_BORDER}; border-radius: 4px; }}"
+            f"QTextBrowser {{ background: {Color.INPUT_BG}; color: {Color.TEXT_PRIMARY}; "
+            f"border: 1px solid {Color.BORDER}; border-radius: {Radius.CARD}px; "
+            f"padding: {Spacing.MD}px; font-family: '{FONT_FAMILY}'; font-size: {FontSize.BODY}px; }}"
         )
         notes = self._info.release_notes or "No release notes provided for this version."
         self._notes_browser.setHtml(_MarkdownConverter.to_html(notes))
@@ -222,8 +217,8 @@ class UpdateDialog(QDialog):
     def _build_install_section(self) -> QFrame:
         card = QFrame()
         card.setStyleSheet(
-            f"QFrame {{ background-color: {_SURFACE}; "
-            f"border-top: 1px solid {_BORDER}; border-bottom: 1px solid {_BORDER}; }}"
+            f"QFrame {{ background-color: {Color.SIDEBAR_BG}; "
+            f"border-top: 1px solid {Color.BORDER}; border-bottom: 1px solid {Color.BORDER}; }}"
         )
         layout = QVBoxLayout(card)
         layout.setContentsMargins(16, 12, 16, 12)
@@ -231,7 +226,7 @@ class UpdateDialog(QDialog):
 
         loc_row = QHBoxLayout()
         loc_lbl = QLabel("Install Location")
-        loc_lbl.setStyleSheet(f"color: {_NOTES_TEXT};")
+        loc_lbl.setStyleSheet(f"color: {Color.TEXT_PRIMARY};")
         loc_row.addWidget(loc_lbl)
         self._folder_edit = QLineEdit(self._default_install_dir())
         loc_row.addWidget(self._folder_edit, 1)
@@ -244,12 +239,12 @@ class UpdateDialog(QDialog):
 
         fn_row = QHBoxLayout()
         fn_lbl = QLabel("New filename")
-        fn_lbl.setStyleSheet(f"color: {_NOTES_TEXT};")
+        fn_lbl.setStyleSheet(f"color: {Color.TEXT_PRIMARY};")
         fn_row.addWidget(fn_lbl)
         new_name = f"DATOToolkit_{self._info.latest_version or 'update'}.exe"
         self._filename_edit = QLineEdit(new_name)
         self._filename_edit.setReadOnly(True)
-        self._filename_edit.setStyleSheet(f"color: {_MUTED};")
+        self._filename_edit.setStyleSheet(f"color: {Color.TEXT_MUTED};")
         fn_row.addWidget(self._filename_edit, 1)
         layout.addLayout(fn_row)
 
@@ -258,13 +253,15 @@ class UpdateDialog(QDialog):
             f"Delete {current_name} after installing new version"
         )
         self._remove_checkbox.setChecked(True)
-        self._remove_checkbox.setStyleSheet(f"color: {_NOTES_TEXT};")
+        self._remove_checkbox.setStyleSheet(f"color: {Color.TEXT_PRIMARY};")
         layout.addWidget(self._remove_checkbox)
 
         helper = QLabel(
             "The old file will only be removed after the new version launches successfully."
         )
-        helper.setStyleSheet(f"font-size: 9pt; font-style: italic; color: {_MUTED};")
+        helper.setStyleSheet(
+            f"font-size: {FontSize.LABEL}px; font-style: italic; color: {Color.TEXT_MUTED};"
+        )
         helper.setWordWrap(True)
         layout.addWidget(helper)
 
@@ -278,27 +275,22 @@ class UpdateDialog(QDialog):
         layout.setSpacing(4)
 
         self._progress_label = QLabel("Preparing download…")
-        self._progress_label.setStyleSheet(f"color: {_NOTES_TEXT};")
+        self._progress_label.setStyleSheet(f"color: {Color.TEXT_PRIMARY};")
         layout.addWidget(self._progress_label)
 
         self._progress_bar = QProgressBar()
         self._progress_bar.setRange(0, 100)
         self._progress_bar.setValue(0)
-        self._progress_bar.setStyleSheet(
-            f"QProgressBar {{ background: {_NOTES_BG}; border-radius: 4px; height: 12px; text-align: center; }}"
-            "QProgressBar::chunk { background: #2f80ed; border-radius: 4px; }"
-        )
         layout.addWidget(self._progress_bar)
 
         self._speed_label = QLabel("")
-        self._speed_label.setStyleSheet(f"font-size: 9pt; color: {_MUTED};")
+        self._speed_label.setStyleSheet(f"font-size: {FontSize.LABEL}px; color: {Color.TEXT_MUTED};")
         layout.addWidget(self._speed_label)
 
         cancel_row = QHBoxLayout()
         cancel_row.addStretch(1)
         self._cancel_btn = QPushButton("Cancel")
         self._cancel_btn.setProperty("flat", "true")
-        self._cancel_btn.setStyleSheet(f"color: {_MUTED};")
         self._cancel_btn.clicked.connect(self._on_cancel_download)
         cancel_row.addWidget(self._cancel_btn)
         layout.addLayout(cancel_row)
@@ -312,21 +304,12 @@ class UpdateDialog(QDialog):
         layout.setSpacing(8)
 
         self._download_btn = QPushButton("Download & Install")
-        self._download_btn.setStyleSheet(
-            f"QPushButton {{ background: {_ACCENT_RED}; color: white; font-weight: bold; "
-            f"border-radius: 6px; padding: 10px; font-size: 12pt; }}"
-            f"QPushButton:hover {{ background: #ff5c75; }}"
-            f"QPushButton:disabled {{ background: #5b3641; color: {_MUTED}; }}"
-        )
+        self._download_btn.setProperty("accent", "true")
         self._download_btn.clicked.connect(self._on_download_clicked)
         layout.addWidget(self._download_btn)
 
         self._install_btn = QPushButton("Install Now & Restart")
-        self._install_btn.setStyleSheet(
-            f"QPushButton {{ background: {_ACCENT_GREEN}; color: white; font-weight: bold; "
-            f"border-radius: 6px; padding: 10px; font-size: 12pt; }}"
-            f"QPushButton:hover {{ background: #00c85a; }}"
-        )
+        self._install_btn.setProperty("variant", "success")
         self._install_btn.clicked.connect(self._on_install_now)
         self._install_btn.setVisible(False)
         layout.addWidget(self._install_btn)
@@ -334,13 +317,11 @@ class UpdateDialog(QDialog):
         bottom_row = QHBoxLayout()
         view_btn = QPushButton("View on GitHub")
         view_btn.setProperty("flat", "true")
-        view_btn.setStyleSheet(f"color: {_MUTED};")
         view_btn.clicked.connect(self._open_github)
         bottom_row.addWidget(view_btn)
         bottom_row.addStretch(1)
         self._later_btn = QPushButton("Install Later")
         self._later_btn.setProperty("flat", "true")
-        self._later_btn.setStyleSheet(f"color: {_MUTED};")
         self._later_btn.clicked.connect(self._on_install_later)
         self._later_btn.setVisible(False)
         bottom_row.addWidget(self._later_btn)

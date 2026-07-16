@@ -18,7 +18,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from app.styles import color
+from app.design.tokens import Color, FontSize, Radius, Spacing
 
 
 class _ItemRowWidget(QWidget):
@@ -68,14 +68,30 @@ class _EditForm(QFrame):
         self._item_id = ""
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(12, 12, 12, 12)
-        layout.setSpacing(8)
+        layout.setContentsMargins(Spacing.MD, Spacing.MD, Spacing.MD, Spacing.MD)
+        layout.setSpacing(Spacing.SM)
 
         desc_label = QLabel("Description")
         desc_label.setProperty("role", "label")
         layout.addWidget(desc_label)
 
-        _field_qss = "font-size: 12pt; padding: 8px; color: #eaeaea; background: #0d1117;"
+        # QPlainTextEdit is not a QTextEdit subclass in Qt, so it does not pick up
+        # the global QLineEdit/QTextEdit/QComboBox input styling in app.styles -
+        # it needs its own rule, built from the same tokens for visual parity.
+        _field_qss = (
+            f"QPlainTextEdit {{"
+            f"  font-size: {FontSize.SECTION}px;"
+            f"  padding: {Spacing.SM}px {Spacing.MD}px;"
+            f"  color: {Color.TEXT_PRIMARY};"
+            f"  background-color: {Color.INPUT_BG};"
+            f"  border: 1px solid {Color.BORDER};"
+            f"  border-radius: {Radius.INPUT}px;"
+            f"  selection-background-color: {Color.ACCENT};"
+            f"}}"
+            f"QPlainTextEdit:focus {{"
+            f"  border: 1px solid {Color.ACCENT};"
+            f"}}"
+        )
 
         self.desc_edit = QPlainTextEdit()
         self.desc_edit.setPlaceholderText("Enter item description (e.g. PT OF COMPOSITE PORTS)")
@@ -89,6 +105,7 @@ class _EditForm(QFrame):
 
         self.notes_edit = QPlainTextEdit()
         self.notes_edit.setPlaceholderText("Enter any notes or findings for this item")
+        self.notes_edit.setToolTip("Optional. Appears in the notes cell for this item in the generated tracker.")
         self.notes_edit.setMinimumHeight(60)
         self.notes_edit.setStyleSheet(_field_qss)
         layout.addWidget(self.notes_edit)
@@ -137,10 +154,10 @@ class ItemEditorWidget(QWidget):
     def _build_ui(self, title: str) -> None:
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(6)
+        layout.setSpacing(Spacing.SM)
 
         heading = QLabel(title)
-        heading.setStyleSheet("font-weight: 600;")
+        heading.setStyleSheet(f"font-weight: 600; font-size: {FontSize.SECTION}px;")
         layout.addWidget(heading)
 
         self._list = QListWidget()
@@ -152,6 +169,7 @@ class ItemEditorWidget(QWidget):
         add_btn_row = QHBoxLayout()
         add_btn = QPushButton("+ Add Item")
         add_btn.setProperty("accent", "true")
+        add_btn.setToolTip("Add a new item to this list.")
         add_btn.setFixedHeight(36)
         add_btn.setMaximumWidth(200)
         add_btn.clicked.connect(self._on_add)

@@ -20,14 +20,17 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from app.design.icons import icon
+from app.design.tokens import Color, FontSize, Radius, Spacing
 from app.parser import TraceFileData, TraceParseError, parse_trace_csv
 from app.project import find_project_for_metadata, find_similar_project_for_metadata
-from app.styles import apply_card_shadow, color
 from app.widgets import HelpPanel
+from app.widgets.components import Card, SecondaryButton
 
 # --- UI text -------------------------------------------------------------
 
 TITLE_TEXT = "Step 1: Import Files"
+BACK_TEXT = "← Back"
 DROP_ZONE_TEXT = "Drag & drop TRACE export files here, or click to browse"
 DROP_ZONE_HINT = "Accepted file type: .csv"
 CLEAR_ALL_TEXT = "Clear All"
@@ -74,13 +77,13 @@ class _DropZone(QFrame):
     def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
         self._base_style = (
-            f"QFrame {{ border: 2px dashed {color('border')}; border-radius: 12px; "
-            f"background-color: {color('surface')}; }}"
-            f"QFrame:hover {{ border-color: {color('highlight')}; }}"
+            f"QFrame {{ border: 2px dashed {Color.BORDER}; border-radius: {Radius.CARD}px; "
+            f"background-color: {Color.CARD_BG}; }}"
+            f"QFrame:hover {{ border-color: {Color.ACCENT}; }}"
         )
         self._drag_active_style = (
-            f"QFrame {{ border: 2px dashed {color('highlight')}; border-radius: 12px; "
-            f"background-color: {color('accent')}; }}"
+            f"QFrame {{ border: 2px dashed {Color.ACCENT}; border-radius: {Radius.CARD}px; "
+            f"background-color: {Color.ACCENT_BG_TINT}; }}"
         )
         self.setAcceptDrops(True)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -89,15 +92,16 @@ class _DropZone(QFrame):
 
         layout = QVBoxLayout(self)
         layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.setSpacing(Spacing.SM)
 
-        icon = QLabel("☁")
-        icon.setStyleSheet("font-size: 48px;")
-        icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(icon)
+        icon_label = QLabel()
+        icon_label.setPixmap(icon("upload-simple", color=Color.TEXT_MUTED).pixmap(40, 40))
+        icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(icon_label)
 
         text = QLabel(DROP_ZONE_TEXT)
         text.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        text.setStyleSheet("font-size: 15px;")
+        text.setStyleSheet(f"font-size: {FontSize.SECTION}px; color: {Color.TEXT_SECONDARY};")
         layout.addWidget(text)
 
         hint = QLabel(DROP_ZONE_HINT)
@@ -105,7 +109,7 @@ class _DropZone(QFrame):
         hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(hint)
 
-        self.setToolTip(DROP_ZONE_TEXT)
+        self.setToolTip("Drop one or more TRACE export .csv files here, or click to open a file browser.")
 
     def dragEnterEvent(self, event):
         if event.mimeData().hasUrls():
@@ -130,30 +134,40 @@ class _DropZone(QFrame):
         super().mousePressEvent(event)
 
 
-class _FileCard(QFrame):
-    """A single imported-file row showing parse status and a remove button."""
+class _FileCard(Card):
+    """A single imported-file row showing parse status and a remove button.
+
+    Success and error states share this one class (rather than a
+    separate error-card class) because both states must support the
+    same remove-from-list behavior via `remove_requested`. The error
+    state reuses the `_ErrorCard` visual pattern from converter_page.py
+    (Color.CARD_BG background, Color.DANGER border, Color.DANGER text).
+    """
 
     remove_requested = pyqtSignal(str)
 
     def __init__(self, result: ImportResult, parent: QWidget | None = None):
         super().__init__(parent)
         self.path = result.path
-        self.setProperty("card", "true")
+        self.layout().setContentsMargins(Spacing.MD, Spacing.SM, Spacing.MD, Spacing.SM)
 
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(14, 10, 14, 10)
+        row = QHBoxLayout()
+        self.layout().addLayout(row)
 
         info_layout = QVBoxLayout()
         filename = Path(result.path).name
 
         if result.error:
-            self.setStyleSheet(f"QFrame {{ border: 1px solid {color('error')}; border-radius: 12px; }}")
+            self.setStyleSheet(
+                f"QFrame {{ background-color: {Color.CARD_BG}; border: 1px solid {Color.DANGER}; "
+                f"border-radius: {Radius.CARD}px; }}"
+            )
             name_label = QLabel(f"⚠ {filename}")
-            name_label.setStyleSheet(f"color: {color('error')}; font-weight: 600;")
+            name_label.setStyleSheet(f"color: {Color.DANGER}; font-weight: 600;")
             info_layout.addWidget(name_label)
             error_label = QLabel(result.error)
             error_label.setWordWrap(True)
-            error_label.setProperty("role", "muted")
+            error_label.setStyleSheet(f"color: {Color.DANGER};")
             info_layout.addWidget(error_label)
         else:
             data = result.data
@@ -165,7 +179,7 @@ class _FileCard(QFrame):
             detail_label.setProperty("role", "muted")
             info_layout.addWidget(detail_label)
 
-        layout.addLayout(info_layout, 1)
+        row.addLayout(info_layout, 1)
 
         remove_button = QPushButton("×")
         remove_button.setProperty("flat", "true")
@@ -173,7 +187,7 @@ class _FileCard(QFrame):
         remove_button.setToolTip(f"Remove {filename}")
         remove_button.setCursor(Qt.CursorShape.PointingHandCursor)
         remove_button.clicked.connect(lambda: self.remove_requested.emit(self.path))
-        layout.addWidget(remove_button)
+        row.addWidget(remove_button)
 
 
 class ImportPage(QWidget):
@@ -181,6 +195,7 @@ class ImportPage(QWidget):
 
     files_ready = pyqtSignal(list)  # list[TraceFileData]
     project_load_requested = pyqtSignal(object)  # Path
+    back_requested = pyqtSignal()
 
     def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
@@ -195,6 +210,10 @@ class ImportPage(QWidget):
         content_layout = QVBoxLayout(content)
 
         header_row = QHBoxLayout()
+        self.back_button = SecondaryButton(BACK_TEXT)
+        self.back_button.clicked.connect(self.back_requested.emit)
+        header_row.addWidget(self.back_button)
+        header_row.addSpacing(Spacing.MD)
         title = QLabel(TITLE_TEXT)
         title.setProperty("role", "heading")
         header_row.addWidget(title)
@@ -210,7 +229,7 @@ class ImportPage(QWidget):
         self.warning_banner = QLabel(WARNING_BANNER_TEXT)
         self.warning_banner.setWordWrap(True)
         self.warning_banner.setStyleSheet(
-            f"background-color: {color('warning')}; color: #1a1a2e; border-radius: 8px; padding: 10px;"
+            f"background-color: {Color.WARNING}; color: {Color.PAGE_BG}; border-radius: 8px; padding: 10px;"
         )
         self.warning_banner.setVisible(False)
         content_layout.addWidget(self.warning_banner)
@@ -291,7 +310,6 @@ class ImportPage(QWidget):
 
         for result in self._results:
             card = _FileCard(result)
-            apply_card_shadow(card)
             card.remove_requested.connect(self.remove_file)
             self.file_list_layout.addWidget(card)
 

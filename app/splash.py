@@ -6,8 +6,8 @@ from PyQt6.QtCore import QRectF, Qt, QTimer
 from PyQt6.QtGui import QBrush, QColor, QFont, QLinearGradient, QPainter, QPixmap
 from PyQt6.QtWidgets import QApplication, QSplashScreen
 
+from app.design.tokens import Color
 from app.logo import get_pixmap
-from app.styles import color
 
 SPLASH_WIDTH = 480
 SPLASH_HEIGHT = 280
@@ -16,8 +16,8 @@ SPLASH_CORNER_RADIUS = 16
 APP_TITLE_TEXT = "DATO Toolkit"
 APP_SUBTITLE_TEXT = "Data and Test Operations"
 
-BAR_COLOR_START = "#2f80ed"
-BAR_COLOR_END = "#e94560"
+BAR_COLOR_START = Color.ACCENT
+BAR_COLOR_END = Color.ACCENT_TEXT
 BAR_MARGIN = 60
 BAR_HEIGHT = 2
 
@@ -97,7 +97,7 @@ class SplashScreen(QSplashScreen):
         rect = QRectF(self.rect())
 
         painter.setPen(Qt.PenStyle.NoPen)
-        painter.setBrush(QColor(color("background")))
+        painter.setBrush(QColor(Color.PAGE_BG))
         painter.drawRoundedRect(rect, SPLASH_CORNER_RADIUS, SPLASH_CORNER_RADIUS)
 
         width = self.width()
@@ -110,12 +110,12 @@ class SplashScreen(QSplashScreen):
         painter.drawPixmap(logo_x, logo_y, logo)
 
         painter.setFont(QFont("Segoe UI", 16, QFont.Weight.Bold))
-        painter.setPen(QColor(color("text")))
+        painter.setPen(QColor(Color.TEXT_PRIMARY))
         title_rect = QRectF(0, logo_area_height, width, 30)
         painter.drawText(title_rect, Qt.AlignmentFlag.AlignCenter, APP_TITLE_TEXT)
 
         painter.setFont(QFont("Segoe UI", 10))
-        painter.setPen(QColor(color("muted_text")))
+        painter.setPen(QColor(Color.TEXT_MUTED))
         subtitle_rect = QRectF(0, logo_area_height + 28, width, 20)
         painter.drawText(subtitle_rect, Qt.AlignmentFlag.AlignCenter, APP_SUBTITLE_TEXT)
 
@@ -123,7 +123,7 @@ class SplashScreen(QSplashScreen):
         bar_width = width - 2 * BAR_MARGIN
 
         painter.setPen(Qt.PenStyle.NoPen)
-        painter.setBrush(QColor(color("border")))
+        painter.setBrush(QColor(Color.BORDER))
         painter.drawRect(BAR_MARGIN, bar_y, bar_width, BAR_HEIGHT)
 
         filled_width = int(bar_width * self._progress)
@@ -135,6 +135,6 @@ class SplashScreen(QSplashScreen):
             painter.drawRect(BAR_MARGIN, bar_y, filled_width, BAR_HEIGHT)
 
         painter.setFont(QFont("Segoe UI", 9))
-        painter.setPen(QColor(color("muted_text")))
+        painter.setPen(QColor(Color.TEXT_MUTED))
         status_rect = QRectF(0, bar_y + 12, width, 24)
         painter.drawText(status_rect, Qt.AlignmentFlag.AlignCenter, STATUS_MESSAGES[self._status_index])

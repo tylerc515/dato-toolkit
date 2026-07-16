@@ -31,3 +31,11 @@ Thumbs.db
 # Local reference files (client data, not for repo)
 *.docx
 *.xlsx
+
+# TDS example files (added when TDS converter work starts and needs them)
+examples/tds/*.csv
+
+# Draft plan docs not yet ready to commit
+docs/superpowers/plans/2026-06-15-in-app-self-update.md
+docs/superpowers/plans/2026-06-30-legend-fix-flag-picker.md
+docs/superpowers/plans/2026-06-30-small-fixes-legend-dropdown.md

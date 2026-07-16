@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import html
+
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QColor, QFont
 from PyQt6.QtWidgets import QHeaderView, QLabel, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget
@@ -89,11 +91,17 @@ class TrackerPreview(QWidget):
     ) -> None:
         """Rebuild the preview table from the current title/sections."""
         self.table.clearSpans()
+        # customer/location/equipment/date originate from parsed TRACE CSV file
+        # content, so they must be escaped before going into a RichText QLabel.
+        safe_customer = html.escape(customer) if customer else EMPTY_VALUE_TEXT
+        safe_location = html.escape(location) if location else EMPTY_VALUE_TEXT
+        safe_equipment = html.escape(equipment) if equipment else EMPTY_VALUE_TEXT
+        safe_date = html.escape(date) if date else EMPTY_VALUE_TEXT
         self.meta_label.setText(
-            f"<b>Customer:</b> {customer or EMPTY_VALUE_TEXT} &nbsp;&nbsp; "
-            f"<b>Location:</b> {location or EMPTY_VALUE_TEXT} &nbsp;&nbsp; "
-            f"<b>Equipment:</b> {equipment or EMPTY_VALUE_TEXT} &nbsp;&nbsp; "
-            f"<b>Date:</b> {date or EMPTY_VALUE_TEXT} &nbsp;&nbsp; "
+            f"<b>Customer:</b> {safe_customer} &nbsp;&nbsp; "
+            f"<b>Location:</b> {safe_location} &nbsp;&nbsp; "
+            f"<b>Equipment:</b> {safe_equipment} &nbsp;&nbsp; "
+            f"<b>Date:</b> {safe_date} &nbsp;&nbsp; "
             f"<span style='background-color:{LEGEND_STARTED_COLOR.name()}; color:#000; padding:1px 6px;'>"
             f"{LEGEND_STARTED_TEXT}</span> "
             f"<span style='background-color:{LEGEND_COMPLETE_COLOR.name()}; color:#000; padding:1px 6px;'>"
