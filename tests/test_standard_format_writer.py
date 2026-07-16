@@ -346,6 +346,35 @@ def test_output_legend_includes_rvn(tmp_path: Path):
 # TEAM compatibility - write_standard_format() must accept TEAMConversionInput
 # ---------------------------------------------------------------------------
 
+def test_identity_mapped_valid_symbol_does_not_warn(tmp_path: Path, caplog: pytest.LogCaptureFixture):
+    """A reading that is already a valid Standard Format symbol, mapped to
+    itself (identity mapping, as TEAM conversions use), must not trigger the
+    'Unrecognized flag code' warning - the output is already correct and the
+    warning is a false positive in this case."""
+    from app.converters.standard_format_writer import write_standard_format
+    result = _make_result_with_flags(["*"])
+    out = tmp_path / "output.csv"
+    with caplog.at_level("WARNING"):
+        write_standard_format(result, {"*": "*"}, out)
+    unrecognized = [r for r in caplog.records if "Unrecognized flag code" in r.message]
+    assert not unrecognized, f"Unexpected warnings: {[r.message for r in unrecognized]}"
+    content = out.read_text(encoding="utf-8")
+    assert "*" in content
+
+
+def test_unknown_non_symbol_code_still_warns(tmp_path: Path, caplog: pytest.LogCaptureFixture):
+    """A code that is neither a digit nor a valid Standard Format symbol, and
+    has no entry in flag_mapping, must still emit the diagnostic warning -
+    this is the real 'unmapped code' case the warning exists to catch."""
+    from app.converters.standard_format_writer import write_standard_format
+    result = _make_result_with_flags(["ZZ"])
+    out = tmp_path / "output.csv"
+    with caplog.at_level("WARNING"):
+        write_standard_format(result, {}, out)
+    unrecognized = [r for r in caplog.records if "Unrecognized flag code" in r.message]
+    assert unrecognized, "Expected a warning for a genuinely unmapped, non-symbol code"
+
+
 def test_write_standard_format_accepts_team_conversion_input(tmp_path: Path):
     """write_standard_format() must handle TEAMConversionInput without raising,
     produce a parseable file, and mark the tech-code cell as 'TEAM' (not 'ATS')
