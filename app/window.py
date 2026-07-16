@@ -729,15 +729,9 @@ class MainWindow(QMainWindow):
             self._go_to_dashboard()
 
     def _toggle_current_help(self) -> None:
-        page = {
-            1: self.import_page,
-            2: self.reorder_page,
-            3: self.generate_page,
-            BATCH_PAGE_INDEX: self.batch_page,
-            CONVERTER_PAGE_INDEX: self.converter_page,
-        }.get(self.stack.currentIndex())
-        if page is not None:
-            page.help_panel.toggle()
+        panel = getattr(self.stack.currentWidget(), "help_panel", None)
+        if panel is not None:
+            panel.toggle()
 
     @staticmethod
     def _click_if_enabled(button: QPushButton) -> None:

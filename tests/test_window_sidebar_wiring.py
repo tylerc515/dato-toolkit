@@ -63,3 +63,19 @@ def test_import_page_back_button_returns_to_dashboard():
     assert win.stack.currentIndex() == 1
     win.import_page.back_button.click()
     assert win.stack.currentIndex() == 0
+
+
+def test_f1_toggles_help_on_history_page():
+    win = _make_window()
+    win._go_to_history()
+    assert win.history_page.help_panel._expanded is False
+    win._toggle_current_help()
+    assert win.history_page.help_panel._expanded is True
+
+
+def test_f1_toggles_help_on_settings_page():
+    win = _make_window()
+    win._go_to_settings()
+    assert win.settings_page.help_panel._expanded is False
+    win._toggle_current_help()
+    assert win.settings_page.help_panel._expanded is True
