@@ -231,3 +231,293 @@ def test_tab_switch_preserves_tds_state():
     page._show_team_tab()
     page._show_tds_tab()
     assert new_path in page._tds_imported
+
+
+# ---------------------------------------------------------------------------
+# Task 6: convert half - toggle, flag review, output, per-format conversion
+# ---------------------------------------------------------------------------
+
+def _make_tds_elevation(label, has_data, num_tubes=2, symbol=None, tech_code="TDS"):
+    """Build a TDSElevation with either measured or blank reading cells.
+
+    Passing a symbol seeds a non-numeric flag character into the first LEFT
+    cell so flag-collection logic has something to find.
+    """
+    from app.converters.tds_new_parser import TDSElevation
+
+    if has_data:
+        left = ["220"] * num_tubes
+        cntr = ["218"] * num_tubes
+        rght = ["222"] * num_tubes
+        if symbol is not None:
+            left[0] = symbol
+    else:
+        left = [""] * num_tubes
+        cntr = [""] * num_tubes
+        rght = [""] * num_tubes
+    return TDSElevation(
+        label=label, left=left, cntr=cntr, rght=rght,
+        has_data=has_data, tech_code=tech_code,
+    )
+
+
+def _make_tds_new_result(measured=1, blank=0, nde="Some Lab", symbol=None):
+    """Synthetic TDSNewParseResult with a mix of measured and blank elevations."""
+    from app.converters.tds_new_parser import TDSNewParseResult
+
+    elevations = []
+    for i in range(measured):
+        elevations.append(
+            _make_tds_elevation(f"{i} FT", True, symbol=symbol if i == 0 else None)
+        )
+    for i in range(blank):
+        elevations.append(_make_tds_elevation(f"BLANK {i}", False))
+    return TDSNewParseResult(
+        company_name="TEST CO",
+        mill_location="Mill, TX",
+        boiler_name="Boiler 1",
+        inspection_date="March 2024",
+        boiler_section="FRONT WALL",
+        num_tubes=2,
+        numbering_direction="Left-to-Right",
+        nde_laboratory=nde,
+        tube_numbers=[1, 2],
+        elevations=elevations,
+    )
+
+
+def _make_tds_old_result(measured=1, blank=0):
+    """Synthetic TDSOldParseResult (no NDE field - supplied at convert time)."""
+    from app.converters.tds_old_parser import TDSOldParseResult
+
+    elevations = []
+    for i in range(measured):
+        elevations.append(_make_tds_elevation(f"{i} FT", True))
+    for i in range(blank):
+        elevations.append(_make_tds_elevation(f"BLANK {i}", False))
+    return TDSOldParseResult(
+        company_name="OLD CO",
+        mill_location="Mill, AR",
+        boiler_name="Boiler 2",
+        inspection_date="April 2024",
+        boiler_section="REAR WALL",
+        num_tubes=2,
+        numbering_direction="Right-to-Left",
+        tube_numbers=[1, 2],
+        elevations=elevations,
+    )
+
+
+def _add_tds_file(page, path, fmt, result):
+    """Register a synthetic file + its card exactly like _import_tds_file does,
+    without touching disk."""
+    from app.pages.converter_page import _TdsFileCard
+
+    card = _TdsFileCard(path, fmt, result, page)
+    card.metadata_changed.connect(page._on_tds_metadata_changed)
+    page._tds_imported[path] = (fmt, result)
+    page._tds_cards[path] = card
+    return card
+
+
+def _read_standard_output(path):
+    """Parse a written Standard Format CSV back into rows for assertions."""
+    import csv
+
+    with open(path, "r", encoding="utf-8", newline="") as f:
+        return list(csv.reader(f))
+
+
+def _standard_metadata_value(rows, label_substr):
+    """Return the metadata value (col H / index 7) for a label row."""
+    for row in rows:
+        if len(row) > 5 and label_substr in row[5]:
+            return row[7] if len(row) > 7 else ""
+    return None
+
+
+def _standard_reading_cells(rows):
+    """All reading cells (col index >= 5) from LEFT/CNTR/RGHT block rows."""
+    cells = set()
+    for row in rows:
+        marker = row[4].strip() if len(row) > 4 else ""
+        if marker in ("LEFT", "CNTR", "RGHT"):
+            for cell in row[5:]:
+                stripped = cell.strip()
+                if stripped:
+                    cells.add(stripped)
+    return cells
+
+
+# --- Blank toggle --------------------------------------------------------
+
+def test_blank_toggle_defaults_unchecked():
+    # TDS spec intentionally differs from TEAM (which defaults checked).
+    page = _make_page()
+    assert page._tds_include_blank.isChecked() is False
+
+
+def test_blank_toggle_batch_wide_changes_tds_output_counts():
+    page = _make_page()
+    _add_tds_file(page, "a/New1.csv", "new", _make_tds_new_result(measured=2, blank=3))
+    _add_tds_file(page, "b/New2.csv", "new", _make_tds_new_result(measured=1, blank=2))
+
+    # One toggle governs every file in the batch.
+    page._tds_include_blank.setChecked(False)
+    jobs = dict(page._tds_conversion_jobs())
+    assert len(jobs["a/New1.csv"].elevations) == 2
+    assert len(jobs["b/New2.csv"].elevations) == 1
+
+    page._tds_include_blank.setChecked(True)
+    jobs = dict(page._tds_conversion_jobs())
+    assert len(jobs["a/New1.csv"].elevations) == 5
+    assert len(jobs["b/New2.csv"].elevations) == 3
+
+
+def test_blank_toggle_updates_tds_elevation_stat_live():
+    page = _make_page()
+    _add_tds_file(page, "a/New1.csv", "new", _make_tds_new_result(measured=2, blank=3))
+    page._after_tds_files_changed()
+
+    page._tds_include_blank.setChecked(False)
+    assert page._tds_stat_elevations._value_label.text() == "2"
+    page._tds_include_blank.setChecked(True)
+    assert page._tds_stat_elevations._value_label.text() == "5"
+
+
+# --- Convert button gating ----------------------------------------------
+
+def test_tds_convert_all_disabled_until_metadata_complete():
+    page = _make_page()
+    old_path = _old_sample()
+    page._import_tds_file(old_path)
+    # Force flags confirmed so only metadata governs the button in this test.
+    page._tds_flags_confirmed = True
+
+    # Old file arrives with an empty, required NDE -> convert stays disabled.
+    page._update_tds_convert_button()
+    assert page._tds_convert_btn.isEnabled() is False
+
+    # Filling the NDE (all other fields prefilled from parse) enables it.
+    page._tds_cards[old_path]._nde_edit.setText("Regression Lab")
+    page._update_tds_convert_button()
+    assert page._tds_convert_btn.isEnabled() is True
+
+    # Blanking any field disables it again.
+    page._tds_cards[old_path]._section_edit.setText("")
+    page._update_tds_convert_button()
+    assert page._tds_convert_btn.isEnabled() is False
+
+
+def test_tds_convert_needs_flags_confirmed():
+    page = _make_page()
+    _add_tds_file(page, "a/New1.csv", "new", _make_tds_new_result(measured=1))
+    page._update_tds_convert_button()
+    # Metadata is complete for a New file, but flags not confirmed yet.
+    assert page._tds_convert_btn.isEnabled() is False
+    page._tds_flags_confirmed = True
+    page._update_tds_convert_button()
+    assert page._tds_convert_btn.isEnabled() is True
+
+
+# --- Flag review ---------------------------------------------------------
+
+def test_tds_flag_review_collects_symbols_from_elevations():
+    page = _make_page()
+    # Seed a non-numeric symbol that is NOT a known Standard Format symbol.
+    _add_tds_file(page, "a/New1.csv", "new", _make_tds_new_result(measured=1, symbol="ZZ"))
+    page._after_tds_files_changed()
+    symbols = page._tds_collect_symbols()
+    assert "ZZ" in symbols
+    # An unknown symbol shows up in the flags-needing-review stat.
+    assert page._tds_stat_flags._value_label.text() == "1"
+
+
+# --- Conversion output ---------------------------------------------------
+
+def test_new_and_old_convert_to_valid_output(tmp_path):
+    from app.converters.standard_format_writer import write_standard_format
+    import csv
+
+    page = _make_page()
+    new_path = _new_sample()
+    old_path = _old_sample()
+    page._import_tds_file(new_path)
+    page._import_tds_file(old_path)
+
+    unique_nde = "REGRESSION LAB 9137"
+    page._tds_cards[old_path]._nde_edit.setText(unique_nde)
+
+    jobs = dict(page._tds_conversion_jobs())
+
+    # Collect the Old file's discarded Minimum/Allowable values from the raw
+    # source so we can assert they never leak into the converted output.
+    old_rows = list(csv.reader(open(old_path, encoding="utf-8", errors="ignore")))
+    min_allowable = set()
+    for i in range(len(old_rows) - 1):
+        row = old_rows[i]
+        if len(row) > 3 and row[3].strip() == "CNTR" and len(row) > 2 and row[2].strip():
+            min_allowable.add(row[2].strip())
+    source_readings = set()
+    for row in old_rows:
+        marker = row[3].strip() if len(row) > 3 else ""
+        if marker in ("LEFT", "CNTR", "RGHT"):
+            for cell in row[4:]:
+                if cell.strip():
+                    source_readings.add(cell.strip().lstrip("0") or "0")
+    # Min/Allowable values that are not coincidentally a real reading value.
+    distinctive = {v for v in min_allowable if v.lstrip("0") not in source_readings}
+
+    outputs = {}
+    for path, writer_input in jobs.items():
+        out = tmp_path / f"{path.replace('/', '_').replace(chr(92), '_')}.csv"
+        write_standard_format(writer_input, page._tds_flag_mapping, out)
+        outputs[path] = _read_standard_output(out)
+
+    # Both outputs are structurally valid Standard Format files.
+    for rows in outputs.values():
+        assert _standard_metadata_value(rows, "Company Name:") is not None
+        assert _standard_metadata_value(rows, "NDE Laboratory:") is not None
+        assert any(
+            len(r) > 1 and "TUBE NUMBERS along the top" in r[1] for r in rows
+        )
+        assert any(
+            len(r) > 1 and "TUBE NUMBERS along the bottom" in r[1] for r in rows
+        )
+
+    # Old output carries the user-supplied NDE.
+    assert _standard_metadata_value(outputs[old_path], "NDE Laboratory:") == unique_nde
+
+    # Regression: the discarded Minimum/Allowable value never leaks into output.
+    if distinctive:
+        out_readings = _standard_reading_cells(outputs[old_path])
+        assert distinctive.isdisjoint(out_readings)
+
+
+def test_edited_metadata_flows_to_output():
+    from app.pages.converter_page import _output_filename
+
+    page = _make_page()
+    card = _add_tds_file(page, "a/New1.csv", "new", _make_tds_new_result(measured=1))
+
+    # Edit the card's boiler section and company AFTER import.
+    card._section_edit.setText("EDITED SECTION")
+    card._company_edit.setText("EDITED CO")
+
+    jobs = dict(page._tds_conversion_jobs())
+    writer_input = jobs["a/New1.csv"]
+
+    # The edited values (not the original parse) drive the output.
+    assert writer_input.boiler_section == "EDITED SECTION"
+    assert writer_input.company_name == "EDITED CO"
+    assert _output_filename(writer_input) == "EDITED SECTION_Standard_Format.csv"
+
+
+def test_old_conversion_input_includes_user_nde():
+    page = _make_page()
+    card = _add_tds_file(page, "a/Old1.csv", "old", _make_tds_old_result(measured=1))
+    card._nde_edit.setText("USER NDE LAB")
+
+    jobs = dict(page._tds_conversion_jobs())
+    writer_input = jobs["a/Old1.csv"]
+    assert writer_input.nde_laboratory == "USER NDE LAB"
