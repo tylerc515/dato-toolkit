@@ -1,6 +1,6 @@
 [project]
 name = "dato-toolkit"
-version = "2.0.0"
+version = "2.3.0"
 description = "DATO Toolkit is a suite of field operations tools for NDE inspection teams."
 readme = "README.md"
 requires-python = ">=3.11"

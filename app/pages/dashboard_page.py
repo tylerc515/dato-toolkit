@@ -10,7 +10,7 @@ from PyQt6.QtWidgets import QHBoxLayout, QLabel, QLayout, QVBoxLayout, QWidget
 
 from app.design.icons import icon
 from app.design.tokens import Color, Spacing
-from app.history import HistoryEntry, NEVER_TEXT, format_timestamp, load_history
+from app.history import HistoryEntry, format_timestamp, load_history
 from app.project import ProjectConfig, list_projects
 from app.widgets.components import Card, PrimaryButton, SecondaryButton, StatCard
 

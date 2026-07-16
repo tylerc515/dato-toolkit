@@ -23,7 +23,7 @@ _active_theme = DEFAULT_THEME
 
 
 def set_active_theme(theme: str) -> None:
-    """Set the theme used by `color()` lookups for newly built widgets."""
+    """Set the active theme used for newly built widgets."""
     global _active_theme
     _active_theme = theme if theme in THEME_NAMES else DEFAULT_THEME
 
@@ -140,6 +140,11 @@ QLineEdit:focus, QTextEdit:focus, QComboBox:focus {{
     border: 1px solid {Color.ACCENT};
 }}
 
+QComboBox:disabled {{
+    color: {Color.TEXT_MUTED};
+    background-color: {Color.CARD_BG};
+}}
+
 QListWidget {{
     background-color: {Color.CARD_BG};
     border: 1px solid {Color.BORDER};
@@ -218,6 +223,15 @@ QCheckBox::indicator {{
 QCheckBox::indicator:checked {{
     background: {Color.ACCENT};
     border: 1px solid {Color.ACCENT};
+}}
+
+QCheckBox:disabled {{
+    color: {Color.TEXT_MUTED};
+}}
+
+QCheckBox::indicator:disabled {{
+    background: {Color.CARD_BG};
+    border: 1px solid {Color.BORDER};
 }}
 """
 

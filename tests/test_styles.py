@@ -1,4 +1,4 @@
-"""Tests for the token-driven stylesheet and the transitional color() shim."""
+"""Tests for the token-driven stylesheet."""
 from __future__ import annotations
 
 import re
@@ -84,3 +84,17 @@ def test_build_stylesheet_contains_no_stray_pixel_literals():
         f"build_stylesheet source contains pixel literals not sourced via "
         f"token interpolation (e.g. {{Spacing.SM}}px): {stray}"
     )
+
+
+def test_build_stylesheet_has_disabled_state_rules():
+    from app.styles import build_stylesheet
+    qss = build_stylesheet("dark")
+    assert "QComboBox:disabled" in qss
+    assert "QCheckBox::indicator:disabled" in qss
+
+
+def test_pyproject_version_matches_app_version():
+    from pathlib import Path
+    from app import __version__
+    text = (Path(__file__).resolve().parent.parent / "pyproject.toml").read_text(encoding="utf-8")
+    assert f'version = "{__version__}"' in text
