@@ -36,10 +36,10 @@ LEAVE_AS_IS_TEXT = "Leave as-is"
 COMBO_SEPARATOR = "  -  "
 COMBO_MIN_WIDTH = 220
 COMBO_MAX_WIDTH = 230
-# Widened from 400 to 440: at the larger FontSize.BODY (15px) the longest
-# symbol description renders ~401px wide, which the old 400px popup would
+# Widened to 480: at FontSize.BODY = 16px the longest symbol description's
+# popup content renders ~462px wide (measured), which a narrower popup would
 # clip once the vertical scrollbar and item padding are accounted for.
-COMBO_POPUP_MIN_WIDTH = 440
+COMBO_POPUP_MIN_WIDTH = 480
 
 # StatusBadge only supports "success" / "warning" / "danger" semantics
 # (see app/widgets/components.py::_SEMANTIC_COLORS). Map every status this

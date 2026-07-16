@@ -56,9 +56,9 @@ class Radius:
 
 
 class FontSize:
-    LABEL = 13
-    SMALL = 14
-    BODY = 15
+    LABEL = 15
+    SMALL = 15
+    BODY = 16
     SECTION = 16
     PAGE_TITLE = 22
     STAT_NUMBER = 28
