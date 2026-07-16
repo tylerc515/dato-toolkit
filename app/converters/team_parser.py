@@ -29,6 +29,23 @@ class TEAMParseResult:
     flags_found: set[str]      # every unique non-numeric symbol seen in readings
 
 
+@dataclass
+class TEAMConversionInput:
+    """A TEAMParseResult plus batch metadata and the per-file section
+    name, shaped exactly like what write_standard_format() reads off an
+    ATSParseResult. Built fresh per file at conversion time."""
+    company_name: str
+    mill_location: str
+    boiler_name: str
+    inspection_date: str      # "Month YYYY", already formatted
+    boiler_section: str       # per-file, from the editable section field
+    nde_laboratory: str
+    num_tubes: int
+    numbering_direction: str
+    tube_numbers: list[int]
+    elevations: list[TEAMElevation]
+
+
 _SUFFIX_PATTERN = re.compile(r"^(\d+)([A-Za-z])$")
 
 

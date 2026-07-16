@@ -138,7 +138,7 @@ def write_standard_format(
 
         # Sub-row 2: tech code / CNTR / readings
         # Single uppercase letter is a crew/shift code - write "ATS" instead
-        tech_code = elevation.tech_code
+        tech_code = getattr(elevation, "tech_code", "TEAM")
         if not tech_code or (len(tech_code) == 1 and tech_code.isupper()):
             tech_code = "ATS"
         r2: dict[int, str] = {0: tech_code, 4: "CNTR"}

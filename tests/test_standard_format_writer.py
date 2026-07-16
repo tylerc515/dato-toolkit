@@ -12,6 +12,7 @@ from pathlib import Path
 import pytest
 
 from app.converters.ats_parser import ATSElevation, ATSParseResult
+from app.converters.team_parser import TEAMConversionInput, TEAMElevation
 from app.parser import parse_trace_csv
 
 
@@ -339,3 +340,49 @@ def test_output_legend_includes_rvn(tmp_path: Path):
     assert "R" in leading_symbols, "Expected 'R' symbol row in output legend"
     assert "V" in leading_symbols, "Expected 'V' symbol row in output legend"
     assert "N" in leading_symbols, "Expected 'N' symbol row in output legend"
+
+
+# ---------------------------------------------------------------------------
+# TEAM compatibility - write_standard_format() must accept TEAMConversionInput
+# ---------------------------------------------------------------------------
+
+def test_write_standard_format_accepts_team_conversion_input(tmp_path: Path):
+    """write_standard_format() must handle TEAMConversionInput without raising,
+    produce a parseable file, and mark the tech-code cell as 'TEAM' (not 'ATS')
+    since TEAMElevation has no .tech_code for the getattr default to skip."""
+    from app.converters.standard_format_writer import write_standard_format
+    result = TEAMConversionInput(
+        company_name="TEAM PAPER CO",
+        mill_location="Someplace, GA",
+        boiler_name="Recovery Boiler 1",
+        inspection_date="March 2025",
+        boiler_section="02 FLOOR",
+        nde_laboratory="TEAM Industrial",
+        num_tubes=3,
+        numbering_direction="Left-to-Right",
+        tube_numbers=[1, 2, 3],
+        elevations=[
+            TEAMElevation(
+                label="12 FT",
+                left=["220", "215", "210"],
+                cntr=["218", "213", "208"],
+                rght=["222", "216", "212"],
+            ),
+        ],
+    )
+    out = tmp_path / "team_output.csv"
+
+    # Should not raise (proves the getattr fix handles the missing tech_code)
+    write_standard_format(result, {"*": "*"}, out)
+
+    assert out.exists()
+    parsed = parse_trace_csv(str(out))
+    assert parsed.company_name == "TEAM PAPER CO"
+    assert len(parsed.elevations) == 1
+
+    rows = list(csv.reader(out.read_text(encoding="utf-8").splitlines()))
+    cntr_col0_values = [r[0] for r in rows if len(r) > 4 and r[4] == "CNTR"]
+    assert cntr_col0_values, "No CNTR row found in output"
+    assert all(v == "TEAM" for v in cntr_col0_values), (
+        f"Expected all CNTR col-0 values to be 'TEAM', got: {cntr_col0_values}"
+    )
