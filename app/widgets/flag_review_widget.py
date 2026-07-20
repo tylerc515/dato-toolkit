@@ -100,7 +100,7 @@ def _make_combo() -> QComboBox:
     combo.setMaximumWidth(COMBO_MAX_WIDTH)
     combo.setMaxVisibleItems(7)
     combo.setToolTip(
-        "Type to search, or pick the Standard Format code this ATS flag "
+        "Type to search, or pick the Standard Format code this flag "
         "should be converted to."
     )
 
@@ -229,7 +229,7 @@ class FlagReviewWidget(QWidget):
 
             leave_check = QCheckBox(LEAVE_AS_IS_TEXT)
             leave_check.setToolTip(
-                "Pass this ATS code through to the output unchanged, instead of "
+                "Pass this flag code through to the output unchanged, instead of "
                 "mapping it to a Standard Format code."
             )
             leave_check.stateChanged.connect(

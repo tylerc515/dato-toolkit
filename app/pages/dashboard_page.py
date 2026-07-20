@@ -103,7 +103,7 @@ class DashboardPage(QWidget):
 
         self.converter_button = SecondaryButton(CONVERT_DATA_TEXT)
         self.converter_button.setIcon(icon("arrows-left-right"))
-        self.converter_button.setToolTip("Convert ATS inspection files to Standard Format CSV")
+        self.converter_button.setToolTip("Convert ATS, TEAM, or TDS inspection files to Standard Format CSV")
         self.converter_button.clicked.connect(self.converter_requested.emit)
         header_row.addWidget(self.converter_button)
         outer.addLayout(header_row)
