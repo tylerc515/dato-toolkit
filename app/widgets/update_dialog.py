@@ -229,6 +229,10 @@ class UpdateDialog(QDialog):
         loc_lbl.setStyleSheet(f"color: {Color.TEXT_PRIMARY};")
         loc_row.addWidget(loc_lbl)
         self._folder_edit = QLineEdit(self._default_install_dir())
+        # The field scrolls internally, but a long path is hard to read that
+        # way - keep the full path available on hover, updated as it changes.
+        self._folder_edit.setToolTip(self._folder_edit.text())
+        self._folder_edit.textChanged.connect(self._folder_edit.setToolTip)
         loc_row.addWidget(self._folder_edit, 1)
         browse_btn = QPushButton("📁")
         browse_btn.setFixedWidth(36)

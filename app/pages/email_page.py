@@ -593,14 +593,18 @@ class EmailPage(QWidget):
         except ProjectError as exc:
             logger.error("Could not load project from file: %s", exc)
 
-    def _browse_recent(self) -> None:
-        projects = list_projects()[:RECENT_PROJECTS_COUNT]
-        if not projects:
-            return
-
+    def _build_recent_projects_dialog(
+        self, projects: list[tuple[Path, ProjectConfig]]
+    ) -> tuple[QDialog, QListWidget]:
+        """Build the "Recent Projects" picker. Returned separately from
+        exec() so the layout can be exercised in tests without blocking."""
         dialog = QDialog(self)
         dialog.setWindowTitle("Recent Projects")
-        dialog.setFixedSize(500, 260)
+        # Resizable with a comfortable default and a floor that still fits the
+        # 900x600 minimum window. Long titles are handled by eliding the list
+        # items (below), so the dialog never needs to grow to fit them.
+        dialog.setMinimumSize(460, 260)
+        dialog.resize(580, 340)
         layout = QVBoxLayout(dialog)
         layout.setSpacing(12)
 
@@ -608,10 +612,16 @@ class EmailPage(QWidget):
         layout.addWidget(lbl)
 
         list_widget = QListWidget()
+        # Never scroll horizontally for text overflow; elide long titles with an
+        # ellipsis instead and keep the full text available on hover.
+        list_widget.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        list_widget.setTextElideMode(Qt.TextElideMode.ElideRight)
+        list_widget.setWordWrap(False)
         for path, config in projects:
             display = f"{config.title}  —  {config.date}" if config.date else config.title
             item = QListWidgetItem(display)
             item.setData(Qt.ItemDataRole.UserRole, path)
+            item.setToolTip(display)
             list_widget.addItem(item)
         if list_widget.count():
             list_widget.setCurrentRow(0)
@@ -629,6 +639,15 @@ class EmailPage(QWidget):
         load_btn.clicked.connect(dialog.accept)
         btn_row.addWidget(load_btn)
         layout.addLayout(btn_row)
+
+        return dialog, list_widget
+
+    def _browse_recent(self) -> None:
+        projects = list_projects()[:RECENT_PROJECTS_COUNT]
+        if not projects:
+            return
+
+        dialog, list_widget = self._build_recent_projects_dialog(projects)
 
         if dialog.exec() != QDialog.DialogCode.Accepted:
             return
