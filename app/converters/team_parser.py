@@ -27,7 +27,7 @@ class TEAMParseResult:
     numbering_direction: str   # "Left-to-Right" or "Right-to-Left"
     num_tubes: int
     elevations: list[TEAMElevation]
-    flags_found: set[str]      # every unique non-numeric symbol seen in readings
+    comment_codes_found: set[str]      # every unique non-numeric symbol seen in readings
 
 
 @dataclass
@@ -57,7 +57,7 @@ def convert_team_reading(value: object) -> str:
         to 3 digits, written through at natural width for out-of-range
         values (e.g. 2791 -> "2791").
     None or blank -> ""
-    single-character string (flag symbol) -> unchanged
+    single-character string (comment code symbol) -> unchanged
     digits + trailing letter suffix (e.g. "14V") -> zero-padded digits with
         the suffix preserved ("014V")
     anything else -> stripped and returned unchanged
@@ -127,7 +127,7 @@ def parse_team_file(filepath: str | Path) -> TEAMParseResult:
         last_reading_col = 2 + num_tubes  # readings run from column C to here
 
         elevations: list[TEAMElevation] = []
-        flags_found: set[str] = set()
+        comment_codes_found: set[str] = set()
 
         row_idx = 2
         while row_idx + 2 <= ws.max_row:
@@ -164,7 +164,7 @@ def parse_team_file(filepath: str | Path) -> TEAMParseResult:
                         continue
                     cell_stripped = cell.strip()
                     if cell_stripped and not _is_numeric_reading(cell_stripped):
-                        flags_found.add(cell_stripped)
+                        comment_codes_found.add(cell_stripped)
 
             elevations.append(TEAMElevation(
                 label=label,
@@ -180,7 +180,7 @@ def parse_team_file(filepath: str | Path) -> TEAMParseResult:
             numbering_direction=numbering_direction,
             num_tubes=num_tubes,
             elevations=elevations,
-            flags_found=flags_found,
+            comment_codes_found=comment_codes_found,
         )
     finally:
         wb.close()

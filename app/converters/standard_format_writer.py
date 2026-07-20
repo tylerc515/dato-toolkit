@@ -12,7 +12,7 @@ from app.converters.ats_parser import ATSParseResult
 logger = logging.getLogger(__name__)
 
 # A thickness reading with a trailing letter suffix (e.g. "230V", "014V") -
-# a valid reading, not an unrecognized flag code.
+# a valid reading, not an unrecognized comment code.
 _SUFFIX_READING = re.compile(r"^\d+[A-Za-z]$")
 
 _FORMAT_COMMENT = (
@@ -77,14 +77,14 @@ def _make_row(n_cols: int, assignments: dict[int, str]) -> list[str]:
 
 def write_standard_format(
     result: ATSParseResult,
-    flag_mapping: dict[str, str],
+    comment_code_mapping: dict[str, str],
     output_path: str | Path,
 ) -> None:
     """Write an ATSParseResult as a Standard Format CSV file.
 
     Args:
         result: parsed ATS data
-        flag_mapping: {ats_code: standard_format_code} - the confirmed mapping
+        comment_code_mapping: {ats_code: standard_format_code} - the confirmed mapping
         output_path: where to write the CSV
     """
     n_cols = max(8, 5 + result.num_tubes)
@@ -124,24 +124,24 @@ def write_standard_format(
     # Row 15: blank
     rows.append([""] * n_cols)
 
-    # Lazy import to avoid a circular import: flag_mapper imports
+    # Lazy import to avoid a circular import: comment_code_mapper imports
     # load_standard_legend_block from this module at module load time
     # (to build STANDARD_SYMBOL_DESCRIPTIONS), so this module cannot
-    # import flag_mapper at module top level.
-    from app.converters.flag_mapper import STANDARD_SYMBOL_DESCRIPTIONS
+    # import comment_code_mapper at module top level.
+    from app.converters.comment_code_mapper import STANDARD_SYMBOL_DESCRIPTIONS
 
     def _translate(val: str) -> str:
-        """Substitute known ATS flag codes with Standard Format equivalents."""
+        """Substitute known ATS comment codes with Standard Format equivalents."""
         if not val:
             return val
-        translated = flag_mapping.get(val, val)
+        translated = comment_code_mapping.get(val, val)
         if (
             translated == val
             and not val.isdigit()
             and not _SUFFIX_READING.match(val)
             and val not in STANDARD_SYMBOL_DESCRIPTIONS
         ):
-            logger.warning("Unrecognized flag code in reading: %r", val)
+            logger.warning("Unrecognized comment code in reading: %r", val)
         return translated
 
     # Elevation blocks (3 rows each)

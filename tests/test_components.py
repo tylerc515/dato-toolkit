@@ -60,14 +60,14 @@ def test_stat_card_set_value_updates_display():
 def test_stat_card_accepts_color_override():
     from app.widgets.components import StatCard
     from app.design.tokens import Color
-    stat = StatCard("Flags needing review", "2", value_color=Color.WARNING)
+    stat = StatCard("Comment codes needing review", "2", value_color=Color.WARNING)
     assert Color.WARNING in stat._value_label.styleSheet()
 
 
 def test_stat_card_set_value_accepts_optional_color():
     from app.widgets.components import StatCard
     from app.design.tokens import Color
-    stat = StatCard("Flags needing review", "0")
+    stat = StatCard("Comment codes needing review", "0")
     stat.set_value("5", color=Color.WARNING)
     assert stat._value_label.text() == "5"
     assert Color.WARNING in stat._value_label.styleSheet()
@@ -76,7 +76,7 @@ def test_stat_card_set_value_accepts_optional_color():
 def test_stat_card_set_value_without_color_preserves_prior_color():
     from app.widgets.components import StatCard
     from app.design.tokens import Color
-    stat = StatCard("Flags needing review", "0")
+    stat = StatCard("Comment codes needing review", "0")
     stat.set_value("3", color=Color.WARNING)
     stat.set_value("5")
     assert stat._value_label.text() == "5"
@@ -179,11 +179,11 @@ def test_fixed_grid_table_clear_rows_keeps_header():
 def test_fixed_grid_table_header_cell_sets_tooltip_when_provided():
     from app.widgets.components import FixedGridTable
     table = FixedGridTable([
-        {"label": "Code", "width": 90, "tooltip": "The ATS flag code"},
+        {"label": "Code", "width": 90, "tooltip": "The ATS comment code"},
         {"label": "Description", "stretch": True},
     ])
     header_item = table._grid.itemAtPosition(0, 0)
-    assert header_item.widget().toolTip() == "The ATS flag code"
+    assert header_item.widget().toolTip() == "The ATS comment code"
 
 
 def test_fixed_grid_table_header_cell_has_no_tooltip_when_absent():

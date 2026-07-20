@@ -392,7 +392,7 @@ def test_tds_convert_all_disabled_until_metadata_complete():
     old_path = _old_sample()
     page._import_tds_file(old_path)
     # Force flags confirmed so only metadata governs the button in this test.
-    page._tds_flags_confirmed = True
+    page._tds_comment_codes_confirmed = True
 
     # Old file arrives with an empty, required NDE -> convert stays disabled.
     page._update_tds_convert_button()
@@ -409,13 +409,13 @@ def test_tds_convert_all_disabled_until_metadata_complete():
     assert page._tds_convert_btn.isEnabled() is False
 
 
-def test_tds_convert_needs_flags_confirmed():
+def test_tds_convert_needs_comment_codes_confirmed():
     page = _make_page()
     _add_tds_file(page, "a/New1.csv", "new", _make_tds_new_result(measured=1))
     page._update_tds_convert_button()
     # Metadata is complete for a New file, but flags not confirmed yet.
     assert page._tds_convert_btn.isEnabled() is False
-    page._tds_flags_confirmed = True
+    page._tds_comment_codes_confirmed = True
     page._update_tds_convert_button()
     assert page._tds_convert_btn.isEnabled() is True
 
@@ -430,7 +430,7 @@ def test_tds_flag_review_collects_symbols_from_elevations():
     symbols = page._tds_collect_symbols()
     assert "ZZ" in symbols
     # An unknown symbol shows up in the flags-needing-review stat.
-    assert page._tds_stat_flags._value_label.text() == "1"
+    assert page._tds_stat_comment_codes._value_label.text() == "1"
 
 
 # --- Conversion output ---------------------------------------------------
@@ -471,7 +471,7 @@ def test_new_and_old_convert_to_valid_output(tmp_path):
     outputs = {}
     for path, writer_input in jobs.items():
         out = tmp_path / f"{path.replace('/', '_').replace(chr(92), '_')}.csv"
-        write_standard_format(writer_input, page._tds_flag_mapping, out)
+        write_standard_format(writer_input, page._tds_comment_code_mapping, out)
         outputs[path] = _read_standard_output(out)
 
     # Both outputs are structurally valid Standard Format files.

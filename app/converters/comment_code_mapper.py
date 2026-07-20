@@ -1,11 +1,11 @@
-"""ATS flag code to Standard Format code mapping."""
+"""ATS comment code to Standard Format code mapping."""
 from __future__ import annotations
 
 import difflib
 import re
 from dataclasses import dataclass
 
-DEFAULT_ATS_FLAG_MAP: dict[str, str] = {}
+DEFAULT_ATS_COMMENT_CODE_MAP: dict[str, str] = {}
 
 
 def _build_symbol_descriptions() -> dict[str, str]:
@@ -46,8 +46,8 @@ _session_confirmed: dict[tuple[str, str], str] = {}
 
 
 @dataclass
-class FlagMappingResult:
-    known: dict[str, str]      # exact matches from DEFAULT_ATS_FLAG_MAP
+class CommentCodeMappingResult:
+    known: dict[str, str]      # exact matches from DEFAULT_ATS_COMMENT_CODE_MAP
     suggested: dict[str, str]  # session memory or description-matched -- pre-filled but needs confirm
     unknown: dict[str, str]    # no match found at all, field is empty
     final: dict[str, str]      # complete mapping after user review (known only until confirmed)
@@ -60,16 +60,16 @@ def confirm_mapping(ats_code: str, description: str, std_symbol: str) -> None:
 
 def confirm_session_mappings(
     confirmed: dict[str, str],
-    ats_flags: dict[str, str],
+    ats_comment_codes: dict[str, str],
 ) -> None:
     """Record all confirmed mappings for this session.
 
     Args:
-        confirmed: {ats_code: std_symbol} from FlagReviewWidget.mappings_confirmed
-        ats_flags: {ats_code: description} from ATSParseResult.ats_flags
+        confirmed: {ats_code: std_symbol} from CommentCodeReviewWidget.mappings_confirmed
+        ats_comment_codes: {ats_code: description} from ATSParseResult.ats_comment_codes
     """
     for ats_code, std_symbol in confirmed.items():
-        description = ats_flags.get(ats_code, "")
+        description = ats_comment_codes.get(ats_code, "")
         confirm_mapping(ats_code, description, std_symbol)
 
 
@@ -78,26 +78,26 @@ def clear_session_mappings() -> None:
     _session_confirmed.clear()
 
 
-def build_flag_mapping(ats_flags: dict[str, str]) -> FlagMappingResult:
-    """Split ats_flags into known, suggested, and unknown tiers.
+def build_comment_code_mapping(ats_comment_codes: dict[str, str]) -> CommentCodeMappingResult:
+    """Split ats_comment_codes into known, suggested, and unknown tiers.
 
     Tier 0: session memory (previously confirmed by user this session) -> suggested
-    Tier 1: exact code match in DEFAULT_ATS_FLAG_MAP -> known
+    Tier 1: exact code match in DEFAULT_ATS_COMMENT_CODE_MAP -> known
     Tier 2: description fuzzy match against STANDARD_SYMBOL_DESCRIPTIONS -> suggested
     Tier 3: no match found -> unknown
 
     Args:
-        ats_flags: {ats_code: description} from ATSParseResult.ats_flags
+        ats_comment_codes: {ats_code: description} from ATSParseResult.ats_comment_codes
 
     Returns:
-        FlagMappingResult where final contains only the auto-mapped codes
+        CommentCodeMappingResult where final contains only the auto-mapped codes
         until the user reviews suggested/unknowns and confirms.
     """
     known: dict[str, str] = {}
     suggested: dict[str, str] = {}
     unknown: dict[str, str] = {}
 
-    for code, description in ats_flags.items():
+    for code, description in ats_comment_codes.items():
         # Tier 0: session memory
         session_key = (code, description.upper())
         if session_key in _session_confirmed:
@@ -105,8 +105,8 @@ def build_flag_mapping(ats_flags: dict[str, str]) -> FlagMappingResult:
             continue
 
         # Tier 1: exact code match
-        if code in DEFAULT_ATS_FLAG_MAP:
-            known[code] = DEFAULT_ATS_FLAG_MAP[code]
+        if code in DEFAULT_ATS_COMMENT_CODE_MAP:
+            known[code] = DEFAULT_ATS_COMMENT_CODE_MAP[code]
             continue
 
         # Tier 2: description fuzzy match against STANDARD_SYMBOL_DESCRIPTIONS
@@ -126,7 +126,7 @@ def build_flag_mapping(ats_flags: dict[str, str]) -> FlagMappingResult:
         # Tier 3: unknown
         unknown[code] = description
 
-    return FlagMappingResult(
+    return CommentCodeMappingResult(
         known=known,
         suggested=suggested,
         unknown=unknown,
@@ -134,29 +134,29 @@ def build_flag_mapping(ats_flags: dict[str, str]) -> FlagMappingResult:
     )
 
 
-def check_known_symbols(flags_found: set[str]) -> FlagMappingResult:
-    """Split TEAM flag symbols into known/unknown tiers.
+def check_known_symbols(comment_codes_found: set[str]) -> CommentCodeMappingResult:
+    """Split TEAM comment code symbols into known/unknown tiers.
 
     TEAM inspection files already carry Standard Format symbols, so no
     code-to-symbol translation is needed (unlike ATS). There is no
-    per-flag description text to fuzzy-match against, so there is no
+    per comment-code description text to fuzzy-match against, so there is no
     Tier-2 smart-match tier for TEAM: suggested stays empty and nothing
     is pre-filled for an unknown symbol.
 
     Args:
-        flags_found: set of flag symbols encountered in the TEAM file.
+        comment_codes_found: set of comment code symbols encountered in the TEAM file.
 
     Returns:
-        FlagMappingResult where known maps each recognized symbol to
+        CommentCodeMappingResult where known maps each recognized symbol to
         itself, unknown maps each unrecognized symbol to "" (empty,
-        pending manual review via FlagReviewWidget), suggested is
+        pending manual review via CommentCodeReviewWidget), suggested is
         always empty, and final mirrors known.
     """
-    known = {s: s for s in flags_found if s in STANDARD_SYMBOL_DESCRIPTIONS}
+    known = {s: s for s in comment_codes_found if s in STANDARD_SYMBOL_DESCRIPTIONS}
     suggested: dict[str, str] = {}
-    unknown = {s: "" for s in flags_found if s not in STANDARD_SYMBOL_DESCRIPTIONS}
+    unknown = {s: "" for s in comment_codes_found if s not in STANDARD_SYMBOL_DESCRIPTIONS}
 
-    return FlagMappingResult(
+    return CommentCodeMappingResult(
         known=known,
         suggested=suggested,
         unknown=unknown,

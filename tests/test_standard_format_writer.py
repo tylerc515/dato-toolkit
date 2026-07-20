@@ -29,7 +29,7 @@ def _make_result(num_tubes: int = 3) -> ATSParseResult:
         numbering_direction="Left-to-Right",
         nde_laboratory="Applied Technical Services",
         year=2025,
-        ats_flags={"NC": "NOT CLEAN", "RF": "REFRACTORY"},
+        ats_comment_codes={"NC": "NOT CLEAN", "RF": "REFRACTORY"},
         elevations=[
             ATSElevation(
                 label="8 FT",
@@ -87,7 +87,7 @@ def test_write_elevation_labels_preserved(tmp_path: Path):
     assert "14 FT" in labels
 
 
-def test_write_flag_mapping_translates_in_readings(tmp_path: Path):
+def test_write_comment_code_mapping_translates_in_readings(tmp_path: Path):
     """Flag codes are translated in readings; fixed legend is always present."""
     from app.converters.standard_format_writer import write_standard_format
     result = _make_result()
@@ -110,7 +110,7 @@ def test_write_tube_numbers_row(tmp_path: Path):
     assert "TUBE NUMBERS along the bottom" in content
 
 
-def test_write_empty_flag_mapping_succeeds(tmp_path: Path):
+def test_write_empty_comment_code_mapping_succeeds(tmp_path: Path):
     from app.converters.standard_format_writer import write_standard_format
     result = _make_result()
     out = tmp_path / "output.csv"
@@ -135,7 +135,7 @@ def test_tech_name_single_letter_becomes_ats(tmp_path: Path):
         numbering_direction="Left-to-Right",
         nde_laboratory="ATS Lab",
         year=2025,
-        ats_flags={},
+        ats_comment_codes={},
         elevations=[
             ATSElevation(
                 label="10 FT",
@@ -177,9 +177,9 @@ def test_tech_name_real_name_preserved(tmp_path: Path):
 # Bug 2 - fixed legend (always written in full from reference file)
 # ---------------------------------------------------------------------------
 
-def _make_result_with_flags(flag_codes_in_cntr: list[str]) -> ATSParseResult:
-    """Helper: build a 3-tube result where cntr readings contain the given flag codes."""
-    padded = (flag_codes_in_cntr + ["", ""])[:3]
+def _make_result_with_flags(comment_codes_in_cntr: list[str]) -> ATSParseResult:
+    """Helper: build a 3-tube result where cntr readings contain the given comment codes."""
+    padded = (comment_codes_in_cntr + ["", ""])[:3]
     return ATSParseResult(
         company_name="TEST CO",
         mill_location="Somewhere, TX",
@@ -190,7 +190,7 @@ def _make_result_with_flags(flag_codes_in_cntr: list[str]) -> ATSParseResult:
         numbering_direction="Left-to-Right",
         nde_laboratory="ATS Lab",
         year=2025,
-        ats_flags={"NC": "NOT CLEAN", "RF": "REFRACTORY"},
+        ats_comment_codes={"NC": "NOT CLEAN", "RF": "REFRACTORY"},
         elevations=[
             ATSElevation(
                 label="10 FT",
@@ -235,7 +235,7 @@ def test_legend_always_written_in_full(tmp_path: Path):
         numbering_direction="Left-to-Right",
         nde_laboratory="ATS Lab",
         year=2025,
-        ats_flags={},
+        ats_comment_codes={},
         elevations=[
             ATSElevation(
                 label="10 FT",
@@ -290,7 +290,7 @@ def test_legend_matches_reference_file_exactly(tmp_path: Path):
 
 
 def test_legend_identical_regardless_of_flags_used(tmp_path: Path):
-    """Legend block is byte-identical whether or not flag codes appear in the data."""
+    """Legend block is byte-identical whether or not comment codes appear in the data."""
     from app.converters.standard_format_writer import write_standard_format
     # File 1: NC flag used
     result_with_flag = _make_result_with_flags(["NC"])
@@ -351,14 +351,14 @@ def test_output_legend_includes_rvn(tmp_path: Path):
 def test_identity_mapped_valid_symbol_does_not_warn(tmp_path: Path, caplog: pytest.LogCaptureFixture):
     """A reading that is already a valid Standard Format symbol, mapped to
     itself (identity mapping, as TEAM conversions use), must not trigger the
-    'Unrecognized flag code' warning - the output is already correct and the
+    'Unrecognized comment code' warning - the output is already correct and the
     warning is a false positive in this case."""
     from app.converters.standard_format_writer import write_standard_format
     result = _make_result_with_flags(["*"])
     out = tmp_path / "output.csv"
     with caplog.at_level("WARNING"):
         write_standard_format(result, {"*": "*"}, out)
-    unrecognized = [r for r in caplog.records if "Unrecognized flag code" in r.message]
+    unrecognized = [r for r in caplog.records if "Unrecognized comment code" in r.message]
     assert not unrecognized, f"Unexpected warnings: {[r.message for r in unrecognized]}"
     content = out.read_text(encoding="utf-8")
     assert "*" in content
@@ -366,27 +366,27 @@ def test_identity_mapped_valid_symbol_does_not_warn(tmp_path: Path, caplog: pyte
 
 def test_unknown_non_symbol_code_still_warns(tmp_path: Path, caplog: pytest.LogCaptureFixture):
     """A code that is neither a digit nor a valid Standard Format symbol, and
-    has no entry in flag_mapping, must still emit the diagnostic warning -
+    has no entry in comment_code_mapping, must still emit the diagnostic warning -
     this is the real 'unmapped code' case the warning exists to catch."""
     from app.converters.standard_format_writer import write_standard_format
     result = _make_result_with_flags(["ZZ"])
     out = tmp_path / "output.csv"
     with caplog.at_level("WARNING"):
         write_standard_format(result, {}, out)
-    unrecognized = [r for r in caplog.records if "Unrecognized flag code" in r.message]
+    unrecognized = [r for r in caplog.records if "Unrecognized comment code" in r.message]
     assert unrecognized, "Expected a warning for a genuinely unmapped, non-symbol code"
 
 
 def test_suffix_letter_reading_does_not_warn(tmp_path: Path, caplog: pytest.LogCaptureFixture):
     """A thickness reading with a trailing letter suffix (e.g. "230V") is a
-    valid reading, not an unrecognized flag code - it must not trigger the
+    valid reading, not an unrecognized comment code - it must not trigger the
     warning, and must appear unchanged in the output."""
     from app.converters.standard_format_writer import write_standard_format
     result = _make_result_with_flags(["230V"])
     out = tmp_path / "output.csv"
     with caplog.at_level("WARNING"):
         write_standard_format(result, {}, out)
-    unrecognized = [r for r in caplog.records if "Unrecognized flag code" in r.message]
+    unrecognized = [r for r in caplog.records if "Unrecognized comment code" in r.message]
     assert not unrecognized, f"Unexpected warnings: {[r.message for r in unrecognized]}"
     assert "230V" in out.read_text(encoding="utf-8")
 

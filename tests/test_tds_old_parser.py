@@ -292,7 +292,7 @@ def test_minimum_allowable_discarded(tmp_path):
         elevations=result.elevations,
     )
     output_path = tmp_path / "standard_format_output.csv"
-    write_standard_format(adapter, flag_mapping={}, output_path=output_path)
+    write_standard_format(adapter, comment_code_mapping={}, output_path=output_path)
 
     output_text = output_path.read_text(encoding="utf-8")
     assert sentinel not in output_text

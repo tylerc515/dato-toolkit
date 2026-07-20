@@ -28,9 +28,9 @@ from PyQt6.QtWidgets import (
 )
 
 from app.converters.ats_parser import ATSParseError, ATSParseResult, parse_ats_file
-from app.converters.flag_mapper import (
-    FlagMappingResult,
-    build_flag_mapping,
+from app.converters.comment_code_mapper import (
+    CommentCodeMappingResult,
+    build_comment_code_mapping,
     check_known_symbols,
     confirm_session_mappings,
 )
@@ -57,7 +57,7 @@ from app.design.icons import icon
 from app.design.tokens import Color, FontSize, Radius, Spacing
 from app.widgets import HelpPanel
 from app.widgets.components import Card, PrimaryButton, SecondaryButton, StatCard
-from app.widgets.flag_review_widget import FlagReviewWidget
+from app.widgets.comment_code_review_widget import CommentCodeReviewWidget
 
 logger = logging.getLogger(__name__)
 
@@ -69,8 +69,8 @@ HELP_BODY = """
 <p>The Data Converter transforms ATS inspection files into the Standard
 Format CSV that TRACE accepts for data import.</p>
 <p>Import one or more ATS <b>.xlsx</b> files. The converter reads all
-inspection data, metadata, and flag codes automatically from each file.</p>
-<p>If your files contain flag codes that are not in the auto-mapping list,
+inspection data, metadata, and comment codes automatically from each file.</p>
+<p>If your files contain comment codes that are not in the auto-mapping list,
 a review screen will appear so you can confirm or adjust the mapping
 before converting.</p>
 <p>One Standard Format CSV is produced per ATS file. Output files are
@@ -139,7 +139,7 @@ def _tds_is_numeric_reading(value: str) -> bool:
     """True if a stripped TDS reading cell is a numeric measurement (a plain
     number or a number with a single trailing letter suffix, e.g. '210V').
 
-    Mirrors team_parser's flag detection so TDS symbol collection classifies
+    Mirrors team_parser's comment code detection so TDS symbol collection classifies
     readings the same way the shared writer does."""
     if _TDS_NUMERIC_SUFFIX_RE.match(value):
         return True
@@ -151,9 +151,9 @@ def _tds_is_numeric_reading(value: str) -> bool:
 
 
 def _tds_symbols_in_elevations(elevations) -> set[str]:
-    """Collect every non-numeric, non-empty flag symbol found in the reading
+    """Collect every non-numeric, non-empty comment code symbol found in the reading
     cells of a list of TDS elevations. TDS parse results carry no
-    `flags_found`, so the convert flow scans the parsed cells directly."""
+    `comment_codes_found`, so the convert flow scans the parsed cells directly."""
     symbols: set[str] = set()
     for elev in elevations:
         for cell in (*elev.left, *elev.cntr, *elev.rght):
@@ -249,13 +249,13 @@ class _ConvertWorker(QThread):
     def __init__(
         self,
         jobs: list[tuple[str, ATSParseResult]],
-        flag_mapping: dict[str, str],
+        comment_code_mapping: dict[str, str],
         output_dir: Path,
         parent: QWidget | None = None,
     ):
         super().__init__(parent)
         self._jobs = jobs
-        self._flag_mapping = flag_mapping
+        self._comment_code_mapping = comment_code_mapping
         self._output_dir = output_dir
 
     def run(self) -> None:
@@ -263,7 +263,7 @@ class _ConvertWorker(QThread):
             out_name = _output_filename(result)
             out_path = self._output_dir / out_name
             try:
-                write_standard_format(result, self._flag_mapping, out_path)
+                write_standard_format(result, self._comment_code_mapping, out_path)
                 self.file_done.emit(source_path, True, "")
             except PermissionError:
                 message = PERMISSION_ERROR_MESSAGE.format(name=out_name)
@@ -335,14 +335,14 @@ class _TeamFileCard(Card):
         name_lbl.setStyleSheet("font-weight: 600;")
         info.addWidget(name_lbl)
 
-        flags = ", ".join(sorted(result.flags_found)) if result.flags_found else "none"
+        comment_codes = ", ".join(sorted(result.comment_codes_found)) if result.comment_codes_found else "none"
         total = len(result.elevations)
         measured = sum(1 for e in result.elevations if e.has_data)
         detail = QLabel(
             f"{result.num_tubes} tubes, {result.numbering_direction}, "
             f"{total} elevation{'s' if total != 1 else ''} "
             f"({measured} with data) - "
-            f"flags: {flags}"
+            f"comment codes: {comment_codes}"
         )
         detail.setProperty("role", "muted")
         info.addWidget(detail)
@@ -576,16 +576,16 @@ class ConverterPage(QWidget):
         super().__init__(parent)
         self._imported: dict[str, ATSParseResult] = {}  # path -> result
         self._errors: dict[str, str] = {}               # path -> error message
-        self._flag_mapping: dict[str, str] = {}
-        self._flags_confirmed = False
+        self._comment_code_mapping: dict[str, str] = {}
+        self._comment_codes_confirmed = False
         self._worker: Optional[_ConvertWorker] = None
 
         # TEAM flow state (kept fully separate from the ATS state above).
         self._team_imported: dict[str, TEAMParseResult] = {}
         self._team_errors: dict[str, str] = {}
         self._team_section_names: dict[str, str] = {}
-        self._team_flag_mapping: dict[str, str] = {}
-        self._team_flags_confirmed = False
+        self._team_comment_code_mapping: dict[str, str] = {}
+        self._team_comment_codes_confirmed = False
         self._team_worker: Optional[_ConvertWorker] = None
 
         # TDS flow state (kept fully separate from ATS/TEAM above). Each path
@@ -594,8 +594,8 @@ class ConverterPage(QWidget):
         self._tds_imported: dict[str, tuple[str, object]] = {}
         self._tds_errors: dict[str, str] = {}
         self._tds_cards: dict[str, _TdsFileCard] = {}
-        self._tds_flag_mapping: dict[str, str] = {}
-        self._tds_flags_confirmed = False
+        self._tds_comment_code_mapping: dict[str, str] = {}
+        self._tds_comment_codes_confirmed = False
         self._tds_worker: Optional[_ConvertWorker] = None
 
         self._build_ui()
@@ -684,16 +684,16 @@ class ConverterPage(QWidget):
             "Elevations", "0",
             tooltip="Total inspection elevations found across all imported files.",
         )
-        self._stat_flags = StatCard(
-            "Flags needing review", "0",
+        self._stat_comment_codes = StatCard(
+            "Comment codes needing review", "0",
             tooltip=(
-                "ATS flag codes that could not be automatically matched to a "
+                "ATS comment codes that could not be automatically matched to a "
                 "Standard Format code and need your confirmation before converting."
             ),
         )
         stats_row.addWidget(self._stat_files)
         stats_row.addWidget(self._stat_elevations)
-        stats_row.addWidget(self._stat_flags)
+        stats_row.addWidget(self._stat_comment_codes)
         ats_view_layout.addLayout(stats_row)
 
         # Scrollable content area
@@ -734,11 +734,11 @@ class ConverterPage(QWidget):
 
         self._content_layout.addWidget(import_card)
 
-        # Section 2: Flag Review
-        self._flag_widget_container = QWidget()
-        self._flag_widget_layout = QVBoxLayout(self._flag_widget_container)
-        self._flag_widget_layout.setContentsMargins(0, 0, 0, 0)
-        self._content_layout.addWidget(self._flag_widget_container)
+        # Section 2: Comment Code Review
+        self._comment_code_widget_container = QWidget()
+        self._comment_code_widget_layout = QVBoxLayout(self._comment_code_widget_container)
+        self._comment_code_widget_layout.setContentsMargins(0, 0, 0, 0)
+        self._content_layout.addWidget(self._comment_code_widget_container)
 
         # Section 3: Output
         output_card = Card()
@@ -766,7 +766,7 @@ class ConverterPage(QWidget):
         self._convert_btn.setIcon(icon("play", color=Color.TEXT_PRIMARY))
         self._convert_btn.setToolTip(
             "Convert every imported file to Standard Format CSV. Enabled once "
-            "all flag codes above have been reviewed and confirmed."
+            "all comment codes above have been reviewed and confirmed."
         )
         self._convert_btn.setEnabled(False)
         self._convert_btn.clicked.connect(self._on_convert)
@@ -870,10 +870,10 @@ class ConverterPage(QWidget):
             self._errors[path] = str(exc)
             self._file_list_layout.addWidget(_ErrorCard(path, str(exc), self))
         self._clear_all_btn.setEnabled(bool(self._imported) or bool(self._errors))
-        self._flags_confirmed = False
-        self._flag_mapping = {}
+        self._comment_codes_confirmed = False
+        self._comment_code_mapping = {}
         self._update_file_stats()
-        self._refresh_flag_widget()
+        self._refresh_comment_code_widget()
         self._update_convert_button()
 
     def _on_remove_file(self, path: str) -> None:
@@ -892,7 +892,7 @@ class ConverterPage(QWidget):
             self._file_list_layout.addWidget(_ErrorCard(p, e, self))
         self._clear_all_btn.setEnabled(bool(self._imported) or bool(self._errors))
         self._update_file_stats()
-        self._refresh_flag_widget()
+        self._refresh_comment_code_widget()
         self._update_convert_button()
 
     def _on_clear_all(self) -> None:
@@ -903,10 +903,10 @@ class ConverterPage(QWidget):
             if item.widget():
                 item.widget().deleteLater()
         self._clear_all_btn.setEnabled(False)
-        self._flags_confirmed = False
-        self._flag_mapping = {}
+        self._comment_codes_confirmed = False
+        self._comment_code_mapping = {}
         self._update_file_stats()
-        self._refresh_flag_widget()
+        self._refresh_comment_code_widget()
         self._update_convert_button()
 
     def _update_file_stats(self) -> None:
@@ -915,41 +915,41 @@ class ConverterPage(QWidget):
             str(sum(len(r.elevations) for r in self._imported.values()))
         )
 
-    # --- Flag review ---
+    # --- Comment code review ---
 
-    def _refresh_flag_widget(self) -> None:
-        while self._flag_widget_layout.count():
-            item = self._flag_widget_layout.takeAt(0)
+    def _refresh_comment_code_widget(self) -> None:
+        while self._comment_code_widget_layout.count():
+            item = self._comment_code_widget_layout.takeAt(0)
             if item.widget():
                 item.widget().deleteLater()
 
         if not self._imported:
-            self._flags_confirmed = False
-            self._flag_mapping = {}
-            self._set_flags_needing_review(0)
+            self._comment_codes_confirmed = False
+            self._comment_code_mapping = {}
+            self._set_comment_codes_needing_review(0)
             return
 
-        all_flags: dict[str, str] = {}
+        all_comment_codes: dict[str, str] = {}
         for result in self._imported.values():
-            all_flags.update(result.ats_flags)
+            all_comment_codes.update(result.ats_comment_codes)
 
-        mapping_result = build_flag_mapping(all_flags)
-        self._set_flags_needing_review(len(mapping_result.unknown) + len(mapping_result.suggested))
-        flag_widget = FlagReviewWidget(mapping_result, all_flags, self)
-        flag_widget.mappings_confirmed.connect(self._on_flags_confirmed)
-        self._flag_widget_layout.addWidget(flag_widget)
+        mapping_result = build_comment_code_mapping(all_comment_codes)
+        self._set_comment_codes_needing_review(len(mapping_result.unknown) + len(mapping_result.suggested))
+        comment_code_widget = CommentCodeReviewWidget(mapping_result, all_comment_codes, self)
+        comment_code_widget.mappings_confirmed.connect(self._on_comment_codes_confirmed)
+        self._comment_code_widget_layout.addWidget(comment_code_widget)
 
-    def _set_flags_needing_review(self, count: int) -> None:
+    def _set_comment_codes_needing_review(self, count: int) -> None:
         value_color = Color.WARNING if count > 0 else Color.TEXT_PRIMARY
-        self._stat_flags.set_value(str(count), color=value_color)
+        self._stat_comment_codes.set_value(str(count), color=value_color)
 
-    def _on_flags_confirmed(self, mapping: dict[str, str]) -> None:
-        all_flags: dict[str, str] = {}
+    def _on_comment_codes_confirmed(self, mapping: dict[str, str]) -> None:
+        all_comment_codes: dict[str, str] = {}
         for result in self._imported.values():
-            all_flags.update(result.ats_flags)
-        confirm_session_mappings(mapping, all_flags)
-        self._flag_mapping = mapping
-        self._flags_confirmed = True
+            all_comment_codes.update(result.ats_comment_codes)
+        confirm_session_mappings(mapping, all_comment_codes)
+        self._comment_code_mapping = mapping
+        self._comment_codes_confirmed = True
         self._update_convert_button()
 
     # --- Output ---
@@ -971,7 +971,7 @@ class ConverterPage(QWidget):
         settings.setValue("converter/last_output_folder", folder)
 
     def _update_convert_button(self) -> None:
-        self._convert_btn.setEnabled(bool(self._imported) and self._flags_confirmed)
+        self._convert_btn.setEnabled(bool(self._imported) and self._comment_codes_confirmed)
 
     # --- Conversion ---
 
@@ -1027,7 +1027,7 @@ class ConverterPage(QWidget):
 
         self._worker = _ConvertWorker(
             jobs,
-            self._flag_mapping,
+            self._comment_code_mapping,
             output_dir,
             parent=self,
         )
@@ -1081,16 +1081,16 @@ class ConverterPage(QWidget):
             "Elevations", "0",
             tooltip="Total inspection elevations found across all imported files.",
         )
-        self._team_stat_flags = StatCard(
-            "Flags needing review", "0",
+        self._team_stat_comment_codes = StatCard(
+            "Comment codes needing review", "0",
             tooltip=(
-                "Flag symbols in these files that are not recognized Standard "
+                "Comment code symbols in these files that are not recognized Standard "
                 "Format symbols and need your confirmation before converting."
             ),
         )
         stats_row.addWidget(self._team_stat_files)
         stats_row.addWidget(self._team_stat_elevations)
-        stats_row.addWidget(self._team_stat_flags)
+        stats_row.addWidget(self._team_stat_comment_codes)
         self._team_view_layout.addLayout(stats_row)
 
         # Scrollable content
@@ -1221,11 +1221,11 @@ class ConverterPage(QWidget):
         self._team_metadata_card.setVisible(False)
         self._team_content_layout.addWidget(self._team_metadata_card)
 
-        # Section 3: Flag review
-        self._team_flag_widget_container = QWidget()
-        self._team_flag_widget_layout = QVBoxLayout(self._team_flag_widget_container)
-        self._team_flag_widget_layout.setContentsMargins(0, 0, 0, 0)
-        self._team_content_layout.addWidget(self._team_flag_widget_container)
+        # Section 3: Comment code review
+        self._team_comment_code_widget_container = QWidget()
+        self._team_comment_code_widget_layout = QVBoxLayout(self._team_comment_code_widget_container)
+        self._team_comment_code_widget_layout.setContentsMargins(0, 0, 0, 0)
+        self._team_content_layout.addWidget(self._team_comment_code_widget_container)
 
         # Section 4: Output
         output_card = Card()
@@ -1254,7 +1254,7 @@ class ConverterPage(QWidget):
         self._team_convert_btn.setToolTip(
             "Convert every imported file to Standard Format CSV. Enabled once "
             "all inspection details and section names are filled in and any "
-            "flag codes have been reviewed."
+            "comment codes have been reviewed."
         )
         self._team_convert_btn.setEnabled(False)
         self._team_convert_btn.clicked.connect(self._on_team_convert)
@@ -1362,10 +1362,10 @@ class ConverterPage(QWidget):
         self._team_clear_all_btn.setEnabled(
             bool(self._team_imported) or bool(self._team_errors)
         )
-        self._team_flags_confirmed = False
-        self._team_flag_mapping = {}
+        self._team_comment_codes_confirmed = False
+        self._team_comment_code_mapping = {}
         self._update_team_file_stats()
-        self._refresh_team_flag_widget()
+        self._refresh_team_comment_code_widget()
         self._team_metadata_card.setVisible(bool(self._team_imported))
         self._update_team_convert_button()
 
@@ -1382,35 +1382,35 @@ class ConverterPage(QWidget):
         )
         self._team_stat_elevations.set_value(str(total))
 
-    # --- TEAM flag review ---
+    # --- TEAM comment code review ---
 
-    def _refresh_team_flag_widget(self) -> None:
-        self._clear_layout(self._team_flag_widget_layout)
+    def _refresh_team_comment_code_widget(self) -> None:
+        self._clear_layout(self._team_comment_code_widget_layout)
         if not self._team_imported:
-            self._team_flags_confirmed = False
-            self._team_flag_mapping = {}
-            self._set_team_flags_needing_review(0)
+            self._team_comment_codes_confirmed = False
+            self._team_comment_code_mapping = {}
+            self._set_team_comment_codes_needing_review(0)
             return
 
-        all_flags: set[str] = set()
+        all_comment_codes: set[str] = set()
         for result in self._team_imported.values():
-            all_flags |= result.flags_found
+            all_comment_codes |= result.comment_codes_found
 
-        mapping_result = check_known_symbols(all_flags)
-        self._set_team_flags_needing_review(
+        mapping_result = check_known_symbols(all_comment_codes)
+        self._set_team_comment_codes_needing_review(
             len(mapping_result.unknown) + len(mapping_result.suggested)
         )
-        flag_widget = FlagReviewWidget(mapping_result, None, self)
-        flag_widget.mappings_confirmed.connect(self._on_team_flags_confirmed)
-        self._team_flag_widget_layout.addWidget(flag_widget)
+        comment_code_widget = CommentCodeReviewWidget(mapping_result, None, self)
+        comment_code_widget.mappings_confirmed.connect(self._on_team_comment_codes_confirmed)
+        self._team_comment_code_widget_layout.addWidget(comment_code_widget)
 
-    def _set_team_flags_needing_review(self, count: int) -> None:
+    def _set_team_comment_codes_needing_review(self, count: int) -> None:
         value_color = Color.WARNING if count > 0 else Color.TEXT_PRIMARY
-        self._team_stat_flags.set_value(str(count), color=value_color)
+        self._team_stat_comment_codes.set_value(str(count), color=value_color)
 
-    def _on_team_flags_confirmed(self, mapping: dict[str, str]) -> None:
-        self._team_flag_mapping = mapping
-        self._team_flags_confirmed = True
+    def _on_team_comment_codes_confirmed(self, mapping: dict[str, str]) -> None:
+        self._team_comment_code_mapping = mapping
+        self._team_comment_codes_confirmed = True
         self._update_team_convert_button()
 
     # --- TEAM metadata / convert-button gating ---
@@ -1438,7 +1438,7 @@ class ConverterPage(QWidget):
     def _update_team_convert_button(self) -> None:
         ready = (
             bool(self._team_imported)
-            and self._team_flags_confirmed
+            and self._team_comment_codes_confirmed
             and self._team_metadata_complete()
             and self._team_sections_complete()
         )
@@ -1514,7 +1514,7 @@ class ConverterPage(QWidget):
 
         self._team_worker = _ConvertWorker(
             jobs,
-            self._team_flag_mapping,
+            self._team_comment_code_mapping,
             output_dir,
             parent=self,
         )
@@ -1554,8 +1554,8 @@ class ConverterPage(QWidget):
     def _build_tds_view(self) -> None:
         """Populate self._tds_view_layout with the TDS import/display flow,
         mirroring the TEAM view's structure. The convert half (blank toggle,
-        flag review, output, Convert button, conversion) is Task 6."""
-        # Stat card row (files + elevations; flag review is Task 6).
+        comment code review, output, Convert button, conversion) is Task 6."""
+        # Stat card row (files + elevations; comment code review is Task 6).
         stats_row = QHBoxLayout()
         stats_row.setSpacing(Spacing.MD)
         self._tds_stat_files = StatCard(
@@ -1569,16 +1569,16 @@ class ConverterPage(QWidget):
                 "all imported files (respects the unmeasured-elevations toggle)."
             ),
         )
-        self._tds_stat_flags = StatCard(
-            "Flags needing review", "0",
+        self._tds_stat_comment_codes = StatCard(
+            "Comment codes needing review", "0",
             tooltip=(
-                "Flag symbols in these files that are not recognized Standard "
+                "Comment code symbols in these files that are not recognized Standard "
                 "Format symbols and need your confirmation before converting."
             ),
         )
         stats_row.addWidget(self._tds_stat_files)
         stats_row.addWidget(self._tds_stat_elevations)
-        stats_row.addWidget(self._tds_stat_flags)
+        stats_row.addWidget(self._tds_stat_comment_codes)
         stats_row.addStretch(1)
         self._tds_view_layout.addLayout(stats_row)
 
@@ -1663,11 +1663,11 @@ class ConverterPage(QWidget):
         self._tds_options_card.setVisible(False)
         self._tds_content_layout.addWidget(options_card)
 
-        # Section 3: Flag review (batch-wide, union of every file's symbols).
-        self._tds_flag_widget_container = QWidget()
-        self._tds_flag_widget_layout = QVBoxLayout(self._tds_flag_widget_container)
-        self._tds_flag_widget_layout.setContentsMargins(0, 0, 0, 0)
-        self._tds_content_layout.addWidget(self._tds_flag_widget_container)
+        # Section 3: Comment code review (batch-wide, union of every file's symbols).
+        self._tds_comment_code_widget_container = QWidget()
+        self._tds_comment_code_widget_layout = QVBoxLayout(self._tds_comment_code_widget_container)
+        self._tds_comment_code_widget_layout.setContentsMargins(0, 0, 0, 0)
+        self._tds_content_layout.addWidget(self._tds_comment_code_widget_container)
 
         # Section 4: Output
         output_card = Card()
@@ -1696,7 +1696,7 @@ class ConverterPage(QWidget):
         self._tds_convert_btn.setToolTip(
             "Convert every imported file to Standard Format CSV. Enabled once "
             "each file's metadata is filled in (including the NDE Laboratory for "
-            "Old-format files) and any flag codes have been reviewed."
+            "Old-format files) and any comment codes have been reviewed."
         )
         self._tds_convert_btn.setEnabled(False)
         self._tds_convert_btn.clicked.connect(self._on_tds_convert)
@@ -1785,10 +1785,10 @@ class ConverterPage(QWidget):
         self._tds_clear_all_btn.setEnabled(
             bool(self._tds_imported) or bool(self._tds_errors)
         )
-        self._tds_flags_confirmed = False
-        self._tds_flag_mapping = {}
+        self._tds_comment_codes_confirmed = False
+        self._tds_comment_code_mapping = {}
         self._update_tds_file_stats()
-        self._refresh_tds_flag_widget()
+        self._refresh_tds_comment_code_widget()
         self._tds_options_card.setVisible(bool(self._tds_imported))
         self._update_tds_convert_button()
 
@@ -1806,41 +1806,41 @@ class ConverterPage(QWidget):
         )
         self._tds_stat_elevations.set_value(str(total))
 
-    # --- TDS flag review ---
+    # --- TDS comment code review ---
 
     def _tds_collect_symbols(self) -> set[str]:
-        """Union of every non-numeric flag symbol across all imported TDS
-        files. TDS parse results carry no `flags_found`, so the symbols are
+        """Union of every non-numeric comment code symbol across all imported TDS
+        files. TDS parse results carry no `comment_codes_found`, so the symbols are
         scanned from the parsed elevation reading cells directly."""
         symbols: set[str] = set()
         for _fmt, result in self._tds_imported.values():
             symbols |= _tds_symbols_in_elevations(result.elevations)
         return symbols
 
-    def _refresh_tds_flag_widget(self) -> None:
-        self._clear_layout(self._tds_flag_widget_layout)
+    def _refresh_tds_comment_code_widget(self) -> None:
+        self._clear_layout(self._tds_comment_code_widget_layout)
         if not self._tds_imported:
-            self._tds_flags_confirmed = False
-            self._tds_flag_mapping = {}
-            self._set_tds_flags_needing_review(0)
+            self._tds_comment_codes_confirmed = False
+            self._tds_comment_code_mapping = {}
+            self._set_tds_comment_codes_needing_review(0)
             return
 
         symbols = self._tds_collect_symbols()
         mapping_result = check_known_symbols(symbols)
-        self._set_tds_flags_needing_review(
+        self._set_tds_comment_codes_needing_review(
             len(mapping_result.unknown) + len(mapping_result.suggested)
         )
-        flag_widget = FlagReviewWidget(mapping_result, None, self)
-        flag_widget.mappings_confirmed.connect(self._on_tds_flags_confirmed)
-        self._tds_flag_widget_layout.addWidget(flag_widget)
+        comment_code_widget = CommentCodeReviewWidget(mapping_result, None, self)
+        comment_code_widget.mappings_confirmed.connect(self._on_tds_comment_codes_confirmed)
+        self._tds_comment_code_widget_layout.addWidget(comment_code_widget)
 
-    def _set_tds_flags_needing_review(self, count: int) -> None:
+    def _set_tds_comment_codes_needing_review(self, count: int) -> None:
         value_color = Color.WARNING if count > 0 else Color.TEXT_PRIMARY
-        self._tds_stat_flags.set_value(str(count), color=value_color)
+        self._tds_stat_comment_codes.set_value(str(count), color=value_color)
 
-    def _on_tds_flags_confirmed(self, mapping: dict[str, str]) -> None:
-        self._tds_flag_mapping = mapping
-        self._tds_flags_confirmed = True
+    def _on_tds_comment_codes_confirmed(self, mapping: dict[str, str]) -> None:
+        self._tds_comment_code_mapping = mapping
+        self._tds_comment_codes_confirmed = True
         self._update_tds_convert_button()
 
     # --- TDS metadata / convert-button gating ---
@@ -1862,7 +1862,7 @@ class ConverterPage(QWidget):
     def _update_tds_convert_button(self) -> None:
         ready = (
             bool(self._tds_imported)
-            and self._tds_flags_confirmed
+            and self._tds_comment_codes_confirmed
             and self._tds_metadata_complete()
         )
         self._tds_convert_btn.setEnabled(ready)
@@ -1944,7 +1944,7 @@ class ConverterPage(QWidget):
 
         self._tds_worker = _ConvertWorker(
             jobs,
-            self._tds_flag_mapping,
+            self._tds_comment_code_mapping,
             output_dir,
             parent=self,
         )

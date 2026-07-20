@@ -98,18 +98,18 @@ def test_parse_floor_numbering_direction():
 def test_parse_floor_flags_is_dict():
     from app.converters.ats_parser import parse_ats_file
     result = parse_ats_file(FLOOR)
-    assert isinstance(result.ats_flags, dict)
+    assert isinstance(result.ats_comment_codes, dict)
 
 
 def test_parse_floor_flags_passthrough_in_readings():
     from app.converters.ats_parser import parse_ats_file
     result = parse_ats_file(FLOOR)
-    flag_codes = set(result.ats_flags.keys())
+    comment_codes = set(result.ats_comment_codes.keys())
     for elev in result.elevations:
         for reading in elev.left + elev.cntr + elev.rght:
             if reading and not reading.isdigit():
-                assert reading in flag_codes or reading == "", (
-                    f"Non-numeric reading '{reading}' not in known flag codes {flag_codes}"
+                assert reading in comment_codes or reading == "", (
+                    f"Non-numeric reading '{reading}' not in known comment codes {comment_codes}"
                 )
 
 

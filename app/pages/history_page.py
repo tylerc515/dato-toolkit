@@ -80,7 +80,7 @@ def _cell(widget: QWidget, alignment: Qt.AlignmentFlag) -> QWidget:
     """Wrap widget in a plain QWidget so FixedGridTable.add_row's automatic
     QLabel restyling never touches it, and so it can be given an explicit
     alignment inside its fixed-width grid cell instead of stretching to
-    fill the whole column. Mirrors app.widgets.flag_review_widget._cell."""
+    fill the whole column. Mirrors app.widgets.comment_code_review_widget._cell."""
     wrapper = QWidget()
     layout = QHBoxLayout(wrapper)
     layout.setContentsMargins(0, 0, 0, 0)

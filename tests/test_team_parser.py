@@ -106,11 +106,11 @@ def test_out_of_range_value_passes_through_unmodified():
     assert convert_team_reading(2791) == "2791"
 
 
-def test_flags_found_collected():
+def test_comment_codes_found_collected():
     from app.converters.team_parser import parse_team_file
 
     result = parse_team_file(FLOOR)
-    assert result.flags_found == {"<"}
+    assert result.comment_codes_found == {"<"}
 
 
 def test_parse_invalid_file_raises():

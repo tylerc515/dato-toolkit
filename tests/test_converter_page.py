@@ -34,7 +34,7 @@ def _make_ats_result(section: str = "01 FLOOR") -> ATSParseResult:
         numbering_direction="Left-to-Right",
         nde_laboratory="ATS Lab",
         year=2025,
-        ats_flags={},
+        ats_comment_codes={},
         elevations=[
             ATSElevation(
                 label="10 FT",
@@ -147,8 +147,8 @@ def test_conversion_cancelled_on_overwrite_decline(tmp_path: Path):
     out_path.write_text("existing content", encoding="utf-8")
 
     page._imported = {"input.xlsx": result}
-    page._flag_mapping = {}
-    page._flags_confirmed = True
+    page._comment_code_mapping = {}
+    page._comment_codes_confirmed = True
     page._output_folder_edit.setText(str(tmp_path))
 
     with patch.object(page, "_confirm_overwrite", return_value=False):

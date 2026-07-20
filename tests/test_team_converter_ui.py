@@ -36,7 +36,7 @@ def _make_team_result():
                 has_data=True,
             ),
         ],
-        flags_found=set(),
+        comment_codes_found=set(),
     )
 
 
@@ -62,7 +62,7 @@ def _make_mixed_team_result(measured=2, blank=3):
         numbering_direction="Left-to-Right",
         num_tubes=1,
         elevations=elevations,
-        flags_found=set(),
+        comment_codes_found=set(),
     )
 
 
@@ -108,8 +108,8 @@ def test_convert_all_disabled_until_metadata_complete():
     path = "C:/x/FLOOR.xlsx"
     page._team_imported[path] = _make_team_result()
     page._team_section_names[path] = "FLOOR"
-    page._team_flags_confirmed = True
-    page._team_flag_mapping = {}
+    page._team_comment_codes_confirmed = True
+    page._team_comment_code_mapping = {}
 
     # Metadata blank -> convert stays disabled.
     _fill_team_metadata(page, company="", mill="", boiler="", nde="")
@@ -135,14 +135,14 @@ def test_section_name_defaults_from_filename():
     assert _default_section_name("FLOOR.xlsx") == "FLOOR"
 
 
-def test_batch_flag_mapping_applies_to_all_files(tmp_path):
+def test_batch_comment_code_mapping_applies_to_all_files(tmp_path):
     page = _make_page()
     r1, r2 = _make_team_result(), _make_team_result()
     page._team_imported = {"a/FLOOR.xlsx": r1, "b/ROOF.xlsx": r2}
     page._team_section_names = {"a/FLOOR.xlsx": "FLOOR", "b/ROOF.xlsx": "ROOF"}
     _fill_team_metadata(page, company="CO", mill="Mill", boiler="B1", nde="Lab")
-    page._team_flags_confirmed = True
-    page._team_flag_mapping = {"@": "@"}
+    page._team_comment_codes_confirmed = True
+    page._team_comment_code_mapping = {"@": "@"}
     page._team_output_folder_edit.setText(str(tmp_path))
 
     with patch("app.pages.converter_page._ConvertWorker") as MockWorker:

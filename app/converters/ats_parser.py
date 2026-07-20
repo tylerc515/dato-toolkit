@@ -33,7 +33,7 @@ class ATSParseResult:
     numbering_direction: str   # "Left-to-Right" or "Right-to-Left"
     nde_laboratory: str
     year: int
-    ats_flags: dict[str, str]  # {code: description}
+    ats_comment_codes: dict[str, str]  # {code: description}
     elevations: list[ATSElevation]
     tube_numbers: list[int]
 
@@ -49,7 +49,7 @@ def convert_reading(value: object) -> str:
 
     float/int -> zero-padded 3-digit integer (0.234 -> "234", 0.010 -> "010")
     None or empty string -> ""
-    str (flag code) -> unchanged
+    str (comment code) -> unchanged
     """
     if value is None:
         return ""
@@ -59,7 +59,7 @@ def convert_reading(value: object) -> str:
     return stripped
 
 
-def _parse_flag_legend(raw: object) -> dict[str, str]:
+def _parse_comment_code_legend(raw: object) -> dict[str, str]:
     if not isinstance(raw, str) or not raw.strip():
         return {}
     result: dict[str, str] = {}
@@ -112,10 +112,10 @@ def parse_ats_file(filepath: str | Path) -> ATSParseResult:
 
         ws = wb["Thickness"]
 
-        # Row 1 (openpyxl row 1): year and flag legend
+        # Row 1 (openpyxl row 1): year and comment code legend
         year_cell = ws.cell(row=1, column=1).value
         year = int(year_cell) if isinstance(year_cell, (int, float)) else 0
-        ats_flags = _parse_flag_legend(ws.cell(row=1, column=3).value)
+        ats_comment_codes = _parse_comment_code_legend(ws.cell(row=1, column=3).value)
 
         # Row 2 (openpyxl row 2): numbering direction
         numbering_direction = _parse_direction(ws.cell(row=2, column=3).value)
@@ -245,7 +245,7 @@ def parse_ats_file(filepath: str | Path) -> ATSParseResult:
             numbering_direction=numbering_direction,
             nde_laboratory=nde_laboratory,
             year=year,
-            ats_flags=ats_flags,
+            ats_comment_codes=ats_comment_codes,
             elevations=elevations,
             tube_numbers=tube_numbers,
         )

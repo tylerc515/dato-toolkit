@@ -1,4 +1,4 @@
-"""Flag review widget for confirming ATS -> Standard Format code mappings."""
+"""Comment code review widget for confirming ATS -> Standard Format code mappings."""
 from __future__ import annotations
 
 from PyQt6.QtCore import QTimer, Qt, pyqtSignal
@@ -14,18 +14,18 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from app.converters.flag_mapper import FlagMappingResult, STANDARD_SYMBOL_DESCRIPTIONS
+from app.converters.comment_code_mapper import CommentCodeMappingResult, STANDARD_SYMBOL_DESCRIPTIONS
 from app.design.tokens import Color, FontSize
 from app.widgets.components import FixedGridTable, StatusBadge
 
-HEADING_TEXT = "Flag Review"
-SUBTEXT_ALL_KNOWN = "All flag codes were auto-mapped. No review needed."
+HEADING_TEXT = "Comment Code Review"
+SUBTEXT_ALL_KNOWN = "All comment codes were auto-mapped. No review needed."
 SUBTEXT_UNKNOWN = (
-    "Some flag codes in these files are not in the auto-map list. "
+    "Some comment codes in these files are not in the auto-map list. "
     "Enter a Standard Format code for each, or check 'Leave as-is' to pass it through unchanged."
 )
 SUBTEXT_SUGGESTED = (
-    "Some flag codes were matched by description. Review the suggested mappings below "
+    "Some comment codes were matched by description. Review the suggested mappings below "
     "and confirm or change them before converting."
 )
 CONFIRM_TEXT = "Confirm Mappings"
@@ -58,8 +58,8 @@ _STATUS_SEMANTIC_NEEDS_MAPPING = "warning"
 _STATUS_SEMANTIC_LEAVE_AS_IS = "success"
 
 _COLUMNS = [
-    {"label": "ATS Code", "width": 90},
-    {"label": "ATS Description", "stretch": True},
+    {"label": "Comment Code", "width": 90},
+    {"label": "Comment Description", "stretch": True},
     {"label": "Standard Symbol", "width": 260},
     {"label": "Status", "width": 130},
     {"label": "Leave as-is", "width": 90},
@@ -100,8 +100,8 @@ def _make_combo() -> QComboBox:
     combo.setMaximumWidth(COMBO_MAX_WIDTH)
     combo.setMaxVisibleItems(7)
     combo.setToolTip(
-        "Type to search, or pick the Standard Format code this flag "
-        "should be converted to."
+        "Type to search, or pick the Standard Format code this comment code "
+        "should map to."
     )
 
     for symbol, description in STANDARD_SYMBOL_DESCRIPTIONS.items():
@@ -120,20 +120,20 @@ def _make_combo() -> QComboBox:
     return combo
 
 
-class FlagReviewWidget(QWidget):
-    """Shows flag mappings for user review. Emits mappings_confirmed when done."""
+class CommentCodeReviewWidget(QWidget):
+    """Shows comment code mappings for user review. Emits mappings_confirmed when done."""
 
     mappings_confirmed = pyqtSignal(dict)
 
     def __init__(
         self,
-        mapping_result: FlagMappingResult,
-        ats_flags: dict[str, str] | None = None,
+        mapping_result: CommentCodeMappingResult,
+        ats_comment_codes: dict[str, str] | None = None,
         parent: QWidget | None = None,
     ):
         super().__init__(parent)
         self._mapping_result = mapping_result
-        self._ats_flags: dict[str, str] = ats_flags if ats_flags is not None else {}
+        self._ats_comment_codes: dict[str, str] = ats_comment_codes if ats_comment_codes is not None else {}
         self._code_inputs: dict[str, QComboBox] = {}
         self._leave_checks: dict[str, QCheckBox] = {}
         self._build_ui()
@@ -172,15 +172,15 @@ class FlagReviewWidget(QWidget):
         self._table = FixedGridTable(_COLUMNS)
         scroll_layout.addWidget(self._table)
 
-        # Known flags (read-only display) - now goes through the same
-        # table.add_row() path as suggested/unknown flags, eliminating the
+        # Known comment codes (read-only display) - now goes through the same
+        # table.add_row() path as suggested/unknown comment codes, eliminating the
         # pre-redesign special case where known rows used a different
         # construction than the other two categories.
         for ats_code, std_code in self._mapping_result.known.items():
             description = self._mapping_result.unknown.get(ats_code, ats_code)
             status_badge = StatusBadge(
                 AUTO_MAPPED_LABEL, _STATUS_SEMANTIC_AUTO_MAPPED,
-                tooltip="This flag code was automatically matched with high confidence. No action needed.",
+                tooltip="This comment code was automatically matched with high confidence. No action needed.",
             )
             self._table.add_row([
                 QLabel(ats_code),
@@ -190,9 +190,9 @@ class FlagReviewWidget(QWidget):
                 QLabel(""),
             ])
 
-        # Suggested flags (editable combo, pre-filled, no Leave as-is)
+        # Suggested comment codes (editable combo, pre-filled, no Leave as-is)
         for ats_code, std_symbol in self._mapping_result.suggested.items():
-            description = self._ats_flags.get(ats_code, ats_code)
+            description = self._ats_comment_codes.get(ats_code, ats_code)
 
             combo = _make_combo()
             display_text = (
@@ -216,7 +216,7 @@ class FlagReviewWidget(QWidget):
                 QLabel(""),
             ])
 
-        # Unknown flags (editable combo, no pre-fill)
+        # Unknown comment codes (editable combo, no pre-fill)
         for ats_code, description in self._mapping_result.unknown.items():
             combo = _make_combo()
             combo.currentTextChanged.connect(self._on_input_changed)
@@ -229,7 +229,7 @@ class FlagReviewWidget(QWidget):
 
             leave_check = QCheckBox(LEAVE_AS_IS_TEXT)
             leave_check.setToolTip(
-                "Pass this flag code through to the output unchanged, instead of "
+                "Pass this comment code through to the output unchanged, instead of "
                 "mapping it to a Standard Format code."
             )
             leave_check.stateChanged.connect(
