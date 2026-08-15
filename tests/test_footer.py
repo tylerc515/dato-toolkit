@@ -37,6 +37,27 @@ def test_link_label_opens_url_on_click():
     mock_open.assert_called_once_with("https://example.com")
 
 
+def test_footer_bar_shows_bsi_website_link():
+    from app.widgets.footer import BSI_WEBSITE_URL, FooterBar, _LinkLabel
+    footer = FooterBar()
+    links = footer.findChildren(_LinkLabel)
+    bsi_links = [link for link in links if link._url == BSI_WEBSITE_URL]
+    assert len(bsi_links) == 1
+    assert bsi_links[0].text() == "Boiler Services and Inspection"
+    assert BSI_WEBSITE_URL == "https://www.boilerservicesandinspection.com"
+
+
+def test_footer_bar_link_order():
+    from app.widgets.footer import FooterBar, _LinkLabel
+    footer = FooterBar()
+    labels = [link.text() for link in footer.findChildren(_LinkLabel)]
+    assert labels == [
+        "Developed by Tyler Chambers",
+        "Boiler Services and Inspection",
+        "Documentation",
+    ]
+
+
 def test_link_label_ignores_right_click():
     from app.widgets.footer import _LinkLabel
     label = _LinkLabel("Click me", "https://example.com", "#eaeaea")
