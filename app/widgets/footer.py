@@ -9,6 +9,8 @@ from PyQt6.QtWidgets import QHBoxLayout, QLabel, QWidget
 
 from app.design.tokens import Color, FONT_FAMILY, FontSize
 
+BSI_WEBSITE_URL = "https://www.boilerservicesandinspection.com"
+
 
 class _LinkLabel(QLabel):
     """QLabel that opens a URL on left-click and changes color on hover via QSS."""
@@ -29,7 +31,15 @@ class _LinkLabel(QLabel):
 
 
 class FooterBar(QWidget):
-    """Persistent 28px footer bar with developer attribution and documentation link."""
+    """Persistent 28px footer bar with developer attribution, company site, and documentation link."""
+
+    @staticmethod
+    def _separator() -> QLabel:
+        label = QLabel(" · ")
+        label.setStyleSheet(
+            f"QLabel {{ color: {Color.TEXT_MUTED}; font-family: '{FONT_FAMILY}'; font-size: {FontSize.LABEL}px; }}"
+        )
+        return label
 
     def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
@@ -48,9 +58,13 @@ class FooterBar(QWidget):
             "https://github.com/tylerc515",
             Color.TEXT_PRIMARY,
         )
-        separator = QLabel(" · ")
-        separator.setStyleSheet(
-            f"QLabel {{ color: {Color.TEXT_MUTED}; font-family: '{FONT_FAMILY}'; font-size: {FontSize.LABEL}px; }}"
+        # Company site sits between the two: it is attribution like the developer
+        # link, so it shares that hover color and leaves Documentation as the only
+        # accent-colored item in the bar.
+        bsi_link = _LinkLabel(
+            "Boiler Services and Inspection",
+            BSI_WEBSITE_URL,
+            Color.TEXT_PRIMARY,
         )
         docs_link = _LinkLabel(
             "Documentation",
@@ -60,6 +74,8 @@ class FooterBar(QWidget):
 
         layout.addStretch(1)
         layout.addWidget(dev_link)
-        layout.addWidget(separator)
+        layout.addWidget(self._separator())
+        layout.addWidget(bsi_link)
+        layout.addWidget(self._separator())
         layout.addWidget(docs_link)
         layout.addStretch(1)
