@@ -17,11 +17,11 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from app.design.icons import icon
+from app.design.tooltip import set_tooltip
 from app.history import HistoryEntry, format_timestamp, load_history
 from app.search import matches_search
 from app.widgets import HelpPanel
-from app.widgets.components import FixedGridTable, SecondaryButton, StatusBadge
+from app.widgets.components import ICON_BUTTON_SIZE_SMALL, FixedGridTable, IconButton, SecondaryButton, StatusBadge
 
 # --- UI text -------------------------------------------------------------
 
@@ -52,7 +52,6 @@ copy was also generated alongside it.</p>
 project files themselves, which you can manage from the dashboard.</p>
 """
 
-_ACTION_BUTTON_SIZE = 28
 
 # NOTE on the "Equipment" column: the original task brief called for a
 # "Sections" column here, but HistoryEntry has no per-entry section *count*
@@ -99,12 +98,8 @@ def _text_cell(text: str) -> QLabel:
     return label
 
 
-def _icon_button(icon_name: str, tooltip: str) -> SecondaryButton:
-    button = SecondaryButton("")
-    button.setIcon(icon(icon_name))
-    button.setToolTip(tooltip)
-    button.setFixedSize(_ACTION_BUTTON_SIZE, _ACTION_BUTTON_SIZE)
-    return button
+def _icon_button(icon_name: str, tooltip: str) -> IconButton:
+    return IconButton("", tooltip, icon_name=icon_name, size=ICON_BUTTON_SIZE_SMALL)
 
 
 class HistoryPage(QWidget):
@@ -133,10 +128,7 @@ class HistoryPage(QWidget):
         title.setProperty("role", "heading")
         header_row.addWidget(title)
         header_row.addStretch(1)
-        self.help_button = QPushButton("?")
-        self.help_button.setFixedSize(32, 32)
-        self.help_button.setProperty("flat", "true")
-        self.help_button.setToolTip("Show or hide help for this page")
+        self.help_button = IconButton("?", "Show or hide help for this page")
         self.help_button.clicked.connect(self._toggle_help)
         header_row.addWidget(self.help_button)
         content_layout.addLayout(header_row)
@@ -226,7 +218,7 @@ class HistoryPage(QWidget):
             )
         else:
             pdf_widget = _text_cell(PDF_NONE_TEXT)
-            pdf_widget.setToolTip(PDF_ABSENT_TOOLTIP)
+            set_tooltip(pdf_widget, PDF_ABSENT_TOOLTIP)
 
         return [
             _text_cell(format_timestamp(entry.generated_at)),

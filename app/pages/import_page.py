@@ -13,7 +13,6 @@ from PyQt6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QLabel,
-    QMessageBox,
     QPushButton,
     QScrollArea,
     QVBoxLayout,
@@ -21,11 +20,14 @@ from PyQt6.QtWidgets import (
 )
 
 from app.design.icons import icon
+from app.design.qss import apply_style
+from app.design.tooltip import set_tooltip
 from app.design.tokens import Color, FontSize, Radius, Spacing
 from app.parser import TraceFileData, TraceParseError, parse_trace_csv
 from app.project import find_project_for_metadata, find_similar_project_for_metadata
 from app.widgets import HelpPanel
-from app.widgets.components import Card, SecondaryButton
+from app.widgets.components import Card, IconButton, SecondaryButton
+from app.widgets.dialogs import MessageDialog
 
 # --- UI text -------------------------------------------------------------
 
@@ -76,19 +78,10 @@ class _DropZone(QFrame):
 
     def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
-        self._base_style = (
-            f"QFrame {{ border: 2px dashed {Color.BORDER}; border-radius: {Radius.CARD}px; "
-            f"background-color: {Color.CARD_BG}; }}"
-            f"QFrame:hover {{ border-color: {Color.ACCENT}; }}"
-        )
-        self._drag_active_style = (
-            f"QFrame {{ border: 2px dashed {Color.ACCENT}; border-radius: {Radius.CARD}px; "
-            f"background-color: {Color.ACCENT_BG_TINT}; }}"
-        )
         self.setAcceptDrops(True)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setMinimumHeight(180)
-        self.setStyleSheet(self._base_style)
+        self._set_drag_active(False)
 
         layout = QVBoxLayout(self)
         layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -101,7 +94,7 @@ class _DropZone(QFrame):
 
         text = QLabel(DROP_ZONE_TEXT)
         text.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        text.setStyleSheet(f"font-size: {FontSize.SECTION}px; color: {Color.TEXT_SECONDARY};")
+        apply_style(text, f"font-size: {FontSize.SECTION}px; color: {Color.TEXT_SECONDARY};")
         layout.addWidget(text)
 
         hint = QLabel(DROP_ZONE_HINT)
@@ -109,18 +102,31 @@ class _DropZone(QFrame):
         hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(hint)
 
-        self.setToolTip("Drop one or more TRACE export .csv files here, or click to open a file browser.")
+        set_tooltip(self, "Drop one or more TRACE export .csv files here, or click to open a file browser.")
+
+    def _set_drag_active(self, active: bool) -> None:
+        """Dashed accent border + tinted fill while a file is dragged over.
+
+        Scoped to this frame only: a `QFrame` type selector here would also
+        border every QLabel inside the zone (QLabel derives from QFrame)."""
+        border = Color.ACCENT if active else Color.BORDER
+        fill = Color.ACCENT_BG_TINT if active else Color.CARD_BG
+        apply_style(
+            self,
+            f"border: 2px dashed {border}; border-radius: {Radius.CARD}px; background-color: {fill};",
+            {":hover": f"border-color: {Color.ACCENT};"},
+        )
 
     def dragEnterEvent(self, event):
         if event.mimeData().hasUrls():
             event.acceptProposedAction()
-            self.setStyleSheet(self._drag_active_style)
+            self._set_drag_active(True)
 
     def dragLeaveEvent(self, event):
-        self.setStyleSheet(self._base_style)
+        self._set_drag_active(False)
 
     def dropEvent(self, event):
-        self.setStyleSheet(self._base_style)
+        self._set_drag_active(False)
         paths = [url.toLocalFile() for url in event.mimeData().urls() if url.isLocalFile()]
         csv_paths = [p for p in paths if p.lower().endswith(".csv")]
         if not csv_paths:
@@ -158,22 +164,23 @@ class _FileCard(Card):
         filename = Path(result.path).name
 
         if result.error:
-            self.setStyleSheet(
-                f"QFrame {{ background-color: {Color.CARD_BG}; border: 1px solid {Color.DANGER}; "
-                f"border-radius: {Radius.CARD}px; }}"
+            apply_style(
+                self,
+                f"background-color: {Color.CARD_BG}; border: 1px solid {Color.DANGER}; "
+                f"border-radius: {Radius.CARD}px;",
             )
             name_label = QLabel(f"⚠ {filename}")
-            name_label.setStyleSheet(f"color: {Color.DANGER}; font-weight: 600;")
+            apply_style(name_label, f"color: {Color.DANGER}; font-weight: 600;")
             info_layout.addWidget(name_label)
             error_label = QLabel(result.error)
             error_label.setWordWrap(True)
-            error_label.setStyleSheet(f"color: {Color.DANGER};")
+            error_label.setProperty("tone", "danger")
             info_layout.addWidget(error_label)
         else:
             data = result.data
             assert data is not None
             name_label = QLabel(filename)
-            name_label.setStyleSheet("font-weight: 600;")
+            name_label.setProperty("emphasis", "true")
             info_layout.addWidget(name_label)
             detail_label = QLabel(f"Section: {data.boiler_section}  •  {len(data.elevations)} elevations")
             detail_label.setProperty("role", "muted")
@@ -181,11 +188,7 @@ class _FileCard(Card):
 
         row.addLayout(info_layout, 1)
 
-        remove_button = QPushButton("×")
-        remove_button.setProperty("flat", "true")
-        remove_button.setFixedSize(32, 32)
-        remove_button.setToolTip(f"Remove {filename}")
-        remove_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        remove_button = IconButton("×", f"Remove {filename}")
         remove_button.clicked.connect(lambda: self.remove_requested.emit(self.path))
         row.addWidget(remove_button)
 
@@ -218,18 +221,17 @@ class ImportPage(QWidget):
         title.setProperty("role", "heading")
         header_row.addWidget(title)
         header_row.addStretch(1)
-        self.help_button = QPushButton("?")
-        self.help_button.setFixedSize(32, 32)
-        self.help_button.setToolTip("Show help for this step")
-        self.help_button.setProperty("flat", "true")
+        self.help_button = IconButton("?", "Show help for this step")
         self.help_button.clicked.connect(self._toggle_help)
         header_row.addWidget(self.help_button)
         content_layout.addLayout(header_row)
 
         self.warning_banner = QLabel(WARNING_BANNER_TEXT)
         self.warning_banner.setWordWrap(True)
-        self.warning_banner.setStyleSheet(
-            f"background-color: {Color.WARNING}; color: {Color.PAGE_BG}; border-radius: 8px; padding: 10px;"
+        apply_style(
+            self.warning_banner,
+            f"background-color: {Color.WARNING}; color: {Color.PAGE_BG}; "
+            f"border-radius: {Radius.BUTTON}px; padding: {Spacing.SM}px {Spacing.MD}px;",
         )
         self.warning_banner.setVisible(False)
         content_layout.addWidget(self.warning_banner)
@@ -251,14 +253,14 @@ class ImportPage(QWidget):
         button_row = QHBoxLayout()
         self.clear_all_button = QPushButton(CLEAR_ALL_TEXT)
         self.clear_all_button.setProperty("flat", "true")
-        self.clear_all_button.setToolTip("Remove all imported files")
+        set_tooltip(self.clear_all_button, "Remove all imported files")
         self.clear_all_button.clicked.connect(self.clear_all)
         button_row.addWidget(self.clear_all_button)
         button_row.addStretch(1)
         self.continue_button = QPushButton(CONTINUE_TEXT)
         self.continue_button.setProperty("accent", "true")
         self.continue_button.setEnabled(False)
-        self.continue_button.setToolTip("Proceed to arrange sections")
+        set_tooltip(self.continue_button, "Proceed to arrange sections")
         self.continue_button.clicked.connect(self._emit_files_ready)
         button_row.addWidget(self.continue_button)
         content_layout.addLayout(button_row)
@@ -272,7 +274,7 @@ class ImportPage(QWidget):
         self.help_panel.toggle()
 
     def _show_invalid_drop_message(self) -> None:
-        QMessageBox.warning(self, "Unsupported File Type", INVALID_FILE_TYPE_MESSAGE)
+        MessageDialog.warning(self, "Unsupported File Type", INVALID_FILE_TYPE_MESSAGE)
 
     def _browse_files(self) -> None:
         paths, _ = QFileDialog.getOpenFileNames(self, "Select TRACE export files", "", "CSV Files (*.csv)")
@@ -353,13 +355,9 @@ class ImportPage(QWidget):
             return
 
         title = project_path.stem
-        reply = QMessageBox.question(
-            self,
-            PROJECT_FOUND_TITLE,
-            message.format(title=title),
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-        )
-        if reply == QMessageBox.StandardButton.Yes:
+        if MessageDialog.question(
+            self, PROJECT_FOUND_TITLE, message.format(title=title), accept_text="Load", reject_text="Not now"
+        ):
             self.project_load_requested.emit(project_path)
 
     def _emit_files_ready(self) -> None:

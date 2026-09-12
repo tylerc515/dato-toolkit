@@ -14,27 +14,31 @@ from PyQt6.QtGui import QDesktopServices
 from PyQt6.QtWidgets import (
     QCheckBox,
     QFileDialog,
+    QFrame,
     QGraphicsOpacityEffect,
     QHBoxLayout,
     QLabel,
     QLineEdit,
-    QMessageBox,
     QProgressBar,
     QPushButton,
+    QScrollArea,
     QVBoxLayout,
     QWidget,
 )
 
 from app.builder import TrackerData, TrackerItem, TrackerSection, build_tracker
 from app.design.icons import icon
-from app.design.tokens import Color, Radius
+from app.design.qss import apply_style
+from app.design.tooltip import set_tooltip
+from app.design.tokens import Color, Radius, Spacing
 from app.history import HistoryEntry, add_history_entry
 from app.logo import get_pixmap
 from app.pdf_export import export_tracker_pdf
 from app.project import ProjectConfig, sanitize_filename
 from app.validation import validate_tracker_output
 from app.widgets import HelpPanel
-from app.widgets.components import Card, PrimaryButton, SecondaryButton
+from app.widgets.components import Card, IconButton, PrimaryButton, SecondaryButton
+from app.widgets.dialogs import MessageDialog
 
 # --- UI text -------------------------------------------------------------
 
@@ -127,18 +131,23 @@ class GeneratePage(QWidget):
     def _build_ui(self) -> None:
         outer = QHBoxLayout(self)
 
+        column = QVBoxLayout()
+        column.setSpacing(Spacing.SM)
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
         content = QWidget()
         content_layout = QVBoxLayout(content)
+        content_layout.setContentsMargins(0, 0, Spacing.SM, 0)
+        scroll.setWidget(content)
+        column.addWidget(scroll, 1)
 
         header_row = QHBoxLayout()
         title = QLabel(TITLE_TEXT)
         title.setProperty("role", "heading")
         header_row.addWidget(title)
         header_row.addStretch(1)
-        self.help_button = QPushButton("?")
-        self.help_button.setFixedSize(32, 32)
-        self.help_button.setToolTip("Show help for this step")
-        self.help_button.setProperty("flat", "true")
+        self.help_button = IconButton("?", "Show help for this step")
         self.help_button.clicked.connect(self._toggle_help)
         header_row.addWidget(self.help_button)
         content_layout.addLayout(header_row)
@@ -158,7 +167,7 @@ class GeneratePage(QWidget):
         content_layout.addWidget(folder_label)
         folder_row = QHBoxLayout()
         self.folder_edit = QLineEdit()
-        self.folder_edit.setToolTip("Folder where the generated tracker will be saved")
+        set_tooltip(self.folder_edit, "Folder where the generated tracker will be saved")
         folder_row.addWidget(self.folder_edit, 1)
         self.browse_button = SecondaryButton(BROWSE_TEXT)
         self.browse_button.clicked.connect(self._browse_folder)
@@ -169,11 +178,11 @@ class GeneratePage(QWidget):
         filename_label.setProperty("role", "label")
         content_layout.addWidget(filename_label)
         self.filename_edit = QLineEdit()
-        self.filename_edit.setToolTip("Name of the generated Excel file")
+        set_tooltip(self.filename_edit, "Name of the generated Excel file")
         content_layout.addWidget(self.filename_edit)
 
         self.pdf_checkbox = QCheckBox(EXPORT_PDF_LABEL)
-        self.pdf_checkbox.setToolTip("Also save a PDF copy of the generated tracker")
+        set_tooltip(self.pdf_checkbox, "Also save a PDF copy of the generated tracker")
         content_layout.addWidget(self.pdf_checkbox)
 
         self.progress_bar = QProgressBar()
@@ -181,9 +190,10 @@ class GeneratePage(QWidget):
         content_layout.addWidget(self.progress_bar)
 
         self.success_card = Card()
-        self.success_card.setStyleSheet(
-            f"QFrame {{ background-color: {Color.CARD_BG}; border: 1px solid {Color.SUCCESS}; "
-            f"border-radius: {Radius.CARD}px; }}"
+        apply_style(
+            self.success_card,
+            f"background-color: {Color.CARD_BG}; border: 1px solid {Color.SUCCESS}; "
+            f"border-radius: {Radius.CARD}px;",
         )
         success_layout = self.success_card.layout()
         success_heading_row = QHBoxLayout()
@@ -192,7 +202,7 @@ class GeneratePage(QWidget):
         success_heading_row.addWidget(success_heading_icon)
         success_heading = QLabel(SUCCESS_TITLE)
         success_heading.setProperty("role", "heading")
-        success_heading.setStyleSheet(f"color: {Color.SUCCESS};")
+        success_heading.setProperty("tone", "success")
         success_heading_row.addWidget(success_heading)
         success_heading_row.addStretch(1)
         success_layout.addLayout(success_heading_row)
@@ -204,7 +214,7 @@ class GeneratePage(QWidget):
         success_layout.addWidget(success_text)
         self.validation_warning_label = QLabel("")
         self.validation_warning_label.setWordWrap(True)
-        self.validation_warning_label.setStyleSheet(f"color: {Color.WARNING};")
+        self.validation_warning_label.setProperty("tone", "warning")
         self.validation_warning_label.setVisible(False)
         success_layout.addWidget(self.validation_warning_label)
         success_buttons = QHBoxLayout()
@@ -215,18 +225,18 @@ class GeneratePage(QWidget):
         self.open_folder_button.clicked.connect(self._open_folder)
         success_buttons.addWidget(self.open_folder_button)
         self.email_button = SecondaryButton(EMAIL_TEXT)
-        self.email_button.setToolTip("Open your email client with the tracker details")
+        set_tooltip(self.email_button, "Open your email client with the tracker details")
         self.email_button.clicked.connect(self._email_tracker)
         success_buttons.addWidget(self.email_button)
         self.new_project_button = SecondaryButton(NEW_PROJECT_TEXT)
-        self.new_project_button.setToolTip(
+        set_tooltip(self.new_project_button, 
             "Clear the wizard and start a fresh tracker. The file you just "
             "generated stays saved on disk."
         )
         self.new_project_button.clicked.connect(self.new_project_requested.emit)
         success_buttons.addWidget(self.new_project_button)
         self.gen_email_button = PrimaryButton(GEN_EMAIL_TEXT)
-        self.gen_email_button.setToolTip("Generate a formatted status update email for this project")
+        set_tooltip(self.gen_email_button, "Generate a formatted status update email for this project")
         self.gen_email_button.clicked.connect(self._on_email_requested)
         success_buttons.addWidget(self.gen_email_button)
         success_layout.addLayout(success_buttons)
@@ -250,12 +260,12 @@ class GeneratePage(QWidget):
         button_row.addWidget(self.back_button)
         button_row.addStretch(1)
         self.generate_button = PrimaryButton(GENERATE_TEXT)
-        self.generate_button.setToolTip("Create the formatted Excel tracker")
+        set_tooltip(self.generate_button, "Create the formatted Excel tracker")
         self.generate_button.clicked.connect(self._on_generate)
         button_row.addWidget(self.generate_button)
-        content_layout.addLayout(button_row)
+        column.addLayout(button_row)
 
-        outer.addWidget(content, 1)
+        outer.addLayout(column, 1)
 
         self.help_panel = HelpPanel(HELP_TITLE, HELP_BODY)
         outer.addWidget(self.help_panel)
@@ -298,12 +308,12 @@ class GeneratePage(QWidget):
 
         folder = self.folder_edit.text().strip()
         if not folder:
-            QMessageBox.warning(self, MISSING_OUTPUT_FOLDER_TITLE, MISSING_OUTPUT_FOLDER_TEXT)
+            MessageDialog.warning(self, MISSING_OUTPUT_FOLDER_TITLE, MISSING_OUTPUT_FOLDER_TEXT)
             return
 
         filename = self.filename_edit.text().strip()
         if not filename:
-            QMessageBox.warning(self, MISSING_OUTPUT_FILENAME_TITLE, MISSING_OUTPUT_FILENAME_TEXT)
+            MessageDialog.warning(self, MISSING_OUTPUT_FILENAME_TITLE, MISSING_OUTPUT_FILENAME_TEXT)
             return
         if not filename.lower().endswith(XLSX_SUFFIX):
             filename += XLSX_SUFFIX
@@ -392,7 +402,7 @@ class GeneratePage(QWidget):
         self.progress_bar.setVisible(False)
         self.generate_button.setEnabled(True)
         self.back_button.setEnabled(True)
-        QMessageBox.critical(self, GENERATION_FAILED_TITLE, message)
+        MessageDialog.critical(self, GENERATION_FAILED_TITLE, message)
 
     def _on_email_requested(self) -> None:
         if self._config is not None:

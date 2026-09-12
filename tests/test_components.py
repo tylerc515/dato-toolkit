@@ -220,3 +220,20 @@ def test_fixed_grid_table_add_row_preserves_qlabel_subclass_styling():
     # Plain QLabel must still get the generic data-cell styling applied.
     assert "border-top" in plain_label.styleSheet()
     assert "padding" in plain_label.styleSheet()
+
+
+def test_icon_button_is_square_flat_and_padding_free():
+    from PyQt6.QtCore import Qt
+
+    from app.styles import build_stylesheet
+    from app.widgets.components import ICON_BUTTON_SIZE_SMALL, IconButton
+
+    button = IconButton("?", "Show help", size=ICON_BUTTON_SIZE_SMALL)
+    assert button.width() == button.height() == ICON_BUTTON_SIZE_SMALL
+    assert button.property("iconButton") == "true"
+    assert button.property("flat") is True
+    assert button.toolTip() == "Show help"
+    assert button.cursor().shape() == Qt.CursorShape.PointingHandCursor
+    # The global button padding would leave no room for the glyph in a
+    # 28px square; the iconButton rule must zero it.
+    assert 'QPushButton[iconButton="true"]' in build_stylesheet("dark")

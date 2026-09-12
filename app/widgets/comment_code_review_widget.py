@@ -15,6 +15,8 @@ from PyQt6.QtWidgets import (
 )
 
 from app.converters.comment_code_mapper import CommentCodeMappingResult, STANDARD_SYMBOL_DESCRIPTIONS
+from app.design.qss import apply_style
+from app.design.tooltip import set_tooltip
 from app.design.tokens import Color, FontSize
 from app.widgets.components import FixedGridTable, StatusBadge
 
@@ -99,7 +101,7 @@ def _make_combo() -> QComboBox:
     combo.setMinimumWidth(COMBO_MIN_WIDTH)
     combo.setMaximumWidth(COMBO_MAX_WIDTH)
     combo.setMaxVisibleItems(7)
-    combo.setToolTip(
+    set_tooltip(combo, 
         "Type to search, or pick the Standard Format code this comment code "
         "should map to."
     )
@@ -151,7 +153,7 @@ class CommentCodeReviewWidget(QWidget):
 
         if not self._mapping_result.unknown and not self._mapping_result.suggested:
             info = QLabel(SUBTEXT_ALL_KNOWN)
-            info.setStyleSheet(f"color: {Color.SUCCESS}; font-size: {FontSize.SMALL}px;")
+            apply_style(info, f"color: {Color.SUCCESS}; font-size: {FontSize.SMALL}px;")
             outer.addWidget(info)
             return
 
@@ -228,7 +230,7 @@ class CommentCodeReviewWidget(QWidget):
             )
 
             leave_check = QCheckBox(LEAVE_AS_IS_TEXT)
-            leave_check.setToolTip(
+            set_tooltip(leave_check, 
                 "Pass this comment code through to the output unchanged, instead of "
                 "mapping it to a Standard Format code."
             )
@@ -252,7 +254,7 @@ class CommentCodeReviewWidget(QWidget):
         btn_row.addStretch(1)
         self._confirm_btn = QPushButton(CONFIRM_TEXT)
         self._confirm_btn.setProperty("accent", "true")
-        self._confirm_btn.setToolTip(
+        set_tooltip(self._confirm_btn, 
             "Lock in these mappings so you can convert. If you change a "
             "mapping afterward, click this again to apply the update."
         )

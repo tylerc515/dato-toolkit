@@ -49,7 +49,9 @@ from app.pages.settings_page import SettingsPage
 from app.pages.settings_page import STATUS_HINT as SETTINGS_STATUS_HINT
 from app.parser import TraceFileData
 from app.project import APP_DIR_NAME, ProjectConfig, ProjectError, get_app_data_dir, load_project
-from app.design.tokens import Color, FontSize, Spacing
+from app.design.qss import apply_style
+from app.design.tooltip import set_tooltip
+from app.design.tokens import Color, FontSize, Radius, Spacing
 from app.updater import GITHUB_RELEASES_PAGE_URL, UpdateCheckResult, UpdateCheckWorker, format_published_at, launch_update_bat, write_update_bat
 from app.widgets.update_dialog import PENDING_KEY_DEST, PENDING_KEY_TEMP, UpdateDialog
 from app.widgets import OnboardingDialog, StepIndicator
@@ -64,19 +66,19 @@ WINDOW_MIN_HEIGHT = 600
 STEP_LABELS = ["Import Files", "Arrange Sections", "Generate Tracker"]
 ONBOARDING_FLAG_FILENAME = "onboarding_complete"
 
-UPDATE_BANNER_BG = "#1a3a2a"
-UPDATE_BANNER_BORDER_COLOR = "#00B050"  # matches Color.SUCCESS
+UPDATE_BANNER_BG = Color.SUCCESS_BG_TINT
+UPDATE_BANNER_BORDER_COLOR = Color.SUCCESS
 UPDATE_BANNER_HEIGHT = 44
 UPDATE_BANNER_DELAY_MS = 2000
 UPDATE_BANNER_ANIM_MS = 250
 UPDATE_AVAILABLE_LABEL_TEXT = "Update available"
-PENDING_BANNER_BG = "#1a2a3a"
+PENDING_BANNER_BG = Color.ACCENT_BG_TINT
 PENDING_BANNER_TEXT = "An update is ready to install."
 INSTALL_NOW_TEXT = "Install Now"
-VIEW_INSTALL_TEXT = "View & Install"
+VIEW_INSTALL_TEXT = "View && Install"  # "&&" renders one "&" - a single "&" is a Qt mnemonic
 DISMISS_TEXT = "Dismiss"
 
-INDICATOR_COLOR_UNKNOWN = "#5a6178"
+INDICATOR_COLOR_UNKNOWN = Color.TEXT_FAINT
 
 TRAY_SHOW_TEXT = "Show DATO Toolkit"
 TRAY_EXIT_TEXT = "Exit"
@@ -186,7 +188,7 @@ class _UpdateIndicator(QLabel):
         self.set_color(INDICATOR_COLOR_UNKNOWN)
 
     def set_color(self, color: str) -> None:
-        self.setStyleSheet(f"background-color: {color}; border-radius: 7px;")
+        apply_style(self, f"background-color: {color}; border-radius: {Radius.INPUT}px;")
 
 
 class MainWindow(QMainWindow):
@@ -224,7 +226,7 @@ class MainWindow(QMainWindow):
     def _build_ui(self) -> None:
         central = QFrame()
         central.setObjectName("AppFrame")
-        central.setStyleSheet(f"QFrame#AppFrame {{ border: 1px solid {Color.BORDER}; }}")
+        apply_style(central, f"border: 1px solid {Color.BORDER};")
         layout = QVBoxLayout(central)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
@@ -311,7 +313,7 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(central)
 
         self.size_grip = QSizeGrip(self)
-        self.size_grip.setStyleSheet("background: transparent;")
+        apply_style(self.size_grip, "background: transparent;")
         self.size_grip.raise_()
 
         self.status_bar = self.statusBar()
@@ -322,14 +324,14 @@ class MainWindow(QMainWindow):
 
     def _build_header(self) -> QFrame:
         header = _DragHeader(self)
-        header.setStyleSheet(f"background-color: {Color.SIDEBAR_BG};")
+        apply_style(header, f"background-color: {Color.SIDEBAR_BG};")
         layout = QHBoxLayout(header)
         layout.setContentsMargins(16, 10, 16, 10)
 
         layout.addStretch(1)
 
         self.update_indicator = _UpdateIndicator()
-        self.update_indicator.setToolTip("Checking for updates…")
+        set_tooltip(self.update_indicator, "Checking for updates…")
         layout.addWidget(self.update_indicator, 0, Qt.AlignmentFlag.AlignTop)
 
         self.update_indicator.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -337,7 +339,7 @@ class MainWindow(QMainWindow):
 
         self.update_available_label = QPushButton(UPDATE_AVAILABLE_LABEL_TEXT)
         self.update_available_label.setProperty("flat", "true")
-        self.update_available_label.setStyleSheet(f"color: {Color.WARNING}; font-size: {FontSize.LABEL}px;")
+        apply_style(self.update_available_label, f"color: {Color.WARNING}; font-size: {FontSize.LABEL}px;")
         self.update_available_label.setVisible(False)
         self.update_available_label.setCursor(Qt.CursorShape.PointingHandCursor)
         self.update_available_label.clicked.connect(self._open_update_dialog)
@@ -346,17 +348,17 @@ class MainWindow(QMainWindow):
         layout.addSpacing(12)
 
         self.minimize_button = self._make_window_button("−", Color.BORDER_STRONG)
-        self.minimize_button.setToolTip("Minimize")
+        set_tooltip(self.minimize_button, "Minimize")
         self.minimize_button.clicked.connect(self.showMinimized)
         layout.addWidget(self.minimize_button, 0, Qt.AlignmentFlag.AlignTop)
 
         self.maximize_button = self._make_window_button("□", Color.BORDER_STRONG)
-        self.maximize_button.setToolTip("Maximize")
+        set_tooltip(self.maximize_button, "Maximize")
         self.maximize_button.clicked.connect(self._toggle_maximize_restore)
         layout.addWidget(self.maximize_button, 0, Qt.AlignmentFlag.AlignTop)
 
         self.close_button = self._make_window_button("×", WINDOW_CLOSE_HOVER)
-        self.close_button.setToolTip("Close")
+        set_tooltip(self.close_button, "Close")
         self.close_button.clicked.connect(self.close)
         layout.addWidget(self.close_button, 0, Qt.AlignmentFlag.AlignTop)
 
@@ -367,7 +369,7 @@ class MainWindow(QMainWindow):
         layout = QHBoxLayout(container)
         layout.setContentsMargins(Spacing.LG, Spacing.SM, Spacing.LG, Spacing.SM)
         self.breadcrumb_label = QLabel()
-        self.breadcrumb_label.setStyleSheet(f"color: {Color.TEXT_FAINT}; font-size: {FontSize.SMALL}px;")
+        apply_style(self.breadcrumb_label, f"color: {Color.TEXT_FAINT}; font-size: {FontSize.SMALL}px;")
         layout.addWidget(self.breadcrumb_label)
         layout.addStretch(1)
         return container
@@ -385,26 +387,19 @@ class MainWindow(QMainWindow):
     def _make_window_button(self, text: str, hover_color: str) -> QPushButton:
         button = QPushButton(text)
         button.setFixedSize(WINDOW_BUTTON_SIZE, WINDOW_BUTTON_SIZE)
-        button.setStyleSheet(
-            "QPushButton {"
-            "background-color: transparent;"
-            "border: none;"
-            "border-radius: 6px;"
-            "padding: 0px;"
-            f"font-size: {FontSize.BODY}px;"
-            f"color: {Color.TEXT_PRIMARY};"
-            "}"
-            "QPushButton:hover {"
-            f"background-color: {hover_color};"
-            "}"
+        apply_style(
+            button,
+            f"background-color: transparent; border: none; border-radius: {Radius.INPUT}px; "
+            f"padding: 0; font-size: {FontSize.BODY}px; color: {Color.TEXT_PRIMARY};",
+            {":hover": f"background-color: {hover_color};"},
         )
         return button
 
     def _build_update_banner(self) -> QFrame:
         banner = QFrame()
-        banner.setStyleSheet(
-            f"QFrame {{ background-color: {UPDATE_BANNER_BG}; "
-            f"border-left: 4px solid {UPDATE_BANNER_BORDER_COLOR}; }}"
+        apply_style(
+            banner,
+            f"background-color: {UPDATE_BANNER_BG}; border-left: {Spacing.XS}px solid {UPDATE_BANNER_BORDER_COLOR};",
         )
         banner.setMinimumHeight(0)
         banner.setMaximumHeight(0)  # collapsed until animated open
@@ -415,25 +410,26 @@ class MainWindow(QMainWindow):
         text_col = QVBoxLayout()
         text_col.setSpacing(0)
         self.update_banner_version_label = QLabel("")
-        self.update_banner_version_label.setStyleSheet(f"color: {Color.TEXT_PRIMARY}; font-weight: 600;")
+        self.update_banner_version_label.setProperty("emphasis", "true")
         text_col.addWidget(self.update_banner_version_label)
         self.update_banner_date_label = QLabel("")
-        self.update_banner_date_label.setStyleSheet(f"color: {UPDATE_BANNER_BORDER_COLOR}; font-size: {FontSize.LABEL}px;")
+        apply_style(self.update_banner_date_label, f"color: {UPDATE_BANNER_BORDER_COLOR}; font-size: {FontSize.LABEL}px;")
         text_col.addWidget(self.update_banner_date_label)
         layout.addLayout(text_col, 1)
 
         view_install_btn = QPushButton(VIEW_INSTALL_TEXT)
-        view_install_btn.setStyleSheet(
-            f"QPushButton {{ background: {Color.ACCENT}; color: white; border-radius: 4px; "
-            f"padding: 4px 12px; font-weight: 600; }}"
-            f"QPushButton:hover {{ background: {Color.ACCENT_HOVER}; }}"
+        apply_style(
+            view_install_btn,
+            f"background: {Color.ACCENT}; color: {Color.TEXT_PRIMARY}; border: none; "
+            f"border-radius: {Radius.INPUT}px; padding: {Spacing.XS}px {Spacing.MD}px; font-weight: 600;",
+            {":hover": f"background: {Color.ACCENT_HOVER};"},
         )
         view_install_btn.clicked.connect(self._open_update_dialog)
         layout.addWidget(view_install_btn)
 
         dismiss_btn = QPushButton(DISMISS_TEXT)
         dismiss_btn.setProperty("flat", "true")
-        dismiss_btn.setStyleSheet(f"color: {UPDATE_BANNER_BORDER_COLOR};")
+        apply_style(dismiss_btn, f"color: {UPDATE_BANNER_BORDER_COLOR};")
         dismiss_btn.clicked.connect(lambda: banner.setMaximumHeight(0))
         layout.addWidget(dismiss_btn)
 
@@ -441,29 +437,29 @@ class MainWindow(QMainWindow):
 
     def _build_pending_banner(self) -> QFrame:
         banner = QFrame()
-        banner.setStyleSheet(
-            f"QFrame {{ background-color: {PENDING_BANNER_BG}; border-left: 4px solid {Color.ACCENT}; }}"
-        )
+        apply_style(banner, f"background-color: {PENDING_BANNER_BG}; border-left: {Spacing.XS}px solid {Color.ACCENT};")
         banner.setFixedHeight(UPDATE_BANNER_HEIGHT)
         banner.setVisible(False)
         layout = QHBoxLayout(banner)
         layout.setContentsMargins(16, 0, 16, 0)
 
         lbl = QLabel(PENDING_BANNER_TEXT)
-        lbl.setStyleSheet(f"color: {Color.TEXT_PRIMARY};")
+        apply_style(lbl, f"color: {Color.TEXT_PRIMARY};")
         layout.addWidget(lbl, 1)
 
         install_btn = QPushButton(INSTALL_NOW_TEXT)
-        install_btn.setStyleSheet(
-            f"QPushButton {{ background: {Color.ACCENT}; color: white; border-radius: 4px; padding: 4px 12px; }}"
-            f"QPushButton:hover {{ background: {Color.ACCENT_HOVER}; }}"
+        apply_style(
+            install_btn,
+            f"background: {Color.ACCENT}; color: {Color.TEXT_PRIMARY}; border: none; "
+            f"border-radius: {Radius.INPUT}px; padding: {Spacing.XS}px {Spacing.MD}px; font-weight: 600;",
+            {":hover": f"background: {Color.ACCENT_HOVER};"},
         )
         install_btn.clicked.connect(self._install_pending_update)
         layout.addWidget(install_btn)
 
         dismiss_btn = QPushButton(DISMISS_TEXT)
         dismiss_btn.setProperty("flat", "true")
-        dismiss_btn.setStyleSheet(f"color: {Color.TEXT_MUTED};")
+        apply_style(dismiss_btn, f"color: {Color.TEXT_MUTED};")
         dismiss_btn.clicked.connect(lambda: banner.setVisible(False))
         layout.addWidget(dismiss_btn)
 
@@ -493,18 +489,18 @@ class MainWindow(QMainWindow):
         self._update_info = result
         if result.error:
             self.update_indicator.set_color(INDICATOR_COLOR_UNKNOWN)
-            self.update_indicator.setToolTip("Could not check for updates")
+            set_tooltip(self.update_indicator, "Could not check for updates")
             return
 
         if result.update_available:
             self.update_indicator.set_color(Color.WARNING)
-            self.update_indicator.setToolTip(f"Update available: v{result.latest_version}")
+            set_tooltip(self.update_indicator, f"Update available: v{result.latest_version}")
             self._start_pulse_animation()
             self.update_available_label.setVisible(True)
             QTimer.singleShot(UPDATE_BANNER_DELAY_MS, self._show_update_banner)
         else:
             self.update_indicator.set_color(Color.SUCCESS)
-            self.update_indicator.setToolTip("You're on the latest version")
+            set_tooltip(self.update_indicator, "You're on the latest version")
 
     def _start_pulse_animation(self) -> None:
         effect = QGraphicsOpacityEffect(self.update_indicator)
@@ -583,7 +579,7 @@ class MainWindow(QMainWindow):
             return
 
         self.tray_icon = QSystemTrayIcon(get_icon(), self)
-        self.tray_icon.setToolTip(APP_NAME)
+        set_tooltip(self.tray_icon, APP_NAME)
 
         menu = QMenu()
         show_action = QAction(TRAY_SHOW_TEXT, self)
@@ -744,11 +740,11 @@ class MainWindow(QMainWindow):
         if self.isMaximized():
             self.showNormal()
             self.maximize_button.setText("□")
-            self.maximize_button.setToolTip("Maximize")
+            set_tooltip(self.maximize_button, "Maximize")
         else:
             self.showMaximized()
             self.maximize_button.setText("❐")
-            self.maximize_button.setToolTip("Restore")
+            set_tooltip(self.maximize_button, "Restore")
 
     def resizeEvent(self, event) -> None:
         super().resizeEvent(event)

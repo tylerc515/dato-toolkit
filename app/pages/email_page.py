@@ -28,12 +28,15 @@ from PyQt6.QtWidgets import (
 )
 
 from app.design.icons import icon
+from app.design.qss import apply_style
+from app.design.tooltip import set_tooltip
 from app.design.tokens import Color, Radius, Spacing
 from app.email_export import EmailData, OtherItem, ScopeSection, build_email_doc
 from app.history import HistoryEntry, add_history_entry
 from app.project import ProjectConfig, ProjectError, get_projects_dir, list_projects, load_project, sanitize_filename
 from app.widgets import HelpPanel
-from app.widgets.components import Card, PrimaryButton, SecondaryButton
+from app.widgets.dialogs import AppDialog
+from app.widgets.components import Card, IconButton, PrimaryButton, SecondaryButton
 
 logger = logging.getLogger(__name__)
 
@@ -132,12 +135,12 @@ class _FindingList(QWidget):
         self._entry.returnPressed.connect(self._add)
         entry_row.addWidget(self._entry, 1)
         add_btn = QPushButton("Add")
-        add_btn.setToolTip("Add this finding as a new bullet point in the generated document.")
+        set_tooltip(add_btn, "Add this finding as a new bullet point in the generated document.")
         add_btn.clicked.connect(self._add)
         entry_row.addWidget(add_btn)
         remove_btn = QPushButton("Remove")
         remove_btn.setProperty("flat", "true")
-        remove_btn.setToolTip("Remove the selected finding(s) from the list above.")
+        set_tooltip(remove_btn, "Remove the selected finding(s) from the list above.")
         remove_btn.clicked.connect(self._remove)
         entry_row.addWidget(remove_btn)
         layout.addLayout(entry_row)
@@ -229,12 +232,12 @@ class _OtherItemRow(QWidget):
 
         label = QLabel(description[:80] + ("…" if len(description) > 80 else ""))
         label.setWordWrap(False)
-        label.setToolTip(description)
+        set_tooltip(label, description)
         layout.addWidget(label, 1)
 
         self._status = QLineEdit(initial_status)
         self._status.setMinimumWidth(220)
-        self._status.setToolTip(
+        set_tooltip(self._status, 
             "Free-text status for this item, shown next to its description "
             "in the generated document (e.g. 'no report received', 'in progress')."
         )
@@ -286,19 +289,16 @@ class EmailPage(QWidget):
         title.setProperty("role", "heading")
         header_row.addWidget(title)
         header_row.addStretch(1)
-        help_btn = QPushButton("?")
-        help_btn.setFixedSize(32, 32)
-        help_btn.setProperty("flat", "true")
-        help_btn.setToolTip("Show or hide help for this page")
+        help_btn = IconButton("?", "Show or hide help for this page")
         help_btn.clicked.connect(self._toggle_help)
         header_row.addWidget(help_btn)
         content_wrapper_layout.addLayout(header_row)
 
         # Slim link bar (shown when a project is linked)
         self._link_bar = QFrame()
-        self._link_bar.setStyleSheet(
-            f"QFrame {{ background-color: {Color.CARD_BG}; "
-            f"border-left: 4px solid {Color.SUCCESS}; }}"
+        apply_style(
+            self._link_bar,
+            f"background-color: {Color.CARD_BG}; border-left: {Spacing.XS}px solid {Color.SUCCESS};",
         )
         self._link_bar.setFixedHeight(44)
         self._link_bar.setVisible(False)
@@ -310,16 +310,16 @@ class EmailPage(QWidget):
         # auto-detection would otherwise sniff a stray "<" in that data and
         # render it as HTML.
         self._link_label.setTextFormat(Qt.TextFormat.PlainText)
-        self._link_label.setStyleSheet(f"color: {Color.TEXT_PRIMARY}; font-weight: 600;")
+        self._link_label.setProperty("emphasis", "true")
         link_bar_layout.addWidget(self._link_label, 1)
         unlink_btn = QPushButton(UNLINK_TEXT)
         unlink_btn.setProperty("flat", "true")
-        unlink_btn.setToolTip(
+        set_tooltip(unlink_btn, 
             "Disconnect this project. Fields pulled from it (boiler name, scope "
             "sections, auxiliary items, punchlist) will be cleared; your typed "
             "findings and summary text stay as-is."
         )
-        unlink_btn.setStyleSheet(f"color: {Color.TEXT_MUTED};")
+        apply_style(unlink_btn, f"color: {Color.TEXT_MUTED};")
         unlink_btn.clicked.connect(self._unlink)
         link_bar_layout.addWidget(unlink_btn)
         content_wrapper_layout.addWidget(self._link_bar)
@@ -363,7 +363,7 @@ class EmailPage(QWidget):
         row1.addWidget(QLabel("Boiler Name"))
         self._boiler_edit = QLineEdit()
         self._boiler_edit.setPlaceholderText("e.g. RECOVERY BOILER #2")
-        self._boiler_edit.setToolTip(
+        set_tooltip(self._boiler_edit, 
             "Appears in the document header and is also used to build the "
             "output filename below."
         )
@@ -376,14 +376,14 @@ class EmailPage(QWidget):
         d = date.today()
         date_str = f"{d.month}/{d.day}/{d.year}"
         self._date_edit = QLineEdit(date_str)
-        self._date_edit.setToolTip(
+        set_tooltip(self._date_edit, 
             "Defaults to today's date when this page was opened. Edit if the "
             "document needs a different date."
         )
         row2.addWidget(self._date_edit, 1)
         row2.addWidget(QLabel("Status Time"))
         self._time_edit = QLineEdit(datetime.now().strftime("%I:%M %p").lstrip("0"))
-        self._time_edit.setToolTip(
+        set_tooltip(self._time_edit, 
             "Defaults to the time this page was opened. Edit if the document "
             "needs a different time."
         )
@@ -462,11 +462,11 @@ class EmailPage(QWidget):
 
         btn_row = QHBoxLayout()
         load_file_btn = PrimaryButton(LOAD_FILE_TEXT)
-        load_file_btn.setToolTip("Browse for a saved tracker project (.json) to pre-fill this form.")
+        set_tooltip(load_file_btn, "Browse for a saved tracker project (.json) to pre-fill this form.")
         load_file_btn.clicked.connect(self._load_from_file)
         btn_row.addWidget(load_file_btn)
         browse_recent_btn = SecondaryButton(BROWSE_RECENT_TEXT)
-        browse_recent_btn.setToolTip(f"Pick from your {RECENT_PROJECTS_COUNT} most recently saved tracker projects.")
+        set_tooltip(browse_recent_btn, f"Pick from your {RECENT_PROJECTS_COUNT} most recently saved tracker projects.")
         browse_recent_btn.clicked.connect(self._browse_recent)
         btn_row.addWidget(browse_recent_btn)
         btn_row.addStretch(1)
@@ -480,7 +480,7 @@ class EmailPage(QWidget):
         fn_row = QHBoxLayout()
         fn_row.addWidget(QLabel("Filename"))
         self._filename_edit = QLineEdit()
-        self._filename_edit.setToolTip(
+        set_tooltip(self._filename_edit, 
             "Auto-generated from the boiler name and today's date. Changing "
             "the Boiler Name field above will regenerate this filename and "
             "overwrite any manual edit you made here."
@@ -491,7 +491,7 @@ class EmailPage(QWidget):
         folder_row = QHBoxLayout()
         folder_row.addWidget(QLabel("Folder"))
         self._folder_edit = QLineEdit(str(Path.home() / "Documents"))
-        self._folder_edit.setToolTip("Folder where the generated .docx file will be saved.")
+        set_tooltip(self._folder_edit, "Folder where the generated .docx file will be saved.")
         folder_row.addWidget(self._folder_edit, 1)
         browse_btn = SecondaryButton(BROWSE_TEXT)
         browse_btn.clicked.connect(self._browse_folder)
@@ -504,9 +504,10 @@ class EmailPage(QWidget):
         layout.addWidget(self._progress_bar)
 
         self._success_card = Card()
-        self._success_card.setStyleSheet(
-            f"QFrame {{ background-color: {Color.CARD_BG}; border: 1px solid {Color.SUCCESS}; "
-            f"border-radius: {Radius.CARD}px; }}"
+        apply_style(
+            self._success_card,
+            f"background-color: {Color.CARD_BG}; border: 1px solid {Color.SUCCESS}; "
+            f"border-radius: {Radius.CARD}px;",
         )
         success_layout = self._success_card.layout()
         success_heading_row = QHBoxLayout()
@@ -515,7 +516,7 @@ class EmailPage(QWidget):
         success_heading_row.addWidget(success_heading_icon)
         success_heading = QLabel(SUCCESS_TITLE)
         success_heading.setProperty("role", "heading")
-        success_heading.setStyleSheet(f"color: {Color.SUCCESS};")
+        success_heading.setProperty("tone", "success")
         success_heading_row.addWidget(success_heading)
         success_heading_row.addStretch(1)
         success_layout.addLayout(success_heading_row)
@@ -529,7 +530,7 @@ class EmailPage(QWidget):
         self._open_folder_btn.clicked.connect(self._open_folder)
         success_btns.addWidget(self._open_folder_btn)
         self._again_btn = SecondaryButton(GENERATE_ANOTHER_TEXT)
-        self._again_btn.setToolTip(
+        set_tooltip(self._again_btn, 
             "Dismiss this message so you can update the fields and generate a "
             "new document. Your current entries are kept."
         )
@@ -598,17 +599,16 @@ class EmailPage(QWidget):
     ) -> tuple[QDialog, QListWidget]:
         """Build the "Recent Projects" picker. Returned separately from
         exec() so the layout can be exercised in tests without blocking."""
-        dialog = QDialog(self)
-        dialog.setWindowTitle("Recent Projects")
+        dialog = AppDialog(self, "Recent Projects")
         # Resizable with a comfortable default and a floor that still fits the
         # 900x600 minimum window. Long titles are handled by eliding the list
         # items (below), so the dialog never needs to grow to fit them.
         dialog.setMinimumSize(460, 260)
-        dialog.resize(580, 340)
-        layout = QVBoxLayout(dialog)
-        layout.setSpacing(12)
+        dialog.resize(580, 360)
+        layout = dialog.body
 
         lbl = QLabel("Select a project to link:")
+        lbl.setProperty("role", "label")
         layout.addWidget(lbl)
 
         list_widget = QListWidget()
@@ -621,24 +621,17 @@ class EmailPage(QWidget):
             display = f"{config.title}  —  {config.date}" if config.date else config.title
             item = QListWidgetItem(display)
             item.setData(Qt.ItemDataRole.UserRole, path)
-            item.setToolTip(display)
+            set_tooltip(item, display)
             list_widget.addItem(item)
         if list_widget.count():
             list_widget.setCurrentRow(0)
         list_widget.doubleClicked.connect(dialog.accept)
         layout.addWidget(list_widget)
 
-        btn_row = QHBoxLayout()
-        btn_row.addStretch(1)
-        cancel_btn = QPushButton("Cancel")
-        cancel_btn.setProperty("flat", "true")
+        cancel_btn = dialog.add_button("Cancel")
         cancel_btn.clicked.connect(dialog.reject)
-        btn_row.addWidget(cancel_btn)
-        load_btn = QPushButton("Load")
-        load_btn.setProperty("accent", "true")
+        load_btn = dialog.add_button("Load", primary=True)
         load_btn.clicked.connect(dialog.accept)
-        btn_row.addWidget(load_btn)
-        layout.addLayout(btn_row)
 
         return dialog, list_widget
 

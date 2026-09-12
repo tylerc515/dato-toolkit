@@ -18,7 +18,6 @@ from PyQt6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
-    QMessageBox,
     QProgressBar,
     QPushButton,
     QScrollArea,
@@ -54,9 +53,19 @@ from app.converters.tds_old_parser import (
 )
 from app.converters.standard_format_writer import write_standard_format
 from app.design.icons import icon
+from app.design.qss import apply_style
+from app.design.tooltip import set_tooltip
 from app.design.tokens import Color, FontSize, Radius, Spacing
 from app.widgets import HelpPanel
-from app.widgets.components import Card, PrimaryButton, SecondaryButton, StatCard
+from app.widgets.dialogs import MessageDialog
+from app.widgets.components import (
+    ICON_BUTTON_SIZE_SMALL,
+    Card,
+    IconButton,
+    PrimaryButton,
+    SecondaryButton,
+    StatCard,
+)
 from app.widgets.comment_code_review_widget import CommentCodeReviewWidget
 
 logger = logging.getLogger(__name__)
@@ -189,28 +198,19 @@ class _AtsDropZone(QFrame):
         # ".xlsx"; the TDS flow passes ".csv". Kept configurable so the same
         # drop widget serves every flow without duplicating drag handling.
         self._extensions = extensions
-        self._base_style = (
-            f"QFrame {{ border: 2px dashed {Color.BORDER}; border-radius: 8px; "
-            f"background: transparent; }}"
-            f"QFrame:hover {{ border-color: {Color.ACCENT}; }}"
-        )
-        self._drag_style = (
-            f"QFrame {{ border: 2px dashed {Color.ACCENT}; border-radius: 8px; "
-            f"background: transparent; }}"
-        )
         self.setAcceptDrops(True)
         self.setMinimumHeight(80)
-        self.setStyleSheet(self._base_style)
+        self._set_drag_active(False)
 
         layout = QVBoxLayout(self)
         layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         lbl = QLabel(text)
         lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         lbl.setWordWrap(True)
-        lbl.setStyleSheet(f"color: {Color.TEXT_MUTED};")
+        lbl.setProperty("role", "muted")
         layout.addWidget(lbl)
 
-        self.setToolTip(
+        set_tooltip(self, 
             tooltip
             if tooltip is not None
             else (
@@ -219,16 +219,28 @@ class _AtsDropZone(QFrame):
             )
         )
 
+    def _set_drag_active(self, active: bool) -> None:
+        """Dashed accent border while a file is dragged over the zone.
+
+        Scoped to this frame only: a `QFrame` type selector here would also
+        border every QLabel inside the zone (QLabel derives from QFrame)."""
+        border = Color.ACCENT if active else Color.BORDER
+        apply_style(
+            self,
+            f"border: 2px dashed {border}; border-radius: {Radius.CARD}px; background: transparent;",
+            {":hover": f"border-color: {Color.ACCENT};"},
+        )
+
     def dragEnterEvent(self, event):
         if event.mimeData().hasUrls():
             event.acceptProposedAction()
-            self.setStyleSheet(self._drag_style)
+            self._set_drag_active(True)
 
     def dragLeaveEvent(self, event):
-        self.setStyleSheet(self._base_style)
+        self._set_drag_active(False)
 
     def dropEvent(self, event):
-        self.setStyleSheet(self._base_style)
+        self._set_drag_active(False)
         paths = [url.toLocalFile() for url in event.mimeData().urls() if url.isLocalFile()]
         matched = [p for p in paths if p.lower().endswith(self._extensions)]
         if matched:
@@ -291,7 +303,7 @@ class _FileCard(Card):
 
         info = QVBoxLayout()
         name_lbl = QLabel(Path(path).name)
-        name_lbl.setStyleSheet("font-weight: 600;")
+        name_lbl.setProperty("emphasis", "true")
         info.addWidget(name_lbl)
         detail = QLabel(
             f"{result.boiler_section} - "
@@ -302,10 +314,7 @@ class _FileCard(Card):
         info.addWidget(detail)
         row.addLayout(info, 1)
 
-        remove_btn = QPushButton("✕")
-        remove_btn.setFixedSize(24, 24)
-        remove_btn.setProperty("flat", "true")
-        remove_btn.setToolTip("Remove this file")
+        remove_btn = IconButton("×", "Remove this file", size=ICON_BUTTON_SIZE_SMALL)
         remove_btn.clicked.connect(lambda: self.remove_requested.emit(self._path))
         row.addWidget(remove_btn)
 
@@ -332,7 +341,7 @@ class _TeamFileCard(Card):
 
         info = QVBoxLayout()
         name_lbl = QLabel(Path(path).name)
-        name_lbl.setStyleSheet("font-weight: 600;")
+        name_lbl.setProperty("emphasis", "true")
         info.addWidget(name_lbl)
 
         comment_codes = ", ".join(sorted(result.comment_codes_found)) if result.comment_codes_found else "none"
@@ -349,10 +358,10 @@ class _TeamFileCard(Card):
 
         section_row = QHBoxLayout()
         section_lbl = QLabel("Section name:")
-        section_lbl.setStyleSheet(f"color: {Color.TEXT_MUTED};")
+        section_lbl.setProperty("role", "muted")
         section_row.addWidget(section_lbl)
         self._section_edit = QLineEdit(section_name)
-        self._section_edit.setToolTip(
+        set_tooltip(self._section_edit, 
             "Boiler section for this file. Used for the header and the output "
             "filename ({section}_Standard_Format.csv). Must not be empty."
         )
@@ -364,10 +373,7 @@ class _TeamFileCard(Card):
 
         row.addLayout(info, 1)
 
-        remove_btn = QPushButton("✕")
-        remove_btn.setFixedSize(24, 24)
-        remove_btn.setProperty("flat", "true")
-        remove_btn.setToolTip("Remove this file")
+        remove_btn = IconButton("×", "Remove this file", size=ICON_BUTTON_SIZE_SMALL)
         remove_btn.clicked.connect(lambda: self.remove_requested.emit(self._path))
         row.addWidget(remove_btn)
 
@@ -422,23 +428,24 @@ class _TdsFileCard(Card):
         info = QVBoxLayout()
         title_row = QHBoxLayout()
         name_lbl = QLabel(Path(path).name)
-        name_lbl.setStyleSheet("font-weight: 600;")
+        name_lbl.setProperty("emphasis", "true")
         title_row.addWidget(name_lbl)
 
         self._badge = QLabel("Old" if fmt == "old" else "New")
         if fmt == "old":
             badge_bg, badge_fg = Color.WARNING, Color.PAGE_BG
-            self._badge.setToolTip(
+            set_tooltip(self._badge, 
                 "TDS pre-5.3 format. Metadata was auto-detected from cell "
                 "position - please verify before converting."
             )
         else:
             badge_bg, badge_fg = Color.ACCENT_BG_TINT, Color.ACCENT_TEXT
-            self._badge.setToolTip("TDS 5.3+ format. Metadata was read from labeled fields.")
-        self._badge.setStyleSheet(
+            set_tooltip(self._badge, "TDS 5.3+ format. Metadata was read from labeled fields.")
+        apply_style(
+            self._badge,
             f"background-color: {badge_bg}; color: {badge_fg}; "
             f"font-size: {FontSize.LABEL}px; font-weight: 600; "
-            f"border-radius: {Radius.PILL}px; padding: 2px {Spacing.SM}px;"
+            f"border-radius: {Radius.PILL}px; padding: 2px {Spacing.SM}px;",
         )
         title_row.addWidget(self._badge)
         title_row.addStretch(1)
@@ -455,10 +462,7 @@ class _TdsFileCard(Card):
         info.addWidget(detail)
         top_row.addLayout(info, 1)
 
-        remove_btn = QPushButton("✕")
-        remove_btn.setFixedSize(24, 24)
-        remove_btn.setProperty("flat", "true")
-        remove_btn.setToolTip("Remove this file")
+        remove_btn = IconButton("×", "Remove this file", size=ICON_BUTTON_SIZE_SMALL)
         remove_btn.clicked.connect(lambda: self.remove_requested.emit(self._path))
         top_row.addWidget(remove_btn, 0, Qt.AlignmentFlag.AlignTop)
 
@@ -466,9 +470,9 @@ class _TdsFileCard(Card):
         self._meta_group = QFrame()
         if self.needs_confirmation:
             # Warning-tinted border marks the whole group as needing review.
-            self._meta_group.setStyleSheet(
-                f"QFrame {{ border: 1px solid {Color.WARNING}; "
-                f"border-radius: {Radius.INPUT}px; }}"
+            apply_style(
+                self._meta_group,
+                f"border: 1px solid {Color.WARNING}; border-radius: {Radius.INPUT}px;",
             )
         meta_layout = QVBoxLayout(self._meta_group)
         meta_layout.setContentsMargins(Spacing.SM, Spacing.SM, Spacing.SM, Spacing.SM)
@@ -476,15 +480,13 @@ class _TdsFileCard(Card):
 
         if self.needs_confirmation:
             self._confirm_note = QLabel(TDS_CONFIRM_NOTE)
-            self._confirm_note.setStyleSheet(
-                f"color: {Color.WARNING}; font-size: {FontSize.LABEL}px;"
-            )
+            apply_style(self._confirm_note, f"color: {Color.WARNING}; font-size: {FontSize.LABEL}px;")
             meta_layout.addWidget(self._confirm_note)
 
         prefilled = self._prefill_values(fmt, result)
         for key, label in _TDS_METADATA_FIELDS:
             edit = QLineEdit(prefilled.get(key, ""))
-            edit.setToolTip(self._field_tooltip(key))
+            set_tooltip(edit, self._field_tooltip(key))
             if key == "nde_laboratory" and fmt == "old":
                 edit.setPlaceholderText(TDS_NDE_REQUIRED_PLACEHOLDER)
                 edit.setProperty("required", "true")
@@ -523,7 +525,7 @@ class _TdsFileCard(Card):
         row = QHBoxLayout()
         lbl = QLabel(label)
         lbl.setMinimumWidth(120)
-        lbl.setStyleSheet(f"color: {Color.TEXT_MUTED};")
+        lbl.setProperty("role", "muted")
         row.addWidget(lbl)
         row.addWidget(field, 1)
         return row
@@ -555,14 +557,15 @@ class _ErrorCard(QFrame):
 
     def __init__(self, path: str, error: str, parent: QWidget | None = None):
         super().__init__(parent)
-        self.setStyleSheet(
-            f"QFrame {{ background-color: {Color.CARD_BG}; border: 1px solid {Color.DANGER}; "
-            f"border-radius: {Radius.CARD}px; }}"
+        apply_style(
+            self,
+            f"background-color: {Color.CARD_BG}; border: 1px solid {Color.DANGER}; "
+            f"border-radius: {Radius.CARD}px;",
         )
         layout = QHBoxLayout(self)
         layout.setContentsMargins(Spacing.MD, Spacing.SM, Spacing.MD, Spacing.SM)
         lbl = QLabel(f"<b>{html.escape(Path(path).name)}</b>: {html.escape(error)}")
-        lbl.setStyleSheet(f"color: {Color.DANGER};")
+        lbl.setProperty("tone", "danger")
         lbl.setWordWrap(True)
         layout.addWidget(lbl, 1)
 
@@ -624,9 +627,7 @@ class ConverterPage(QWidget):
         title.setProperty("role", "heading")
         header_row.addWidget(title)
         header_row.addStretch(1)
-        help_btn = QPushButton("?")
-        help_btn.setFixedSize(28, 28)
-        help_btn.setToolTip("Toggle help (F1)")
+        help_btn = IconButton("?", "Toggle help (F1)")
         help_btn.clicked.connect(self.help_panel.toggle)
         header_row.addWidget(help_btn)
         main_layout.addLayout(header_row)
@@ -635,29 +636,30 @@ class ConverterPage(QWidget):
         # strings are stored so tab switching can restyle the pills without
         # changing the ATS tab's original active appearance.
         self._active_tab_style = (
-            f"QPushButton {{ background-color: {Color.ACCENT}; color: {Color.TEXT_PRIMARY}; "
+            f"background-color: {Color.ACCENT}; color: {Color.TEXT_PRIMARY}; "
             f"font-weight: 600; border: none; border-radius: {Radius.PILL}px; "
-            f"padding: {Spacing.SM}px {Spacing.LG}px; }}"
+            f"padding: {Spacing.SM}px {Spacing.LG}px;"
         )
         self._inactive_tab_style = (
-            f"QPushButton {{ background-color: transparent; color: {Color.TEXT_MUTED}; "
+            f"background-color: transparent; color: {Color.TEXT_MUTED}; "
             f"border: 1px solid {Color.BORDER}; border-radius: {Radius.PILL}px; "
-            f"padding: {Spacing.SM}px {Spacing.LG}px; }}"
+            f"padding: {Spacing.SM}px {Spacing.LG}px;"
         )
+        self._inactive_tab_hover = f"color: {Color.TEXT_PRIMARY}; border-color: {Color.BORDER_STRONG};"
 
         tab_row = QHBoxLayout()
         self._ats_tab_btn = QPushButton(ATS_TAB_TEXT)
-        self._ats_tab_btn.setStyleSheet(self._active_tab_style)
+        apply_style(self._ats_tab_btn, self._active_tab_style)
         self._ats_tab_btn.clicked.connect(self._show_ats_tab)
         tab_row.addWidget(self._ats_tab_btn)
 
         self._team_tab_btn = QPushButton(TEAM_TAB_TEXT)
-        self._team_tab_btn.setStyleSheet(self._inactive_tab_style)
+        apply_style(self._team_tab_btn, self._inactive_tab_style, {":hover": self._inactive_tab_hover})
         self._team_tab_btn.clicked.connect(self._show_team_tab)
         tab_row.addWidget(self._team_tab_btn)
 
         self._tds_tab_btn = QPushButton(TDS_TAB_TEXT)
-        self._tds_tab_btn.setStyleSheet(self._inactive_tab_style)
+        apply_style(self._tds_tab_btn, self._inactive_tab_style, {":hover": self._inactive_tab_hover})
         self._tds_tab_btn.clicked.connect(self._show_tds_tab)
         tab_row.addWidget(self._tds_tab_btn)
 
@@ -715,7 +717,7 @@ class ConverterPage(QWidget):
         import_header.addStretch(1)
         self._clear_all_btn = QPushButton(CLEAR_ALL_TEXT)
         self._clear_all_btn.setProperty("flat", "true")
-        self._clear_all_btn.setToolTip("Remove every imported file and start over.")
+        set_tooltip(self._clear_all_btn, "Remove every imported file and start over.")
         self._clear_all_btn.setEnabled(False)
         self._clear_all_btn.clicked.connect(self._on_clear_all)
         import_header.addWidget(self._clear_all_btn)
@@ -750,7 +752,7 @@ class ConverterPage(QWidget):
         self._output_folder_edit = QLineEdit()
         self._output_folder_edit.setPlaceholderText("Choose output folder...")
         self._output_folder_edit.setReadOnly(True)
-        self._output_folder_edit.setToolTip(
+        set_tooltip(self._output_folder_edit, 
             "Where the converted Standard Format CSV files will be saved. "
             "Defaults to the folder of the first file you import; use Browse to change it."
         )
@@ -764,7 +766,7 @@ class ConverterPage(QWidget):
 
         self._convert_btn = PrimaryButton(CONVERT_ALL_TEXT)
         self._convert_btn.setIcon(icon("play", color=Color.TEXT_PRIMARY))
-        self._convert_btn.setToolTip(
+        set_tooltip(self._convert_btn, 
             "Convert every imported file to Standard Format CSV. Enabled once "
             "all comment codes above have been reviewed and confirmed."
         )
@@ -823,9 +825,9 @@ class ConverterPage(QWidget):
     # --- Sub-tab switching ---
 
     def _style_active_tab(self, active_btn: QPushButton, inactive_btns: list[QPushButton]) -> None:
-        active_btn.setStyleSheet(self._active_tab_style)
+        apply_style(active_btn, self._active_tab_style)
         for btn in inactive_btns:
-            btn.setStyleSheet(self._inactive_tab_style)
+            apply_style(btn, self._inactive_tab_style, {":hover": self._inactive_tab_hover})
 
     def _show_ats_tab(self) -> None:
         self._tab_stack.setCurrentIndex(0)
@@ -993,13 +995,14 @@ class ConverterPage(QWidget):
     def _confirm_overwrite(self, conflicts: list[Path]) -> bool:
         """Show a single dialog listing all conflicting files. True if user chose to overwrite."""
         names = "\n".join(f"- {p.name}" for p in conflicts)
-        box = QMessageBox(self)
-        box.setWindowTitle(OVERWRITE_TITLE)
-        box.setText(OVERWRITE_MESSAGE.format(names=names))
-        overwrite_btn = box.addButton("Overwrite", QMessageBox.ButtonRole.AcceptRole)
-        box.addButton("Cancel", QMessageBox.ButtonRole.RejectRole)
-        box.exec()
-        return box.clickedButton() is overwrite_btn
+        return MessageDialog.question(
+            self,
+            OVERWRITE_TITLE,
+            OVERWRITE_MESSAGE.format(names=names),
+            accept_text="Overwrite",
+            reject_text="Cancel",
+            tone="warning",
+        )
 
     def _on_convert(self) -> None:
         output_dir = Path(self._output_folder_edit.text())
@@ -1038,10 +1041,9 @@ class ConverterPage(QWidget):
     def _on_file_done(self, path: str, success: bool, error: str) -> None:
         self._progress_bar.setValue(self._progress_bar.value() + 1)
         status_icon = "✓" if success else "✗"
-        style_color = Color.SUCCESS if success else Color.DANGER
         text = f"{status_icon} {Path(path).name}" + (f": {error}" if error else "")
         lbl = QLabel(text)
-        lbl.setStyleSheet(f"color: {style_color};")
+        lbl.setProperty("tone", "success" if success else "danger")
         self._results_layout.addWidget(lbl)
 
     def _on_all_done(self) -> None:
@@ -1111,7 +1113,7 @@ class ConverterPage(QWidget):
         import_header.addStretch(1)
         self._team_clear_all_btn = QPushButton(CLEAR_ALL_TEXT)
         self._team_clear_all_btn.setProperty("flat", "true")
-        self._team_clear_all_btn.setToolTip("Remove every imported file and start over.")
+        set_tooltip(self._team_clear_all_btn, "Remove every imported file and start over.")
         self._team_clear_all_btn.setEnabled(False)
         self._team_clear_all_btn.clicked.connect(self._on_team_clear_all)
         import_header.addWidget(self._team_clear_all_btn)
@@ -1164,14 +1166,14 @@ class ConverterPage(QWidget):
         date_row.addWidget(date_lbl)
         self._team_month_combo = QComboBox()
         self._team_month_combo.addItems(list(_MONTHS))
-        self._team_month_combo.setToolTip("Month of the inspection.")
+        set_tooltip(self._team_month_combo, "Month of the inspection.")
         date_row.addWidget(self._team_month_combo)
         self._team_year_combo = QComboBox()
         current_year = datetime.date.today().year
         for year in range(current_year + 1, current_year - 11, -1):
             self._team_year_combo.addItem(str(year))
         self._team_year_combo.setCurrentText(str(current_year))
-        self._team_year_combo.setToolTip("Year of the inspection.")
+        set_tooltip(self._team_year_combo, "Year of the inspection.")
         date_row.addWidget(self._team_year_combo)
         date_row.addStretch(1)
         meta_layout.addLayout(date_row)
@@ -1197,7 +1199,7 @@ class ConverterPage(QWidget):
         # Batch-wide toggle: include blank/unmeasured elevation positions.
         self._team_include_blank = QCheckBox("Include unmeasured elevations in output")
         self._team_include_blank.setChecked(True)
-        self._team_include_blank.setToolTip(
+        set_tooltip(self._team_include_blank, 
             "When checked, every elevation position is written to the output, "
             "including ones with no readings this inspection."
         )
@@ -1210,7 +1212,7 @@ class ConverterPage(QWidget):
         )
         include_hint.setProperty("role", "muted")
         include_hint.setWordWrap(True)
-        include_hint.setStyleSheet(f"font-size: {FontSize.LABEL}px;")
+        apply_style(include_hint, f"font-size: {FontSize.LABEL}px;")
         meta_layout.addWidget(include_hint)
 
         # Toggling after import must not require re-importing; just refresh stats.
@@ -1237,7 +1239,7 @@ class ConverterPage(QWidget):
         self._team_output_folder_edit = QLineEdit()
         self._team_output_folder_edit.setPlaceholderText("Choose output folder...")
         self._team_output_folder_edit.setReadOnly(True)
-        self._team_output_folder_edit.setToolTip(
+        set_tooltip(self._team_output_folder_edit, 
             "Where the converted Standard Format CSV files will be saved. "
             "Defaults to the folder of the first file you import; use Browse to change it."
         )
@@ -1251,7 +1253,7 @@ class ConverterPage(QWidget):
 
         self._team_convert_btn = PrimaryButton(CONVERT_ALL_TEXT)
         self._team_convert_btn.setIcon(icon("play", color=Color.TEXT_PRIMARY))
-        self._team_convert_btn.setToolTip(
+        set_tooltip(self._team_convert_btn, 
             "Convert every imported file to Standard Format CSV. Enabled once "
             "all inspection details and section names are filled in and any "
             "comment codes have been reviewed."
@@ -1525,10 +1527,9 @@ class ConverterPage(QWidget):
     def _on_team_file_done(self, path: str, success: bool, error: str) -> None:
         self._team_progress_bar.setValue(self._team_progress_bar.value() + 1)
         status_icon = "✓" if success else "✗"
-        style_color = Color.SUCCESS if success else Color.DANGER
         text = f"{status_icon} {Path(path).name}" + (f": {error}" if error else "")
         lbl = QLabel(text)
-        lbl.setStyleSheet(f"color: {style_color};")
+        lbl.setProperty("tone", "success" if success else "danger")
         self._team_results_layout.addWidget(lbl)
 
     def _on_team_all_done(self) -> None:
@@ -1600,7 +1601,7 @@ class ConverterPage(QWidget):
         import_header.addStretch(1)
         self._tds_clear_all_btn = QPushButton(CLEAR_ALL_TEXT)
         self._tds_clear_all_btn.setProperty("flat", "true")
-        self._tds_clear_all_btn.setToolTip("Remove every imported file and start over.")
+        set_tooltip(self._tds_clear_all_btn, "Remove every imported file and start over.")
         self._tds_clear_all_btn.setEnabled(False)
         self._tds_clear_all_btn.clicked.connect(self._on_tds_clear_all)
         import_header.addWidget(self._tds_clear_all_btn)
@@ -1638,7 +1639,7 @@ class ConverterPage(QWidget):
         # whose exports carry every possible position so it defaults CHECKED.
         self._tds_include_blank = QCheckBox("Include unmeasured elevations in output")
         self._tds_include_blank.setChecked(False)
-        self._tds_include_blank.setToolTip(
+        set_tooltip(self._tds_include_blank, 
             "When checked, every elevation position is written to the output, "
             "including ones with no readings this inspection."
         )
@@ -1651,7 +1652,7 @@ class ConverterPage(QWidget):
         )
         include_hint.setProperty("role", "muted")
         include_hint.setWordWrap(True)
-        include_hint.setStyleSheet(f"font-size: {FontSize.LABEL}px;")
+        apply_style(include_hint, f"font-size: {FontSize.LABEL}px;")
         options_layout.addWidget(include_hint)
 
         # Toggling after import must not require re-importing; just refresh stats.
@@ -1679,7 +1680,7 @@ class ConverterPage(QWidget):
         self._tds_output_folder_edit = QLineEdit()
         self._tds_output_folder_edit.setPlaceholderText("Choose output folder...")
         self._tds_output_folder_edit.setReadOnly(True)
-        self._tds_output_folder_edit.setToolTip(
+        set_tooltip(self._tds_output_folder_edit, 
             "Where the converted Standard Format CSV files will be saved. "
             "Defaults to the folder of the first file you import; use Browse to change it."
         )
@@ -1693,7 +1694,7 @@ class ConverterPage(QWidget):
 
         self._tds_convert_btn = PrimaryButton(CONVERT_ALL_TEXT)
         self._tds_convert_btn.setIcon(icon("play", color=Color.TEXT_PRIMARY))
-        self._tds_convert_btn.setToolTip(
+        set_tooltip(self._tds_convert_btn, 
             "Convert every imported file to Standard Format CSV. Enabled once "
             "each file's metadata is filled in (including the NDE Laboratory for "
             "Old-format files) and any comment codes have been reviewed."
@@ -1955,10 +1956,9 @@ class ConverterPage(QWidget):
     def _on_tds_file_done(self, path: str, success: bool, error: str) -> None:
         self._tds_progress_bar.setValue(self._tds_progress_bar.value() + 1)
         status_icon = "✓" if success else "✗"
-        style_color = Color.SUCCESS if success else Color.DANGER
         text = f"{status_icon} {Path(path).name}" + (f": {error}" if error else "")
         lbl = QLabel(text)
-        lbl.setStyleSheet(f"color: {style_color};")
+        lbl.setProperty("tone", "success" if success else "danger")
         self._tds_results_layout.addWidget(lbl)
 
     def _on_tds_all_done(self) -> None:

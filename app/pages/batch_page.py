@@ -22,9 +22,12 @@ from PyQt6.QtWidgets import (
 )
 
 from app.batch import BatchGenerateResult, BatchProjectGroup, BatchScanResult, generate_group, scan_folder
-from app.design.tokens import Color
+from app.design.qss import apply_style, set_tone
+from app.design.tooltip import set_tooltip
+from app.design.tokens import Color, Radius
 from app.styles import apply_card_shadow
 from app.widgets import HelpPanel
+from app.widgets.components import IconButton
 
 # --- UI text -------------------------------------------------------------
 
@@ -85,7 +88,7 @@ class _GroupCard(QFrame):
 
         self.checkbox = QCheckBox()
         self.checkbox.setChecked(True)
-        self.checkbox.setToolTip("Include this project in the batch")
+        set_tooltip(self.checkbox, "Include this project in the batch")
         layout.addWidget(self.checkbox)
 
         info = QLabel(_summary_text(group))
@@ -100,15 +103,15 @@ class _GroupCard(QFrame):
     def set_result(self, result: BatchGenerateResult) -> None:
         if result.error:
             self.status_label.setText(STATUS_ERROR)
-            self.status_label.setStyleSheet(f"color: {Color.DANGER};")
-            self.setToolTip(result.error)
+            set_tone(self.status_label, "danger")
+            set_tooltip(self, result.error)
         elif result.warnings:
             self.status_label.setText(STATUS_WARNING)
-            self.status_label.setStyleSheet(f"color: {Color.WARNING};")
-            self.setToolTip("\n".join(result.warnings))
+            set_tone(self.status_label, "warning")
+            set_tooltip(self, "\n".join(result.warnings))
         else:
             self.status_label.setText(STATUS_OK)
-            self.status_label.setStyleSheet(f"color: {Color.SUCCESS};")
+            set_tone(self.status_label, "success")
 
 
 class _ErrorCard(QFrame):
@@ -117,13 +120,13 @@ class _ErrorCard(QFrame):
     def __init__(self, path: str, error: str, parent: QWidget | None = None):
         super().__init__(parent)
         self.setProperty("card", "true")
-        self.setStyleSheet(f"QFrame {{ border: 1px solid {Color.DANGER}; border-radius: 12px; }}")
+        apply_style(self, f"border: 1px solid {Color.DANGER}; border-radius: {Radius.CARD}px;")
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(14, 10, 14, 10)
 
         name_label = QLabel(f"⚠ {Path(path).name}")
-        name_label.setStyleSheet(f"color: {Color.DANGER}; font-weight: 600;")
+        apply_style(name_label, f"color: {Color.DANGER}; font-weight: 600;")
         layout.addWidget(name_label)
 
         error_label = QLabel(error)
@@ -174,10 +177,7 @@ class BatchPage(QWidget):
         title.setProperty("role", "heading")
         header_row.addWidget(title)
         header_row.addStretch(1)
-        self.help_button = QPushButton("?")
-        self.help_button.setFixedSize(32, 32)
-        self.help_button.setToolTip("Show help for batch generation")
-        self.help_button.setProperty("flat", "true")
+        self.help_button = IconButton("?", "Show help for batch generation")
         self.help_button.clicked.connect(self._toggle_help)
         header_row.addWidget(self.help_button)
         content_layout.addLayout(header_row)
@@ -186,7 +186,7 @@ class BatchPage(QWidget):
         content_layout.addWidget(input_label)
         input_row = QHBoxLayout()
         self.input_folder_edit = QLineEdit()
-        self.input_folder_edit.setToolTip("Folder containing TRACE export CSV files")
+        set_tooltip(self.input_folder_edit, "Folder containing TRACE export CSV files")
         input_row.addWidget(self.input_folder_edit, 1)
         self.input_browse_button = QPushButton(BROWSE_TEXT)
         self.input_browse_button.setProperty("flat", "true")
@@ -210,7 +210,7 @@ class BatchPage(QWidget):
         content_layout.addWidget(output_label)
         output_row = QHBoxLayout()
         self.output_folder_edit = QLineEdit()
-        self.output_folder_edit.setToolTip("Folder where generated trackers will be saved")
+        set_tooltip(self.output_folder_edit, "Folder where generated trackers will be saved")
         output_row.addWidget(self.output_folder_edit, 1)
         self.output_browse_button = QPushButton(BROWSE_TEXT)
         self.output_browse_button.setProperty("flat", "true")
@@ -234,7 +234,7 @@ class BatchPage(QWidget):
         self.generate_button = QPushButton(GENERATE_TEXT)
         self.generate_button.setProperty("accent", "true")
         self.generate_button.setEnabled(False)
-        self.generate_button.setToolTip("Generate a tracker for each checked project")
+        set_tooltip(self.generate_button, "Generate a tracker for each checked project")
         self.generate_button.clicked.connect(self._on_generate)
         button_row.addWidget(self.generate_button)
         content_layout.addLayout(button_row)
@@ -340,7 +340,7 @@ class BatchPage(QWidget):
 
         for card in self._cards:
             card.status_label.setText(STATUS_PENDING)
-            card.status_label.setStyleSheet("")
+            set_tone(card.status_label, None)
             card.checkbox.setEnabled(False)
 
         self.generate_button.setEnabled(False)

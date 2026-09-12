@@ -19,10 +19,12 @@ from PyQt6.QtWidgets import (
 )
 
 from app.design.tokens import Color, Spacing
+from app.design.tooltip import set_tooltip
 from app.parser import TraceFileData
 from app.project import AuxItem, ProjectConfig, ProjectSection
 from app.titlegen import generate_title
 from app.widgets import HelpPanel
+from app.widgets.components import IconButton
 from app.widgets.item_editor import ItemEditorWidget
 from app.widgets.tracker_preview import TrackerPreview
 
@@ -116,10 +118,7 @@ class ReorderPage(QWidget):
         title.setProperty("role", "heading")
         header_row.addWidget(title)
         header_row.addStretch(1)
-        self.help_button = QPushButton("?")
-        self.help_button.setFixedSize(32, 32)
-        self.help_button.setToolTip("Show help for this step")
-        self.help_button.setProperty("flat", "true")
+        self.help_button = IconButton("?", "Show help for this step")
         self.help_button.clicked.connect(self._toggle_help)
         header_row.addWidget(self.help_button)
         content_layout.addLayout(header_row)
@@ -128,7 +127,7 @@ class ReorderPage(QWidget):
         title_label.setProperty("role", "label")
         content_layout.addWidget(title_label)
         self.title_edit = QLineEdit()
-        self.title_edit.setToolTip("Edit the title that appears at the top of the generated tracker")
+        set_tooltip(self.title_edit, "Edit the title that appears at the top of the generated tracker")
         self.title_edit.textChanged.connect(self._on_changed)
         content_layout.addWidget(self.title_edit)
 
@@ -140,7 +139,7 @@ class ReorderPage(QWidget):
         list_column.addWidget(list_label)
         self.section_list = QListWidget()
         self.section_list.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
-        self.section_list.setToolTip("Drag to reorder, double-click to rename")
+        set_tooltip(self.section_list, "Drag to reorder, double-click to rename")
         self.section_list.setItemDelegate(_SectionCountDelegate(self.section_list))
         self.section_list.model().rowsMoved.connect(self._on_changed)
         self.section_list.itemChanged.connect(self._on_changed)
@@ -166,7 +165,7 @@ class ReorderPage(QWidget):
         button_row.addStretch(1)
         self.continue_button = QPushButton(CONTINUE_TEXT)
         self.continue_button.setProperty("accent", "true")
-        self.continue_button.setToolTip("Proceed to generate the tracker")
+        set_tooltip(self.continue_button, "Proceed to generate the tracker")
         self.continue_button.clicked.connect(self._on_continue)
         button_row.addWidget(self.continue_button)
         content_layout.addLayout(button_row)
@@ -189,7 +188,7 @@ class ReorderPage(QWidget):
         toggle_row = QHBoxLayout()
         self._additional_toggle = QPushButton(f"▶  {ADDITIONAL_SECTIONS_LABEL}")
         self._additional_toggle.setProperty("flat", "true")
-        self._additional_toggle.setToolTip(
+        set_tooltip(self._additional_toggle, 
             "Expand to add optional auxiliary scope items and punchlist items "
             "not covered by the standard tube sections."
         )
@@ -291,7 +290,7 @@ class ReorderPage(QWidget):
             item = QListWidgetItem(section.display_name)
             item.setFlags(item.flags() | Qt.ItemFlag.ItemIsEditable)
             item.setData(Qt.ItemDataRole.UserRole, section)
-            item.setToolTip("Drag to reorder, double-click to rename")
+            set_tooltip(item, "Drag to reorder, double-click to rename")
             self.section_list.addItem(item)
         self.section_list.blockSignals(False)
 

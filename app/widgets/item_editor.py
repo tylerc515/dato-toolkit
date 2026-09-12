@@ -18,6 +18,9 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from app.design.qss import apply_style
+from app.widgets.components import ICON_BUTTON_SIZE_SMALL, IconButton
+from app.design.tooltip import set_tooltip
 from app.design.tokens import Color, FontSize, Radius, Spacing
 
 
@@ -37,21 +40,15 @@ class _ItemRowWidget(QWidget):
         label = QLabel(label_text)
         label.setWordWrap(False)
         if has_notes:
-            label.setToolTip("Has notes")
+            set_tooltip(label, "Has notes")
             label.setText(label.text() + "  \U0001f4ce")
         layout.addWidget(label, 1)
 
-        edit_btn = QPushButton("✎")
-        edit_btn.setFixedSize(28, 28)
-        edit_btn.setToolTip("Edit this item")
-        edit_btn.setProperty("flat", "true")
+        edit_btn = IconButton("✎", "Edit this item", size=ICON_BUTTON_SIZE_SMALL)
         edit_btn.clicked.connect(self.edit_clicked)
         layout.addWidget(edit_btn)
 
-        remove_btn = QPushButton("×")
-        remove_btn.setFixedSize(28, 28)
-        remove_btn.setToolTip("Remove this item")
-        remove_btn.setProperty("flat", "true")
+        remove_btn = IconButton("×", "Remove this item", size=ICON_BUTTON_SIZE_SMALL)
         remove_btn.clicked.connect(self.remove_clicked)
         layout.addWidget(remove_btn)
 
@@ -78,25 +75,18 @@ class _EditForm(QFrame):
         # QPlainTextEdit is not a QTextEdit subclass in Qt, so it does not pick up
         # the global QLineEdit/QTextEdit/QComboBox input styling in app.styles -
         # it needs its own rule, built from the same tokens for visual parity.
-        _field_qss = (
-            f"QPlainTextEdit {{"
-            f"  font-size: {FontSize.SECTION}px;"
-            f"  padding: {Spacing.SM}px {Spacing.MD}px;"
-            f"  color: {Color.TEXT_PRIMARY};"
-            f"  background-color: {Color.INPUT_BG};"
-            f"  border: 1px solid {Color.BORDER};"
-            f"  border-radius: {Radius.INPUT}px;"
-            f"  selection-background-color: {Color.ACCENT};"
-            f"}}"
-            f"QPlainTextEdit:focus {{"
-            f"  border: 1px solid {Color.ACCENT};"
-            f"}}"
+        _field_decl = (
+            f"font-size: {FontSize.SECTION}px; padding: {Spacing.SM}px {Spacing.MD}px; "
+            f"color: {Color.TEXT_PRIMARY}; background-color: {Color.INPUT_BG}; "
+            f"border: 1px solid {Color.BORDER}; border-radius: {Radius.INPUT}px; "
+            f"selection-background-color: {Color.ACCENT};"
         )
+        _field_focus = {":focus": f"border: 1px solid {Color.ACCENT};"}
 
         self.desc_edit = QPlainTextEdit()
         self.desc_edit.setPlaceholderText("Enter item description (e.g. PT OF COMPOSITE PORTS)")
         self.desc_edit.setMinimumHeight(80)
-        self.desc_edit.setStyleSheet(_field_qss)
+        apply_style(self.desc_edit, _field_decl, _field_focus)
         layout.addWidget(self.desc_edit)
 
         notes_label = QLabel("Notes (optional)")
@@ -105,9 +95,9 @@ class _EditForm(QFrame):
 
         self.notes_edit = QPlainTextEdit()
         self.notes_edit.setPlaceholderText("Enter any notes or findings for this item")
-        self.notes_edit.setToolTip("Optional. Appears in the notes cell for this item in the generated tracker.")
+        set_tooltip(self.notes_edit, "Optional. Appears in the notes cell for this item in the generated tracker.")
         self.notes_edit.setMinimumHeight(60)
-        self.notes_edit.setStyleSheet(_field_qss)
+        apply_style(self.notes_edit, _field_decl, _field_focus)
         layout.addWidget(self.notes_edit)
 
         btn_row = QHBoxLayout()
@@ -157,7 +147,7 @@ class ItemEditorWidget(QWidget):
         layout.setSpacing(Spacing.SM)
 
         heading = QLabel(title)
-        heading.setStyleSheet(f"font-weight: 600; font-size: {FontSize.SECTION}px;")
+        apply_style(heading, f"font-weight: 600; font-size: {FontSize.SECTION}px;")
         layout.addWidget(heading)
 
         self._list = QListWidget()
@@ -169,7 +159,7 @@ class ItemEditorWidget(QWidget):
         add_btn_row = QHBoxLayout()
         add_btn = QPushButton("+ Add Item")
         add_btn.setProperty("accent", "true")
-        add_btn.setToolTip("Add a new item to this list.")
+        set_tooltip(add_btn, "Add a new item to this list.")
         add_btn.setFixedHeight(36)
         add_btn.setMaximumWidth(200)
         add_btn.clicked.connect(self._on_add)

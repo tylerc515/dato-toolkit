@@ -9,6 +9,7 @@ from PyQt6.QtGui import QColor, QFont
 from PyQt6.QtWidgets import QHeaderView, QLabel, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget
 
 from app.builder import COLUMN_WIDTHS
+from app.design.qss import apply_style
 from app.constants import TRACKER_COLUMNS
 from app.project import ProjectSection
 
@@ -30,21 +31,15 @@ EMPTY_VALUE_TEXT = "—"
 COLUMN_LETTERS = "ABCDEFGHIJ"
 EXCEL_WIDTH_TO_PIXELS = 6
 
-TABLE_STYLESHEET = """
-QTableWidget {
-    background-color: #ffffff;
-    color: #1a1a2e;
-    gridline-color: #c8c8c8;
-    border: 1px solid #555a73;
-}
-QHeaderView::section {
-    background-color: #d6dce5;
-    color: #1a1a2e;
-    padding: 4px;
-    border: 1px solid #aab2c0;
-    font-weight: 600;
-}
-"""
+# The preview imitates the white Excel sheet it represents, so these are
+# document colors, not theme tokens. Applied scoped to the table (and its
+# header sections on purpose) via apply_style.
+TABLE_DECLARATIONS = (
+    "background-color: #ffffff; color: #1a1a2e; gridline-color: #c8c8c8; border: 1px solid #555a73;"
+)
+TABLE_HEADER_DECLARATIONS = (
+    "background-color: #d6dce5; color: #1a1a2e; padding: 4px; border: 1px solid #aab2c0; font-weight: 600;"
+)
 
 
 class TrackerPreview(QWidget):
@@ -72,7 +67,7 @@ class TrackerPreview(QWidget):
         self.table.setSelectionMode(QTableWidget.SelectionMode.NoSelection)
         self.table.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
-        self.table.setStyleSheet(TABLE_STYLESHEET)
+        apply_style(self.table, TABLE_DECLARATIONS, {" QHeaderView::section": TABLE_HEADER_DECLARATIONS})
 
         for column_index, letter in enumerate(COLUMN_LETTERS):
             width = COLUMN_WIDTHS.get(letter, 20.71)

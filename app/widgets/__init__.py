@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from PyQt6.QtCore import QEasingCurve, QPropertyAnimation, Qt, pyqtSignal
 from PyQt6.QtWidgets import (
-    QDialog,
     QFrame,
     QHBoxLayout,
     QLabel,
@@ -13,8 +12,11 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from app.design.qss import apply_style
+from app.design.tooltip import set_tooltip
 from app.design.tokens import Color, FontSize, Radius, Spacing
 from app.logo import get_pixmap
+from app.widgets.dialogs import AppDialog
 
 HELP_PANEL_WIDTH = 320
 ONBOARDING_TITLE = "Welcome to DATO Toolkit"
@@ -55,12 +57,12 @@ class StepIndicator(QWidget):
             if index > 0:
                 connector = QFrame()
                 connector.setFixedHeight(2)
-                connector.setStyleSheet(f"background-color: {Color.BORDER};")
+                apply_style(connector, f"background-color: {Color.BORDER};")
                 layout.addWidget(connector, 1)
 
             button = QPushButton(f"{index + 1}. {label}")
             button.setCursor(Qt.CursorShape.PointingHandCursor)
-            button.setToolTip(f"Go to step {index + 1}: {label}")
+            set_tooltip(button, f"Go to step {index + 1}: {label}")
             button.clicked.connect(lambda _checked, i=index: self.step_clicked.emit(i))
             self._buttons.append(button)
             layout.addWidget(button)
@@ -72,26 +74,30 @@ class StepIndicator(QWidget):
         for index, button in enumerate(self._buttons):
             if index == current_index:
                 button.setText(f"{index + 1}. {self._labels[index]}")
-                button.setStyleSheet(
-                    f"QPushButton {{ background-color: {Color.ACCENT}; color: {Color.TEXT_PRIMARY}; "
+                apply_style(
+                    button,
+                    f"background-color: {Color.ACCENT}; color: {Color.TEXT_PRIMARY}; "
                     f"font-size: {FontSize.BODY}px; font-weight: 600; border: none; "
-                    f"border-radius: {Radius.BUTTON}px; padding: {Spacing.SM}px {Spacing.LG}px; }}"
+                    f"border-radius: {Radius.BUTTON}px; padding: {Spacing.SM}px {Spacing.LG}px;",
                 )
                 button.setEnabled(index < current_index or index in completed or index == current_index)
             elif index in completed or index < current_index:
                 button.setText(f"✓ {self._labels[index]}")
-                button.setStyleSheet(
-                    f"QPushButton {{ background-color: {Color.CARD_BG}; color: {Color.SUCCESS}; "
+                apply_style(
+                    button,
+                    f"background-color: {Color.CARD_BG}; color: {Color.SUCCESS}; "
                     f"font-size: {FontSize.BODY}px; border: 1px solid {Color.SUCCESS}; "
-                    f"border-radius: {Radius.BUTTON}px; padding: {Spacing.SM}px {Spacing.LG}px; }}"
+                    f"border-radius: {Radius.BUTTON}px; padding: {Spacing.SM}px {Spacing.LG}px;",
+                    {":hover": f"background-color: {Color.BORDER_STRONG};"},
                 )
                 button.setEnabled(True)
             else:
                 button.setText(f"{index + 1}. {self._labels[index]}")
-                button.setStyleSheet(
-                    f"QPushButton {{ background-color: {Color.CARD_BG}; color: {Color.TEXT_MUTED}; "
+                apply_style(
+                    button,
+                    f"background-color: {Color.CARD_BG}; color: {Color.TEXT_MUTED}; "
                     f"font-size: {FontSize.BODY}px; border: 1px solid {Color.BORDER}; "
-                    f"border-radius: {Radius.BUTTON}px; padding: {Spacing.SM}px {Spacing.LG}px; }}"
+                    f"border-radius: {Radius.BUTTON}px; padding: {Spacing.SM}px {Spacing.LG}px;",
                 )
                 button.setEnabled(False)
 
@@ -133,41 +139,27 @@ class HelpPanel(QFrame):
         self._animation.start()
 
 
-class OnboardingDialog(QDialog):
+class OnboardingDialog(AppDialog):
     """First-launch walkthrough of the three wizard steps."""
 
     def __init__(self, parent: QWidget | None = None):
-        super().__init__(parent)
-        self.setWindowTitle(ONBOARDING_TITLE)
-        self.setMinimumWidth(480)
-        self.setModal(True)
-
-        layout = QVBoxLayout(self)
+        super().__init__(parent, ONBOARDING_TITLE)
+        self.setMinimumWidth(520)
 
         logo_label = QLabel()
         logo_label.setPixmap(get_pixmap(240, 140))
         logo_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(logo_label)
-        layout.addSpacing(16)
-
-        heading = QLabel(ONBOARDING_TITLE)
-        heading.setProperty("role", "heading")
-        layout.addWidget(heading)
+        self.body.addWidget(logo_label)
 
         intro = QLabel("Build a TRACE inspection tracker in three quick steps:")
         intro.setProperty("role", "muted")
         intro.setWordWrap(True)
-        layout.addWidget(intro)
+        self.body.addWidget(intro)
 
         for title, description in ONBOARDING_STEPS:
             step_label = QLabel(f"<b>{title}</b><br>{description}")
             step_label.setWordWrap(True)
-            layout.addWidget(step_label)
+            self.body.addWidget(step_label)
 
-        button_row = QHBoxLayout()
-        button_row.addStretch(1)
-        get_started = QPushButton("Get Started")
-        get_started.setProperty("accent", "true")
+        get_started = self.add_button("Get Started", primary=True)
         get_started.clicked.connect(self.accept)
-        button_row.addWidget(get_started)
-        layout.addLayout(button_row)

@@ -124,18 +124,13 @@ def test_overwrite_confirmation_lists_all_conflicts(tmp_path: Path):
         tmp_path / "01 FLOOR_Standard_Format.csv",
         tmp_path / "02 CEILING_Standard_Format.csv",
     ]
-    with patch("app.pages.converter_page.QMessageBox") as MockBox:
-        instance = MockBox.return_value
-        overwrite_btn = MagicMock()
-        cancel_btn = MagicMock()
-        instance.addButton.side_effect = [overwrite_btn, cancel_btn]
-        instance.clickedButton.return_value = overwrite_btn
-
+    with patch("app.pages.converter_page.MessageDialog.question", return_value=True) as question:
         result = page._confirm_overwrite(conflicts)
 
-        message = instance.setText.call_args[0][0]
+        message = question.call_args[0][2]
         assert "01 FLOOR_Standard_Format.csv" in message
         assert "02 CEILING_Standard_Format.csv" in message
+        assert question.call_args.kwargs["accept_text"] == "Overwrite"
         assert result is True
 
 

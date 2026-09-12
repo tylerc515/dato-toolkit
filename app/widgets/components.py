@@ -19,7 +19,13 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from app.design.icons import icon
+from app.design.qss import apply_style
 from app.design.tokens import Color, FontSize, Radius, Spacing
+from app.design.tooltip import set_tooltip
+
+ICON_BUTTON_SIZE = 32
+ICON_BUTTON_SIZE_SMALL = 28
 
 _SEMANTIC_COLORS = {
     "success": Color.SUCCESS,
@@ -46,6 +52,32 @@ class SecondaryButton(QPushButton):
         self.setProperty("flat", "true")
 
 
+class IconButton(QPushButton):
+    """Square, outlined button holding one glyph or icon and nothing else.
+
+    Always carries a tooltip because there is no text label to read. The
+    `iconButton` property zeroes the global button padding, which otherwise
+    leaves no room for the glyph inside a 28-32px square."""
+
+    def __init__(
+        self,
+        glyph: str,
+        tooltip: str,
+        *,
+        icon_name: str | None = None,
+        size: int = ICON_BUTTON_SIZE,
+        parent: QWidget | None = None,
+    ):
+        super().__init__(glyph, parent)
+        if icon_name is not None:
+            self.setIcon(icon(icon_name))
+        self.setProperty("flat", "true")
+        self.setProperty("iconButton", "true")
+        self.setFixedSize(size, size)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        set_tooltip(self, tooltip)
+
+
 class Card(QFrame):
     """Standard card surface: token background, border, radius, padding."""
 
@@ -69,22 +101,24 @@ class StatCard(Card):
     ):
         super().__init__(parent)
         if tooltip:
-            self.setToolTip(tooltip)
+            set_tooltip(self, tooltip)
         self._label_label = QLabel(label)
-        self._label_label.setStyleSheet(f"color: {Color.TEXT_MUTED}; font-size: {FontSize.SMALL}px;")
+        apply_style(self._label_label, f"color: {Color.TEXT_MUTED}; font-size: {FontSize.SMALL}px;")
         self.layout().addWidget(self._label_label)
 
         self._value_label = QLabel(value)
-        self._value_label.setStyleSheet(
-            f"color: {value_color}; font-size: {FontSize.STAT_NUMBER}px; font-weight: 500;"
+        apply_style(
+            self._value_label,
+            f"color: {value_color}; font-size: {FontSize.STAT_NUMBER}px; font-weight: 500;",
         )
         self.layout().addWidget(self._value_label)
 
     def set_value(self, value: str, color: str | None = None) -> None:
         self._value_label.setText(value)
         if color is not None:
-            self._value_label.setStyleSheet(
-                f"color: {color}; font-size: {FontSize.STAT_NUMBER}px; font-weight: 500;"
+            apply_style(
+                self._value_label,
+                f"color: {color}; font-size: {FontSize.STAT_NUMBER}px; font-weight: 500;",
             )
 
 
@@ -108,12 +142,13 @@ class StatusBadge(QLabel):
         self._semantic = semantic
         self.setText(text)
         badge_color = _SEMANTIC_COLORS[semantic]
-        self.setStyleSheet(
+        apply_style(
+            self,
             f"color: {badge_color}; font-size: {FontSize.SMALL}px; "
-            f"border-radius: {Radius.PILL}px; padding: 2px 8px;"
+            f"border-radius: {Radius.PILL}px; padding: 2px {Spacing.SM}px;",
         )
         if tooltip is not None:
-            self.setToolTip(tooltip)
+            set_tooltip(self, tooltip)
 
 
 class FixedGridTable(QWidget):
@@ -146,12 +181,13 @@ class FixedGridTable(QWidget):
                 self._grid.setColumnStretch(col_idx, 0)
 
             header_cell = QLabel(col["label"].upper())
-            header_cell.setStyleSheet(
+            apply_style(
+                header_cell,
                 f"background-color: {Color.TABLE_HEADER_BG}; color: {Color.TEXT_MUTED}; "
-                f"font-size: {FontSize.LABEL}px; font-weight: 600; padding: {Spacing.SM}px;"
+                f"font-size: {FontSize.LABEL}px; font-weight: 600; padding: {Spacing.SM}px;",
             )
             if col.get("tooltip"):
-                header_cell.setToolTip(col["tooltip"])
+                set_tooltip(header_cell, col["tooltip"])
             self._grid.addWidget(header_cell, 0, col_idx)
 
         self._next_row = 1
@@ -163,9 +199,10 @@ class FixedGridTable(QWidget):
             )
         for col_idx, widget in enumerate(values):
             if type(widget) is QLabel:
-                widget.setStyleSheet(
+                apply_style(
+                    widget,
                     f"color: {Color.TEXT_SECONDARY}; font-size: {FontSize.BODY}px; "
-                    f"border-top: 1px solid {Color.BORDER}; padding: {Spacing.SM}px;"
+                    f"border-top: 1px solid {Color.BORDER}; padding: {Spacing.SM}px;",
                 )
             self._grid.addWidget(widget, self._next_row, col_idx)
         self._next_row += 1

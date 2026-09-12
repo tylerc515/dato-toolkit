@@ -11,15 +11,17 @@ def test_color_tokens_have_expected_values():
     assert Color.INPUT_BG == "#0f0f11"
     assert Color.BORDER == "#232326"
     assert Color.BORDER_STRONG == "#2f2f34"
+    assert Color.DIALOG_BORDER == "#3f3f46"
     assert Color.TEXT_PRIMARY == "#f4f4f5"
     assert Color.TEXT_SECONDARY == "#d4d4d8"
     assert Color.TEXT_MUTED == "#8b8b90"
-    assert Color.TEXT_FAINT == "#6b6b70"
+    assert Color.TEXT_FAINT == "#80808a"
     assert Color.ACCENT == "#2563eb"
     assert Color.ACCENT_HOVER == "#1d4ed8"
     assert Color.ACCENT_TEXT == "#7fb0ff"
     assert Color.ACCENT_BG_TINT == "#1a2c50"
     assert Color.SUCCESS == "#00B050"
+    assert Color.SUCCESS_BG_TINT == "#1a3a2a"
     assert Color.WARNING == "#f4b13b"
     assert Color.DANGER == "#ef4444"
 
@@ -40,9 +42,10 @@ def test_radius_tokens_have_expected_values():
 
 def test_font_size_tokens_have_expected_values():
     from app.design.tokens import FontSize
-    assert (FontSize.LABEL, FontSize.SMALL, FontSize.BODY, FontSize.SECTION, FontSize.PAGE_TITLE, FontSize.STAT_NUMBER) == (
-        15, 15, 16, 16, 24, 30,
-    )
+    assert (
+        FontSize.LABEL, FontSize.SMALL, FontSize.BODY, FontSize.SECTION,
+        FontSize.DIALOG_TITLE, FontSize.PAGE_TITLE, FontSize.STAT_NUMBER,
+    ) == (15, 15, 16, 16, 20, 24, 30)
 
 
 def test_font_family_token():
