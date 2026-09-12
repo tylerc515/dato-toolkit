@@ -8,6 +8,7 @@ from PyQt6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QPushButton,
+    QScrollArea,
     QVBoxLayout,
     QWidget,
 )
@@ -112,19 +113,32 @@ class HelpPanel(QFrame):
         self.setMaximumWidth(0)
         self.setMinimumWidth(0)
 
+        # The text lives in a vertical scroll area: long help scrolls instead
+        # of being cut off in a short window, and the scroll area also stops
+        # the word-wrapped labels' height-for-width demand from leaking into
+        # the page layout while the panel is collapsed to zero width.
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(18, 18, 18, 18)
+        layout.setContentsMargins(0, 0, 0, 0)
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        text = QWidget()
+        text_layout = QVBoxLayout(text)
+        text_layout.setContentsMargins(Spacing.LG, Spacing.LG, Spacing.LG, Spacing.LG)
 
         heading = QLabel(title)
         heading.setProperty("role", "heading")
         heading.setWordWrap(True)
-        layout.addWidget(heading)
+        text_layout.addWidget(heading)
 
         body = QLabel(body_html)
         body.setWordWrap(True)
         body.setTextFormat(Qt.TextFormat.RichText)
-        layout.addWidget(body)
-        layout.addStretch(1)
+        text_layout.addWidget(body)
+        text_layout.addStretch(1)
+        scroll.setWidget(text)
+        layout.addWidget(scroll)
 
         self._animation = QPropertyAnimation(self, b"maximumWidth")
         self._animation.setDuration(220)

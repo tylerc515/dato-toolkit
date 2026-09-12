@@ -28,7 +28,7 @@ from app.design.tooltip import set_tooltip
 from app.settings import get_theme
 from app.styles import THEME_DARK, THEME_LIGHT
 from app.widgets import HelpPanel
-from app.widgets.components import Card, IconButton, SecondaryButton
+from app.widgets.components import Card, IconButton, PageScrollArea, SecondaryButton
 
 # --- UI text -------------------------------------------------------------
 
@@ -103,7 +103,7 @@ class SettingsPage(QWidget):
         content_layout.addWidget(self._build_shortcuts_card())
         content_layout.addStretch(1)
 
-        outer.addWidget(content, 1)
+        outer.addWidget(PageScrollArea(content), 1)
 
         self.help_panel = HelpPanel(HELP_TITLE, HELP_BODY)
         outer.addWidget(self.help_panel)

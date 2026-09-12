@@ -98,6 +98,14 @@ def _text_cell(text: str) -> QLabel:
     return label
 
 
+def _wrapping_text_cell(text: str) -> QLabel:
+    """Like _text_cell, but wraps: the stretch (title) column must never force
+    the whole table wider than the page because one title is long."""
+    label = _text_cell(text)
+    label.setWordWrap(True)
+    return label
+
+
 def _icon_button(icon_name: str, tooltip: str) -> IconButton:
     return IconButton("", tooltip, icon_name=icon_name, size=ICON_BUTTON_SIZE_SMALL)
 
@@ -142,6 +150,11 @@ class HistoryPage(QWidget):
         scroll_area = QScrollArea()
         scroll_area.setWidgetResizable(True)
         scroll_area.setFrameShape(QFrame.Shape.NoFrame)
+        # Eight fixed-width data columns add up to more than a small window can
+        # show; like a spreadsheet, the table scrolls sideways rather than
+        # squeezing columns until dates and names are unreadable. This is the
+        # one page-level exception the responsive-layout test allows.
+        scroll_area.setProperty("allowsHorizontalScroll", True)
 
         scroll_content = QWidget()
         scroll_layout = QVBoxLayout(scroll_content)
@@ -222,7 +235,7 @@ class HistoryPage(QWidget):
 
         return [
             _text_cell(format_timestamp(entry.generated_at)),
-            _text_cell(entry.title or UNTITLED_TEXT),
+            _wrapping_text_cell(entry.title or UNTITLED_TEXT),
             _text_cell(entry.customer),
             _text_cell(entry.location),
             _text_cell(entry.equipment),

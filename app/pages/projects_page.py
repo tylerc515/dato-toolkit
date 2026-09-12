@@ -112,6 +112,7 @@ class ProjectsPage(QWidget):
             f"Last modified {format_timestamp(config.last_modified)}</span>"
         )
         info.setTextFormat(Qt.TextFormat.RichText)
+        info.setWordWrap(True)
         layout.addWidget(info, 1)
 
         open_button = QPushButton(OPEN_TEXT)

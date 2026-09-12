@@ -27,7 +27,7 @@ from app.design.tooltip import set_tooltip
 from app.design.tokens import Color, Radius
 from app.styles import apply_card_shadow
 from app.widgets import HelpPanel
-from app.widgets.components import IconButton
+from app.widgets.components import IconButton, PageScrollArea
 
 # --- UI text -------------------------------------------------------------
 
@@ -59,6 +59,9 @@ and click <b>Generate All</b>. Each project is saved like a normal tracker and
 appears in your recent projects and export history.</p>
 """
 STATUS_HINT = "Tip: Scan a folder of TRACE exports to generate trackers for multiple projects at once."
+
+# Scan results list never shrinks below this (px); the page scrolls instead.
+RESULTS_MIN_HEIGHT = 160
 
 logger = logging.getLogger(__name__)
 
@@ -200,6 +203,8 @@ class BatchPage(QWidget):
 
         self.results_area = QScrollArea()
         self.results_area.setWidgetResizable(True)
+        # The results list keeps a few rows visible; below that the page scrolls.
+        self.results_area.setMinimumHeight(RESULTS_MIN_HEIGHT)
         self.results_container = QWidget()
         self.results_layout = QVBoxLayout(self.results_container)
         self.results_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
@@ -239,7 +244,7 @@ class BatchPage(QWidget):
         button_row.addWidget(self.generate_button)
         content_layout.addLayout(button_row)
 
-        outer.addWidget(content, 1)
+        outer.addWidget(PageScrollArea(content), 1)
 
         self.help_panel = HelpPanel(HELP_TITLE, HELP_BODY)
         outer.addWidget(self.help_panel)

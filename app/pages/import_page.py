@@ -26,7 +26,7 @@ from app.design.tokens import Color, FontSize, Radius, Spacing
 from app.parser import TraceFileData, TraceParseError, parse_trace_csv
 from app.project import find_project_for_metadata, find_similar_project_for_metadata
 from app.widgets import HelpPanel
-from app.widgets.components import Card, IconButton, SecondaryButton
+from app.widgets.components import Card, IconButton, PageScrollArea, SecondaryButton
 from app.widgets.dialogs import MessageDialog
 
 # --- UI text -------------------------------------------------------------
@@ -53,6 +53,9 @@ name and how many elevations were found.</p>
 <p>When you're ready, click <b>Continue</b> to arrange your sections.</p>
 """
 STATUS_HINT = "Tip: Drag and drop multiple TRACE export CSV files at once."
+
+# Imported-file list never shrinks below this (px); the page scrolls instead.
+FILE_LIST_MIN_HEIGHT = 160
 PROJECT_FOUND_TITLE = "Saved Project Found"
 PROJECT_FOUND_TEXT = "A saved project for '{title}' was found. Load it?"
 PROJECT_SIMILAR_FOUND_TEXT = "A similar saved project, '{title}', was found. Load it?"
@@ -244,6 +247,8 @@ class ImportPage(QWidget):
 
         self.file_list_area = QScrollArea()
         self.file_list_area.setWidgetResizable(True)
+        # The list keeps a few rows visible; below that the whole page scrolls.
+        self.file_list_area.setMinimumHeight(FILE_LIST_MIN_HEIGHT)
         self.file_list_container = QWidget()
         self.file_list_layout = QVBoxLayout(self.file_list_container)
         self.file_list_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
@@ -265,7 +270,7 @@ class ImportPage(QWidget):
         button_row.addWidget(self.continue_button)
         content_layout.addLayout(button_row)
 
-        outer.addWidget(content, 1)
+        outer.addWidget(PageScrollArea(content), 1)
 
         self.help_panel = HelpPanel(HELP_TITLE, HELP_BODY)
         outer.addWidget(self.help_panel)

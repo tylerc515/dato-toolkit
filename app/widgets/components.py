@@ -8,13 +8,18 @@ app must use this component.
 """
 from __future__ import annotations
 
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import QRect, QSize, Qt
 from PyQt6.QtWidgets import (
+    QBoxLayout,
     QFrame,
     QGridLayout,
     QHBoxLayout,
     QLabel,
+    QLayout,
+    QLayoutItem,
     QPushButton,
+    QScrollArea,
+    QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
@@ -217,3 +222,33 @@ class FixedGridTable(QWidget):
                     self._grid.removeWidget(widget)
                     widget.deleteLater()
         self._next_row = 1
+
+
+# --- Responsive containers -----------------------------------------------------
+
+
+class PageScrollArea(QScrollArea):
+    """Vertical-only scroll region for a page's content.
+
+    When the window is shorter than the content, the page scrolls; nothing
+    inside is ever squeezed. Never scrolls sideways - width is handled by
+    wrapping (FlowLayout) and stacking (ResponsiveColumns), and the window's
+    minimum width guarantees the narrowest usable layout still fits."""
+
+    def __init__(self, content: QWidget, parent: QWidget | None = None):
+        super().__init__(parent)
+        self.setWidgetResizable(True)
+        self.setFrameShape(QFrame.Shape.NoFrame)
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.setWidget(content)
+
+
+def keep_content_height(widget: QWidget) -> None:
+    """Forbid a layout from shrinking this widget below its own content height.
+
+    Rows and cards default to a Preferred vertical policy, which lets a starved
+    layout compress them until text is cut in half and buttons paint as empty
+    rectangles. Minimum keeps sizeHint as the floor while still allowing growth."""
+    policy = widget.sizePolicy()
+    policy.setVerticalPolicy(QSizePolicy.Policy.Minimum)
+    widget.setSizePolicy(policy)

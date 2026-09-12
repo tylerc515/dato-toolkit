@@ -67,6 +67,10 @@ class TrackerPreview(QWidget):
         self.table.setSelectionMode(QTableWidget.SelectionMode.NoSelection)
         self.table.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
+        # The preview imitates the Excel sheet at its real column widths, so it
+        # is deliberately wider than the page and scrolls sideways like Excel.
+        # The responsive-layout test honours this property.
+        self.table.setProperty("allowsHorizontalScroll", True)
         apply_style(self.table, TABLE_DECLARATIONS, {" QHeaderView::section": TABLE_HEADER_DECLARATIONS})
 
         for column_index, letter in enumerate(COLUMN_LETTERS):
