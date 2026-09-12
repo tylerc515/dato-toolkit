@@ -21,6 +21,7 @@ from PyQt6.QtWidgets import (
 )
 
 from app.design.icons import icon
+from app.design.qss import apply_style
 from app.design.tokens import Color, FontSize, Radius, Spacing
 from app.parser import TraceFileData, TraceParseError, parse_trace_csv
 from app.project import find_project_for_metadata, find_similar_project_for_metadata
@@ -76,19 +77,10 @@ class _DropZone(QFrame):
 
     def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
-        self._base_style = (
-            f"QFrame {{ border: 2px dashed {Color.BORDER}; border-radius: {Radius.CARD}px; "
-            f"background-color: {Color.CARD_BG}; }}"
-            f"QFrame:hover {{ border-color: {Color.ACCENT}; }}"
-        )
-        self._drag_active_style = (
-            f"QFrame {{ border: 2px dashed {Color.ACCENT}; border-radius: {Radius.CARD}px; "
-            f"background-color: {Color.ACCENT_BG_TINT}; }}"
-        )
         self.setAcceptDrops(True)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setMinimumHeight(180)
-        self.setStyleSheet(self._base_style)
+        self._set_drag_active(False)
 
         layout = QVBoxLayout(self)
         layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -101,7 +93,7 @@ class _DropZone(QFrame):
 
         text = QLabel(DROP_ZONE_TEXT)
         text.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        text.setStyleSheet(f"font-size: {FontSize.SECTION}px; color: {Color.TEXT_SECONDARY};")
+        apply_style(text, f"font-size: {FontSize.SECTION}px; color: {Color.TEXT_SECONDARY};")
         layout.addWidget(text)
 
         hint = QLabel(DROP_ZONE_HINT)
@@ -111,16 +103,29 @@ class _DropZone(QFrame):
 
         self.setToolTip("Drop one or more TRACE export .csv files here, or click to open a file browser.")
 
+    def _set_drag_active(self, active: bool) -> None:
+        """Dashed accent border + tinted fill while a file is dragged over.
+
+        Scoped to this frame only: a `QFrame` type selector here would also
+        border every QLabel inside the zone (QLabel derives from QFrame)."""
+        border = Color.ACCENT if active else Color.BORDER
+        fill = Color.ACCENT_BG_TINT if active else Color.CARD_BG
+        apply_style(
+            self,
+            f"border: 2px dashed {border}; border-radius: {Radius.CARD}px; background-color: {fill};",
+            {":hover": f"border-color: {Color.ACCENT};"},
+        )
+
     def dragEnterEvent(self, event):
         if event.mimeData().hasUrls():
             event.acceptProposedAction()
-            self.setStyleSheet(self._drag_active_style)
+            self._set_drag_active(True)
 
     def dragLeaveEvent(self, event):
-        self.setStyleSheet(self._base_style)
+        self._set_drag_active(False)
 
     def dropEvent(self, event):
-        self.setStyleSheet(self._base_style)
+        self._set_drag_active(False)
         paths = [url.toLocalFile() for url in event.mimeData().urls() if url.isLocalFile()]
         csv_paths = [p for p in paths if p.lower().endswith(".csv")]
         if not csv_paths:
@@ -158,22 +163,23 @@ class _FileCard(Card):
         filename = Path(result.path).name
 
         if result.error:
-            self.setStyleSheet(
-                f"QFrame {{ background-color: {Color.CARD_BG}; border: 1px solid {Color.DANGER}; "
-                f"border-radius: {Radius.CARD}px; }}"
+            apply_style(
+                self,
+                f"background-color: {Color.CARD_BG}; border: 1px solid {Color.DANGER}; "
+                f"border-radius: {Radius.CARD}px;",
             )
             name_label = QLabel(f"⚠ {filename}")
-            name_label.setStyleSheet(f"color: {Color.DANGER}; font-weight: 600;")
+            apply_style(name_label, f"color: {Color.DANGER}; font-weight: 600;")
             info_layout.addWidget(name_label)
             error_label = QLabel(result.error)
             error_label.setWordWrap(True)
-            error_label.setStyleSheet(f"color: {Color.DANGER};")
+            error_label.setProperty("tone", "danger")
             info_layout.addWidget(error_label)
         else:
             data = result.data
             assert data is not None
             name_label = QLabel(filename)
-            name_label.setStyleSheet("font-weight: 600;")
+            name_label.setProperty("emphasis", "true")
             info_layout.addWidget(name_label)
             detail_label = QLabel(f"Section: {data.boiler_section}  •  {len(data.elevations)} elevations")
             detail_label.setProperty("role", "muted")
@@ -228,8 +234,10 @@ class ImportPage(QWidget):
 
         self.warning_banner = QLabel(WARNING_BANNER_TEXT)
         self.warning_banner.setWordWrap(True)
-        self.warning_banner.setStyleSheet(
-            f"background-color: {Color.WARNING}; color: {Color.PAGE_BG}; border-radius: 8px; padding: 10px;"
+        apply_style(
+            self.warning_banner,
+            f"background-color: {Color.WARNING}; color: {Color.PAGE_BG}; "
+            f"border-radius: {Radius.BUTTON}px; padding: {Spacing.SM}px {Spacing.MD}px;",
         )
         self.warning_banner.setVisible(False)
         content_layout.addWidget(self.warning_banner)

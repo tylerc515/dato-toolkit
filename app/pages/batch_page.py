@@ -22,7 +22,8 @@ from PyQt6.QtWidgets import (
 )
 
 from app.batch import BatchGenerateResult, BatchProjectGroup, BatchScanResult, generate_group, scan_folder
-from app.design.tokens import Color
+from app.design.qss import apply_style, set_tone
+from app.design.tokens import Color, Radius
 from app.styles import apply_card_shadow
 from app.widgets import HelpPanel
 
@@ -100,15 +101,15 @@ class _GroupCard(QFrame):
     def set_result(self, result: BatchGenerateResult) -> None:
         if result.error:
             self.status_label.setText(STATUS_ERROR)
-            self.status_label.setStyleSheet(f"color: {Color.DANGER};")
+            set_tone(self.status_label, "danger")
             self.setToolTip(result.error)
         elif result.warnings:
             self.status_label.setText(STATUS_WARNING)
-            self.status_label.setStyleSheet(f"color: {Color.WARNING};")
+            set_tone(self.status_label, "warning")
             self.setToolTip("\n".join(result.warnings))
         else:
             self.status_label.setText(STATUS_OK)
-            self.status_label.setStyleSheet(f"color: {Color.SUCCESS};")
+            set_tone(self.status_label, "success")
 
 
 class _ErrorCard(QFrame):
@@ -117,13 +118,13 @@ class _ErrorCard(QFrame):
     def __init__(self, path: str, error: str, parent: QWidget | None = None):
         super().__init__(parent)
         self.setProperty("card", "true")
-        self.setStyleSheet(f"QFrame {{ border: 1px solid {Color.DANGER}; border-radius: 12px; }}")
+        apply_style(self, f"border: 1px solid {Color.DANGER}; border-radius: {Radius.CARD}px;")
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(14, 10, 14, 10)
 
         name_label = QLabel(f"⚠ {Path(path).name}")
-        name_label.setStyleSheet(f"color: {Color.DANGER}; font-weight: 600;")
+        apply_style(name_label, f"color: {Color.DANGER}; font-weight: 600;")
         layout.addWidget(name_label)
 
         error_label = QLabel(error)
@@ -340,7 +341,7 @@ class BatchPage(QWidget):
 
         for card in self._cards:
             card.status_label.setText(STATUS_PENDING)
-            card.status_label.setStyleSheet("")
+            set_tone(card.status_label, None)
             card.checkbox.setEnabled(False)
 
         self.generate_button.setEnabled(False)

@@ -28,6 +28,7 @@ from PyQt6.QtWidgets import (
 )
 
 from app.design.icons import icon
+from app.design.qss import apply_style
 from app.design.tokens import Color, Radius, Spacing
 from app.email_export import EmailData, OtherItem, ScopeSection, build_email_doc
 from app.history import HistoryEntry, add_history_entry
@@ -296,9 +297,9 @@ class EmailPage(QWidget):
 
         # Slim link bar (shown when a project is linked)
         self._link_bar = QFrame()
-        self._link_bar.setStyleSheet(
-            f"QFrame {{ background-color: {Color.CARD_BG}; "
-            f"border-left: 4px solid {Color.SUCCESS}; }}"
+        apply_style(
+            self._link_bar,
+            f"background-color: {Color.CARD_BG}; border-left: {Spacing.XS}px solid {Color.SUCCESS};",
         )
         self._link_bar.setFixedHeight(44)
         self._link_bar.setVisible(False)
@@ -310,7 +311,7 @@ class EmailPage(QWidget):
         # auto-detection would otherwise sniff a stray "<" in that data and
         # render it as HTML.
         self._link_label.setTextFormat(Qt.TextFormat.PlainText)
-        self._link_label.setStyleSheet(f"color: {Color.TEXT_PRIMARY}; font-weight: 600;")
+        self._link_label.setProperty("emphasis", "true")
         link_bar_layout.addWidget(self._link_label, 1)
         unlink_btn = QPushButton(UNLINK_TEXT)
         unlink_btn.setProperty("flat", "true")
@@ -319,7 +320,7 @@ class EmailPage(QWidget):
             "sections, auxiliary items, punchlist) will be cleared; your typed "
             "findings and summary text stay as-is."
         )
-        unlink_btn.setStyleSheet(f"color: {Color.TEXT_MUTED};")
+        apply_style(unlink_btn, f"color: {Color.TEXT_MUTED};")
         unlink_btn.clicked.connect(self._unlink)
         link_bar_layout.addWidget(unlink_btn)
         content_wrapper_layout.addWidget(self._link_bar)
@@ -504,9 +505,10 @@ class EmailPage(QWidget):
         layout.addWidget(self._progress_bar)
 
         self._success_card = Card()
-        self._success_card.setStyleSheet(
-            f"QFrame {{ background-color: {Color.CARD_BG}; border: 1px solid {Color.SUCCESS}; "
-            f"border-radius: {Radius.CARD}px; }}"
+        apply_style(
+            self._success_card,
+            f"background-color: {Color.CARD_BG}; border: 1px solid {Color.SUCCESS}; "
+            f"border-radius: {Radius.CARD}px;",
         )
         success_layout = self._success_card.layout()
         success_heading_row = QHBoxLayout()
@@ -515,7 +517,7 @@ class EmailPage(QWidget):
         success_heading_row.addWidget(success_heading_icon)
         success_heading = QLabel(SUCCESS_TITLE)
         success_heading.setProperty("role", "heading")
-        success_heading.setStyleSheet(f"color: {Color.SUCCESS};")
+        success_heading.setProperty("tone", "success")
         success_heading_row.addWidget(success_heading)
         success_heading_row.addStretch(1)
         success_layout.addLayout(success_heading_row)

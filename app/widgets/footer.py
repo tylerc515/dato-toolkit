@@ -7,6 +7,7 @@ import webbrowser
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QHBoxLayout, QLabel, QWidget
 
+from app.design.qss import apply_style
 from app.design.tokens import Color, FONT_FAMILY, FontSize
 
 BSI_WEBSITE_URL = "https://www.boilerservicesandinspection.com"
@@ -19,9 +20,10 @@ class _LinkLabel(QLabel):
         super().__init__(text, parent)
         self._url = url
         self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setStyleSheet(
-            f"QLabel {{ color: {Color.TEXT_MUTED}; font-family: '{FONT_FAMILY}'; font-size: {FontSize.LABEL}px; }}"
-            f"QLabel:hover {{ color: {hover_color}; }}"
+        apply_style(
+            self,
+            f"color: {Color.TEXT_MUTED}; font-family: '{FONT_FAMILY}'; font-size: {FontSize.LABEL}px;",
+            {":hover": f"color: {hover_color};"},
         )
 
     def mousePressEvent(self, event) -> None:
@@ -36,8 +38,9 @@ class FooterBar(QWidget):
     @staticmethod
     def _separator() -> QLabel:
         label = QLabel(" · ")
-        label.setStyleSheet(
-            f"QLabel {{ color: {Color.TEXT_MUTED}; font-family: '{FONT_FAMILY}'; font-size: {FontSize.LABEL}px; }}"
+        apply_style(
+            label,
+            f"color: {Color.TEXT_MUTED}; font-family: '{FONT_FAMILY}'; font-size: {FontSize.LABEL}px;",
         )
         return label
 
@@ -45,9 +48,7 @@ class FooterBar(QWidget):
         super().__init__(parent)
         self.setFixedHeight(28)
         self.setObjectName("FooterBar")
-        self.setStyleSheet(
-            f"#FooterBar {{ background-color: {Color.PAGE_BG}; border-top: 1px solid {Color.BORDER_STRONG}; }}"
-        )
+        apply_style(self, f"background-color: {Color.PAGE_BG}; border-top: 1px solid {Color.BORDER_STRONG};")
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)

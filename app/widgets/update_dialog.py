@@ -29,6 +29,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from app.design.qss import apply_style
 from app.design.tokens import Color, FONT_FAMILY, FontSize, Radius, Spacing
 from app.logo import get_pixmap
 from app.project import APP_DIR_NAME
@@ -124,7 +125,7 @@ class UpdateDialog(QDialog):
 
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Dialog)
         self.setFixedSize(620, 560)
-        self.setStyleSheet(f"QDialog {{ background-color: {Color.PAGE_BG}; }}")
+        apply_style(self, f"background-color: {Color.PAGE_BG};")
         self.setModal(True)
 
         if parent is not None:
@@ -145,10 +146,7 @@ class UpdateDialog(QDialog):
 
     def _build_header(self) -> QFrame:
         header = QFrame()
-        header.setStyleSheet(
-            f"QFrame {{ background-color: {Color.SIDEBAR_BG}; "
-            f"border-bottom: 1px solid {Color.BORDER}; }}"
-        )
+        apply_style(header, f"background-color: {Color.SIDEBAR_BG}; border-bottom: 1px solid {Color.BORDER};")
         header.setFixedHeight(80)
         layout = QHBoxLayout(header)
         layout.setContentsMargins(16, 12, 16, 12)
@@ -160,30 +158,28 @@ class UpdateDialog(QDialog):
 
         info_col = QVBoxLayout()
         title_lbl = QLabel("DATO Toolkit Update Available")
-        title_lbl.setStyleSheet(
-            f"font-size: {FontSize.PAGE_TITLE}px; font-weight: 600; color: {Color.TEXT_PRIMARY};"
-        )
+        apply_style(title_lbl, f"font-size: {FontSize.PAGE_TITLE}px; font-weight: 600; color: {Color.TEXT_PRIMARY};")
         info_col.addWidget(title_lbl)
 
         current = self._info.current_version or "?"
         latest = self._info.latest_version or "?"
         ver_lbl = QLabel(f"{current} → {latest}")
-        ver_lbl.setStyleSheet(f"font-size: {FontSize.BODY}px; color: {Color.TEXT_MUTED};")
+        apply_style(ver_lbl, f"font-size: {FontSize.BODY}px; color: {Color.TEXT_MUTED};")
         info_col.addWidget(ver_lbl)
 
         if self._info.published_at:
             date_lbl = QLabel(f"Released {format_published_at(self._info.published_at)}")
-            date_lbl.setStyleSheet(f"font-size: {FontSize.SMALL}px; color: {Color.TEXT_MUTED};")
+            apply_style(date_lbl, f"font-size: {FontSize.SMALL}px; color: {Color.TEXT_MUTED};")
             info_col.addWidget(date_lbl)
 
         layout.addLayout(info_col, 1)
 
         close_btn = QPushButton("×")
         close_btn.setFixedSize(32, 32)
-        close_btn.setStyleSheet(
-            f"QPushButton {{ background: transparent; border: none; "
-            f"color: {Color.TEXT_MUTED}; font-size: {FontSize.PAGE_TITLE}px; }}"
-            f"QPushButton:hover {{ color: {Color.TEXT_PRIMARY}; }}"
+        apply_style(
+            close_btn,
+            f"background: transparent; border: none; color: {Color.TEXT_MUTED}; font-size: {FontSize.PAGE_TITLE}px;",
+            {":hover": f"color: {Color.TEXT_PRIMARY};"},
         )
         close_btn.clicked.connect(self.reject)
         layout.addWidget(close_btn, 0, Qt.AlignmentFlag.AlignTop)
@@ -197,17 +193,16 @@ class UpdateDialog(QDialog):
 
         latest = self._info.latest_version or "?"
         label = QLabel(f"What's New in {latest}")
-        label.setStyleSheet(
-            f"font-size: {FontSize.LABEL}px; font-weight: bold; color: {Color.TEXT_MUTED};"
-        )
+        apply_style(label, f"font-size: {FontSize.LABEL}px; font-weight: bold; color: {Color.TEXT_MUTED};")
         layout.addWidget(label)
 
         self._notes_browser = QTextBrowser()
         self._notes_browser.setOpenExternalLinks(True)
-        self._notes_browser.setStyleSheet(
-            f"QTextBrowser {{ background: {Color.INPUT_BG}; color: {Color.TEXT_PRIMARY}; "
+        apply_style(
+            self._notes_browser,
+            f"background: {Color.INPUT_BG}; color: {Color.TEXT_PRIMARY}; "
             f"border: 1px solid {Color.BORDER}; border-radius: {Radius.CARD}px; "
-            f"padding: {Spacing.MD}px; font-family: '{FONT_FAMILY}'; font-size: {FontSize.BODY}px; }}"
+            f"padding: {Spacing.MD}px; font-family: '{FONT_FAMILY}'; font-size: {FontSize.BODY}px;",
         )
         notes = self._info.release_notes or "No release notes provided for this version."
         self._notes_browser.setHtml(_MarkdownConverter.to_html(notes))
@@ -216,9 +211,10 @@ class UpdateDialog(QDialog):
 
     def _build_install_section(self) -> QFrame:
         card = QFrame()
-        card.setStyleSheet(
-            f"QFrame {{ background-color: {Color.SIDEBAR_BG}; "
-            f"border-top: 1px solid {Color.BORDER}; border-bottom: 1px solid {Color.BORDER}; }}"
+        apply_style(
+            card,
+            f"background-color: {Color.SIDEBAR_BG}; "
+            f"border-top: 1px solid {Color.BORDER}; border-bottom: 1px solid {Color.BORDER};",
         )
         layout = QVBoxLayout(card)
         layout.setContentsMargins(16, 12, 16, 12)
@@ -226,7 +222,7 @@ class UpdateDialog(QDialog):
 
         loc_row = QHBoxLayout()
         loc_lbl = QLabel("Install Location")
-        loc_lbl.setStyleSheet(f"color: {Color.TEXT_PRIMARY};")
+        apply_style(loc_lbl, f"color: {Color.TEXT_PRIMARY};")
         loc_row.addWidget(loc_lbl)
         self._folder_edit = QLineEdit(self._default_install_dir())
         # The field scrolls internally, but a long path is hard to read that
@@ -243,12 +239,12 @@ class UpdateDialog(QDialog):
 
         fn_row = QHBoxLayout()
         fn_lbl = QLabel("New filename")
-        fn_lbl.setStyleSheet(f"color: {Color.TEXT_PRIMARY};")
+        apply_style(fn_lbl, f"color: {Color.TEXT_PRIMARY};")
         fn_row.addWidget(fn_lbl)
         new_name = f"DATOToolkit_{self._info.latest_version or 'update'}.exe"
         self._filename_edit = QLineEdit(new_name)
         self._filename_edit.setReadOnly(True)
-        self._filename_edit.setStyleSheet(f"color: {Color.TEXT_MUTED};")
+        apply_style(self._filename_edit, f"color: {Color.TEXT_MUTED};")
         fn_row.addWidget(self._filename_edit, 1)
         layout.addLayout(fn_row)
 
@@ -257,15 +253,13 @@ class UpdateDialog(QDialog):
             f"Delete {current_name} after installing new version"
         )
         self._remove_checkbox.setChecked(True)
-        self._remove_checkbox.setStyleSheet(f"color: {Color.TEXT_PRIMARY};")
+        apply_style(self._remove_checkbox, f"color: {Color.TEXT_PRIMARY};")
         layout.addWidget(self._remove_checkbox)
 
         helper = QLabel(
             "The old file will only be removed after the new version launches successfully."
         )
-        helper.setStyleSheet(
-            f"font-size: {FontSize.LABEL}px; font-style: italic; color: {Color.TEXT_MUTED};"
-        )
+        apply_style(helper, f"font-size: {FontSize.LABEL}px; font-style: italic; color: {Color.TEXT_MUTED};")
         helper.setWordWrap(True)
         layout.addWidget(helper)
 
@@ -279,7 +273,7 @@ class UpdateDialog(QDialog):
         layout.setSpacing(4)
 
         self._progress_label = QLabel("Preparing download…")
-        self._progress_label.setStyleSheet(f"color: {Color.TEXT_PRIMARY};")
+        apply_style(self._progress_label, f"color: {Color.TEXT_PRIMARY};")
         layout.addWidget(self._progress_label)
 
         self._progress_bar = QProgressBar()
@@ -288,7 +282,7 @@ class UpdateDialog(QDialog):
         layout.addWidget(self._progress_bar)
 
         self._speed_label = QLabel("")
-        self._speed_label.setStyleSheet(f"font-size: {FontSize.LABEL}px; color: {Color.TEXT_MUTED};")
+        apply_style(self._speed_label, f"font-size: {FontSize.LABEL}px; color: {Color.TEXT_MUTED};")
         layout.addWidget(self._speed_label)
 
         cancel_row = QHBoxLayout()

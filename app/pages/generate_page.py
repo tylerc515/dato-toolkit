@@ -27,6 +27,7 @@ from PyQt6.QtWidgets import (
 
 from app.builder import TrackerData, TrackerItem, TrackerSection, build_tracker
 from app.design.icons import icon
+from app.design.qss import apply_style
 from app.design.tokens import Color, Radius
 from app.history import HistoryEntry, add_history_entry
 from app.logo import get_pixmap
@@ -181,9 +182,10 @@ class GeneratePage(QWidget):
         content_layout.addWidget(self.progress_bar)
 
         self.success_card = Card()
-        self.success_card.setStyleSheet(
-            f"QFrame {{ background-color: {Color.CARD_BG}; border: 1px solid {Color.SUCCESS}; "
-            f"border-radius: {Radius.CARD}px; }}"
+        apply_style(
+            self.success_card,
+            f"background-color: {Color.CARD_BG}; border: 1px solid {Color.SUCCESS}; "
+            f"border-radius: {Radius.CARD}px;",
         )
         success_layout = self.success_card.layout()
         success_heading_row = QHBoxLayout()
@@ -192,7 +194,7 @@ class GeneratePage(QWidget):
         success_heading_row.addWidget(success_heading_icon)
         success_heading = QLabel(SUCCESS_TITLE)
         success_heading.setProperty("role", "heading")
-        success_heading.setStyleSheet(f"color: {Color.SUCCESS};")
+        success_heading.setProperty("tone", "success")
         success_heading_row.addWidget(success_heading)
         success_heading_row.addStretch(1)
         success_layout.addLayout(success_heading_row)
@@ -204,7 +206,7 @@ class GeneratePage(QWidget):
         success_layout.addWidget(success_text)
         self.validation_warning_label = QLabel("")
         self.validation_warning_label.setWordWrap(True)
-        self.validation_warning_label.setStyleSheet(f"color: {Color.WARNING};")
+        self.validation_warning_label.setProperty("tone", "warning")
         self.validation_warning_label.setVisible(False)
         success_layout.addWidget(self.validation_warning_label)
         success_buttons = QHBoxLayout()

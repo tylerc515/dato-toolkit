@@ -19,6 +19,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from app.design.qss import apply_style
 from app.design.tokens import Color, FontSize, Radius, Spacing
 
 _SEMANTIC_COLORS = {
@@ -71,20 +72,22 @@ class StatCard(Card):
         if tooltip:
             self.setToolTip(tooltip)
         self._label_label = QLabel(label)
-        self._label_label.setStyleSheet(f"color: {Color.TEXT_MUTED}; font-size: {FontSize.SMALL}px;")
+        apply_style(self._label_label, f"color: {Color.TEXT_MUTED}; font-size: {FontSize.SMALL}px;")
         self.layout().addWidget(self._label_label)
 
         self._value_label = QLabel(value)
-        self._value_label.setStyleSheet(
-            f"color: {value_color}; font-size: {FontSize.STAT_NUMBER}px; font-weight: 500;"
+        apply_style(
+            self._value_label,
+            f"color: {value_color}; font-size: {FontSize.STAT_NUMBER}px; font-weight: 500;",
         )
         self.layout().addWidget(self._value_label)
 
     def set_value(self, value: str, color: str | None = None) -> None:
         self._value_label.setText(value)
         if color is not None:
-            self._value_label.setStyleSheet(
-                f"color: {color}; font-size: {FontSize.STAT_NUMBER}px; font-weight: 500;"
+            apply_style(
+                self._value_label,
+                f"color: {color}; font-size: {FontSize.STAT_NUMBER}px; font-weight: 500;",
             )
 
 
@@ -108,9 +111,10 @@ class StatusBadge(QLabel):
         self._semantic = semantic
         self.setText(text)
         badge_color = _SEMANTIC_COLORS[semantic]
-        self.setStyleSheet(
+        apply_style(
+            self,
             f"color: {badge_color}; font-size: {FontSize.SMALL}px; "
-            f"border-radius: {Radius.PILL}px; padding: 2px 8px;"
+            f"border-radius: {Radius.PILL}px; padding: 2px {Spacing.SM}px;",
         )
         if tooltip is not None:
             self.setToolTip(tooltip)
@@ -146,9 +150,10 @@ class FixedGridTable(QWidget):
                 self._grid.setColumnStretch(col_idx, 0)
 
             header_cell = QLabel(col["label"].upper())
-            header_cell.setStyleSheet(
+            apply_style(
+                header_cell,
                 f"background-color: {Color.TABLE_HEADER_BG}; color: {Color.TEXT_MUTED}; "
-                f"font-size: {FontSize.LABEL}px; font-weight: 600; padding: {Spacing.SM}px;"
+                f"font-size: {FontSize.LABEL}px; font-weight: 600; padding: {Spacing.SM}px;",
             )
             if col.get("tooltip"):
                 header_cell.setToolTip(col["tooltip"])
@@ -163,9 +168,10 @@ class FixedGridTable(QWidget):
             )
         for col_idx, widget in enumerate(values):
             if type(widget) is QLabel:
-                widget.setStyleSheet(
+                apply_style(
+                    widget,
                     f"color: {Color.TEXT_SECONDARY}; font-size: {FontSize.BODY}px; "
-                    f"border-top: 1px solid {Color.BORDER}; padding: {Spacing.SM}px;"
+                    f"border-top: 1px solid {Color.BORDER}; padding: {Spacing.SM}px;",
                 )
             self._grid.addWidget(widget, self._next_row, col_idx)
         self._next_row += 1

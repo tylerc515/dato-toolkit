@@ -59,6 +59,30 @@ QLabel[role="heading"] {{
     font-weight: 600;
 }}
 
+QLabel[role="faint"] {{
+    color: {Color.TEXT_FAINT};
+}}
+
+QLabel[role="label"] {{
+    color: {Color.TEXT_SECONDARY};
+}}
+
+QLabel[emphasis="true"] {{
+    font-weight: 600;
+}}
+
+QLabel[tone="success"] {{
+    color: {Color.SUCCESS};
+}}
+
+QLabel[tone="warning"] {{
+    color: {Color.WARNING};
+}}
+
+QLabel[tone="danger"] {{
+    color: {Color.DANGER};
+}}
+
 QFrame[card="true"] {{
     background-color: {Color.CARD_BG};
     border-radius: {Radius.CARD}px;

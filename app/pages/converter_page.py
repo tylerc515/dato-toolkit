@@ -54,6 +54,7 @@ from app.converters.tds_old_parser import (
 )
 from app.converters.standard_format_writer import write_standard_format
 from app.design.icons import icon
+from app.design.qss import apply_style
 from app.design.tokens import Color, FontSize, Radius, Spacing
 from app.widgets import HelpPanel
 from app.widgets.components import Card, PrimaryButton, SecondaryButton, StatCard
@@ -189,25 +190,16 @@ class _AtsDropZone(QFrame):
         # ".xlsx"; the TDS flow passes ".csv". Kept configurable so the same
         # drop widget serves every flow without duplicating drag handling.
         self._extensions = extensions
-        self._base_style = (
-            f"QFrame {{ border: 2px dashed {Color.BORDER}; border-radius: 8px; "
-            f"background: transparent; }}"
-            f"QFrame:hover {{ border-color: {Color.ACCENT}; }}"
-        )
-        self._drag_style = (
-            f"QFrame {{ border: 2px dashed {Color.ACCENT}; border-radius: 8px; "
-            f"background: transparent; }}"
-        )
         self.setAcceptDrops(True)
         self.setMinimumHeight(80)
-        self.setStyleSheet(self._base_style)
+        self._set_drag_active(False)
 
         layout = QVBoxLayout(self)
         layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         lbl = QLabel(text)
         lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         lbl.setWordWrap(True)
-        lbl.setStyleSheet(f"color: {Color.TEXT_MUTED};")
+        lbl.setProperty("role", "muted")
         layout.addWidget(lbl)
 
         self.setToolTip(
@@ -219,16 +211,28 @@ class _AtsDropZone(QFrame):
             )
         )
 
+    def _set_drag_active(self, active: bool) -> None:
+        """Dashed accent border while a file is dragged over the zone.
+
+        Scoped to this frame only: a `QFrame` type selector here would also
+        border every QLabel inside the zone (QLabel derives from QFrame)."""
+        border = Color.ACCENT if active else Color.BORDER
+        apply_style(
+            self,
+            f"border: 2px dashed {border}; border-radius: {Radius.CARD}px; background: transparent;",
+            {":hover": f"border-color: {Color.ACCENT};"},
+        )
+
     def dragEnterEvent(self, event):
         if event.mimeData().hasUrls():
             event.acceptProposedAction()
-            self.setStyleSheet(self._drag_style)
+            self._set_drag_active(True)
 
     def dragLeaveEvent(self, event):
-        self.setStyleSheet(self._base_style)
+        self._set_drag_active(False)
 
     def dropEvent(self, event):
-        self.setStyleSheet(self._base_style)
+        self._set_drag_active(False)
         paths = [url.toLocalFile() for url in event.mimeData().urls() if url.isLocalFile()]
         matched = [p for p in paths if p.lower().endswith(self._extensions)]
         if matched:
@@ -291,7 +295,7 @@ class _FileCard(Card):
 
         info = QVBoxLayout()
         name_lbl = QLabel(Path(path).name)
-        name_lbl.setStyleSheet("font-weight: 600;")
+        name_lbl.setProperty("emphasis", "true")
         info.addWidget(name_lbl)
         detail = QLabel(
             f"{result.boiler_section} - "
@@ -332,7 +336,7 @@ class _TeamFileCard(Card):
 
         info = QVBoxLayout()
         name_lbl = QLabel(Path(path).name)
-        name_lbl.setStyleSheet("font-weight: 600;")
+        name_lbl.setProperty("emphasis", "true")
         info.addWidget(name_lbl)
 
         comment_codes = ", ".join(sorted(result.comment_codes_found)) if result.comment_codes_found else "none"
@@ -349,7 +353,7 @@ class _TeamFileCard(Card):
 
         section_row = QHBoxLayout()
         section_lbl = QLabel("Section name:")
-        section_lbl.setStyleSheet(f"color: {Color.TEXT_MUTED};")
+        section_lbl.setProperty("role", "muted")
         section_row.addWidget(section_lbl)
         self._section_edit = QLineEdit(section_name)
         self._section_edit.setToolTip(
@@ -422,7 +426,7 @@ class _TdsFileCard(Card):
         info = QVBoxLayout()
         title_row = QHBoxLayout()
         name_lbl = QLabel(Path(path).name)
-        name_lbl.setStyleSheet("font-weight: 600;")
+        name_lbl.setProperty("emphasis", "true")
         title_row.addWidget(name_lbl)
 
         self._badge = QLabel("Old" if fmt == "old" else "New")
@@ -435,10 +439,11 @@ class _TdsFileCard(Card):
         else:
             badge_bg, badge_fg = Color.ACCENT_BG_TINT, Color.ACCENT_TEXT
             self._badge.setToolTip("TDS 5.3+ format. Metadata was read from labeled fields.")
-        self._badge.setStyleSheet(
+        apply_style(
+            self._badge,
             f"background-color: {badge_bg}; color: {badge_fg}; "
             f"font-size: {FontSize.LABEL}px; font-weight: 600; "
-            f"border-radius: {Radius.PILL}px; padding: 2px {Spacing.SM}px;"
+            f"border-radius: {Radius.PILL}px; padding: 2px {Spacing.SM}px;",
         )
         title_row.addWidget(self._badge)
         title_row.addStretch(1)
@@ -466,9 +471,9 @@ class _TdsFileCard(Card):
         self._meta_group = QFrame()
         if self.needs_confirmation:
             # Warning-tinted border marks the whole group as needing review.
-            self._meta_group.setStyleSheet(
-                f"QFrame {{ border: 1px solid {Color.WARNING}; "
-                f"border-radius: {Radius.INPUT}px; }}"
+            apply_style(
+                self._meta_group,
+                f"border: 1px solid {Color.WARNING}; border-radius: {Radius.INPUT}px;",
             )
         meta_layout = QVBoxLayout(self._meta_group)
         meta_layout.setContentsMargins(Spacing.SM, Spacing.SM, Spacing.SM, Spacing.SM)
@@ -476,9 +481,7 @@ class _TdsFileCard(Card):
 
         if self.needs_confirmation:
             self._confirm_note = QLabel(TDS_CONFIRM_NOTE)
-            self._confirm_note.setStyleSheet(
-                f"color: {Color.WARNING}; font-size: {FontSize.LABEL}px;"
-            )
+            apply_style(self._confirm_note, f"color: {Color.WARNING}; font-size: {FontSize.LABEL}px;")
             meta_layout.addWidget(self._confirm_note)
 
         prefilled = self._prefill_values(fmt, result)
@@ -523,7 +526,7 @@ class _TdsFileCard(Card):
         row = QHBoxLayout()
         lbl = QLabel(label)
         lbl.setMinimumWidth(120)
-        lbl.setStyleSheet(f"color: {Color.TEXT_MUTED};")
+        lbl.setProperty("role", "muted")
         row.addWidget(lbl)
         row.addWidget(field, 1)
         return row
@@ -555,14 +558,15 @@ class _ErrorCard(QFrame):
 
     def __init__(self, path: str, error: str, parent: QWidget | None = None):
         super().__init__(parent)
-        self.setStyleSheet(
-            f"QFrame {{ background-color: {Color.CARD_BG}; border: 1px solid {Color.DANGER}; "
-            f"border-radius: {Radius.CARD}px; }}"
+        apply_style(
+            self,
+            f"background-color: {Color.CARD_BG}; border: 1px solid {Color.DANGER}; "
+            f"border-radius: {Radius.CARD}px;",
         )
         layout = QHBoxLayout(self)
         layout.setContentsMargins(Spacing.MD, Spacing.SM, Spacing.MD, Spacing.SM)
         lbl = QLabel(f"<b>{html.escape(Path(path).name)}</b>: {html.escape(error)}")
-        lbl.setStyleSheet(f"color: {Color.DANGER};")
+        lbl.setProperty("tone", "danger")
         lbl.setWordWrap(True)
         layout.addWidget(lbl, 1)
 
@@ -635,29 +639,30 @@ class ConverterPage(QWidget):
         # strings are stored so tab switching can restyle the pills without
         # changing the ATS tab's original active appearance.
         self._active_tab_style = (
-            f"QPushButton {{ background-color: {Color.ACCENT}; color: {Color.TEXT_PRIMARY}; "
+            f"background-color: {Color.ACCENT}; color: {Color.TEXT_PRIMARY}; "
             f"font-weight: 600; border: none; border-radius: {Radius.PILL}px; "
-            f"padding: {Spacing.SM}px {Spacing.LG}px; }}"
+            f"padding: {Spacing.SM}px {Spacing.LG}px;"
         )
         self._inactive_tab_style = (
-            f"QPushButton {{ background-color: transparent; color: {Color.TEXT_MUTED}; "
+            f"background-color: transparent; color: {Color.TEXT_MUTED}; "
             f"border: 1px solid {Color.BORDER}; border-radius: {Radius.PILL}px; "
-            f"padding: {Spacing.SM}px {Spacing.LG}px; }}"
+            f"padding: {Spacing.SM}px {Spacing.LG}px;"
         )
+        self._inactive_tab_hover = f"color: {Color.TEXT_PRIMARY}; border-color: {Color.BORDER_STRONG};"
 
         tab_row = QHBoxLayout()
         self._ats_tab_btn = QPushButton(ATS_TAB_TEXT)
-        self._ats_tab_btn.setStyleSheet(self._active_tab_style)
+        apply_style(self._ats_tab_btn, self._active_tab_style)
         self._ats_tab_btn.clicked.connect(self._show_ats_tab)
         tab_row.addWidget(self._ats_tab_btn)
 
         self._team_tab_btn = QPushButton(TEAM_TAB_TEXT)
-        self._team_tab_btn.setStyleSheet(self._inactive_tab_style)
+        apply_style(self._team_tab_btn, self._inactive_tab_style, {":hover": self._inactive_tab_hover})
         self._team_tab_btn.clicked.connect(self._show_team_tab)
         tab_row.addWidget(self._team_tab_btn)
 
         self._tds_tab_btn = QPushButton(TDS_TAB_TEXT)
-        self._tds_tab_btn.setStyleSheet(self._inactive_tab_style)
+        apply_style(self._tds_tab_btn, self._inactive_tab_style, {":hover": self._inactive_tab_hover})
         self._tds_tab_btn.clicked.connect(self._show_tds_tab)
         tab_row.addWidget(self._tds_tab_btn)
 
@@ -823,9 +828,9 @@ class ConverterPage(QWidget):
     # --- Sub-tab switching ---
 
     def _style_active_tab(self, active_btn: QPushButton, inactive_btns: list[QPushButton]) -> None:
-        active_btn.setStyleSheet(self._active_tab_style)
+        apply_style(active_btn, self._active_tab_style)
         for btn in inactive_btns:
-            btn.setStyleSheet(self._inactive_tab_style)
+            apply_style(btn, self._inactive_tab_style, {":hover": self._inactive_tab_hover})
 
     def _show_ats_tab(self) -> None:
         self._tab_stack.setCurrentIndex(0)
@@ -1038,10 +1043,9 @@ class ConverterPage(QWidget):
     def _on_file_done(self, path: str, success: bool, error: str) -> None:
         self._progress_bar.setValue(self._progress_bar.value() + 1)
         status_icon = "✓" if success else "✗"
-        style_color = Color.SUCCESS if success else Color.DANGER
         text = f"{status_icon} {Path(path).name}" + (f": {error}" if error else "")
         lbl = QLabel(text)
-        lbl.setStyleSheet(f"color: {style_color};")
+        lbl.setProperty("tone", "success" if success else "danger")
         self._results_layout.addWidget(lbl)
 
     def _on_all_done(self) -> None:
@@ -1210,7 +1214,7 @@ class ConverterPage(QWidget):
         )
         include_hint.setProperty("role", "muted")
         include_hint.setWordWrap(True)
-        include_hint.setStyleSheet(f"font-size: {FontSize.LABEL}px;")
+        apply_style(include_hint, f"font-size: {FontSize.LABEL}px;")
         meta_layout.addWidget(include_hint)
 
         # Toggling after import must not require re-importing; just refresh stats.
@@ -1525,10 +1529,9 @@ class ConverterPage(QWidget):
     def _on_team_file_done(self, path: str, success: bool, error: str) -> None:
         self._team_progress_bar.setValue(self._team_progress_bar.value() + 1)
         status_icon = "✓" if success else "✗"
-        style_color = Color.SUCCESS if success else Color.DANGER
         text = f"{status_icon} {Path(path).name}" + (f": {error}" if error else "")
         lbl = QLabel(text)
-        lbl.setStyleSheet(f"color: {style_color};")
+        lbl.setProperty("tone", "success" if success else "danger")
         self._team_results_layout.addWidget(lbl)
 
     def _on_team_all_done(self) -> None:
@@ -1651,7 +1654,7 @@ class ConverterPage(QWidget):
         )
         include_hint.setProperty("role", "muted")
         include_hint.setWordWrap(True)
-        include_hint.setStyleSheet(f"font-size: {FontSize.LABEL}px;")
+        apply_style(include_hint, f"font-size: {FontSize.LABEL}px;")
         options_layout.addWidget(include_hint)
 
         # Toggling after import must not require re-importing; just refresh stats.
@@ -1955,10 +1958,9 @@ class ConverterPage(QWidget):
     def _on_tds_file_done(self, path: str, success: bool, error: str) -> None:
         self._tds_progress_bar.setValue(self._tds_progress_bar.value() + 1)
         status_icon = "✓" if success else "✗"
-        style_color = Color.SUCCESS if success else Color.DANGER
         text = f"{status_icon} {Path(path).name}" + (f": {error}" if error else "")
         lbl = QLabel(text)
-        lbl.setStyleSheet(f"color: {style_color};")
+        lbl.setProperty("tone", "success" if success else "danger")
         self._tds_results_layout.addWidget(lbl)
 
     def _on_tds_all_done(self) -> None:

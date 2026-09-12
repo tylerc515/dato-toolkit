@@ -15,6 +15,7 @@ from PyQt6.QtWidgets import (
 )
 
 from app.converters.comment_code_mapper import CommentCodeMappingResult, STANDARD_SYMBOL_DESCRIPTIONS
+from app.design.qss import apply_style
 from app.design.tokens import Color, FontSize
 from app.widgets.components import FixedGridTable, StatusBadge
 
@@ -151,7 +152,7 @@ class CommentCodeReviewWidget(QWidget):
 
         if not self._mapping_result.unknown and not self._mapping_result.suggested:
             info = QLabel(SUBTEXT_ALL_KNOWN)
-            info.setStyleSheet(f"color: {Color.SUCCESS}; font-size: {FontSize.SMALL}px;")
+            apply_style(info, f"color: {Color.SUCCESS}; font-size: {FontSize.SMALL}px;")
             outer.addWidget(info)
             return
 

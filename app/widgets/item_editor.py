@@ -18,6 +18,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from app.design.qss import apply_style
 from app.design.tokens import Color, FontSize, Radius, Spacing
 
 
@@ -78,25 +79,18 @@ class _EditForm(QFrame):
         # QPlainTextEdit is not a QTextEdit subclass in Qt, so it does not pick up
         # the global QLineEdit/QTextEdit/QComboBox input styling in app.styles -
         # it needs its own rule, built from the same tokens for visual parity.
-        _field_qss = (
-            f"QPlainTextEdit {{"
-            f"  font-size: {FontSize.SECTION}px;"
-            f"  padding: {Spacing.SM}px {Spacing.MD}px;"
-            f"  color: {Color.TEXT_PRIMARY};"
-            f"  background-color: {Color.INPUT_BG};"
-            f"  border: 1px solid {Color.BORDER};"
-            f"  border-radius: {Radius.INPUT}px;"
-            f"  selection-background-color: {Color.ACCENT};"
-            f"}}"
-            f"QPlainTextEdit:focus {{"
-            f"  border: 1px solid {Color.ACCENT};"
-            f"}}"
+        _field_decl = (
+            f"font-size: {FontSize.SECTION}px; padding: {Spacing.SM}px {Spacing.MD}px; "
+            f"color: {Color.TEXT_PRIMARY}; background-color: {Color.INPUT_BG}; "
+            f"border: 1px solid {Color.BORDER}; border-radius: {Radius.INPUT}px; "
+            f"selection-background-color: {Color.ACCENT};"
         )
+        _field_focus = {":focus": f"border: 1px solid {Color.ACCENT};"}
 
         self.desc_edit = QPlainTextEdit()
         self.desc_edit.setPlaceholderText("Enter item description (e.g. PT OF COMPOSITE PORTS)")
         self.desc_edit.setMinimumHeight(80)
-        self.desc_edit.setStyleSheet(_field_qss)
+        apply_style(self.desc_edit, _field_decl, _field_focus)
         layout.addWidget(self.desc_edit)
 
         notes_label = QLabel("Notes (optional)")
@@ -107,7 +101,7 @@ class _EditForm(QFrame):
         self.notes_edit.setPlaceholderText("Enter any notes or findings for this item")
         self.notes_edit.setToolTip("Optional. Appears in the notes cell for this item in the generated tracker.")
         self.notes_edit.setMinimumHeight(60)
-        self.notes_edit.setStyleSheet(_field_qss)
+        apply_style(self.notes_edit, _field_decl, _field_focus)
         layout.addWidget(self.notes_edit)
 
         btn_row = QHBoxLayout()
@@ -157,7 +151,7 @@ class ItemEditorWidget(QWidget):
         layout.setSpacing(Spacing.SM)
 
         heading = QLabel(title)
-        heading.setStyleSheet(f"font-weight: 600; font-size: {FontSize.SECTION}px;")
+        apply_style(heading, f"font-weight: 600; font-size: {FontSize.SECTION}px;")
         layout.addWidget(heading)
 
         self._list = QListWidget()

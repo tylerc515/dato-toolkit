@@ -23,7 +23,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from app.design.tokens import Color, Spacing
+from app.design.tokens import Spacing
 from app.settings import get_theme
 from app.styles import THEME_DARK, THEME_LIGHT
 from app.widgets import HelpPanel
@@ -133,12 +133,10 @@ class SettingsPage(QWidget):
         # Only one theme ships in this release (dark) - the selector stays
         # visible so the option is discoverable, but disabled so it can't
         # be changed to an unsupported light theme. See module docstring.
-        # The global QSS (app/styles.py) has no QComboBox:disabled rule, so
-        # the muted text color is applied here directly (still token-driven,
-        # not a hardcoded value) to make the disabled state visually clear.
+        # The muted disabled look comes from the global QComboBox:disabled
+        # rule in app/styles.py.
         self.theme_combo.setEnabled(False)
         self.theme_combo.setToolTip(THEME_COMING_SOON_TEXT)
-        self.theme_combo.setStyleSheet(f"color: {Color.TEXT_MUTED};")
         theme_row.addWidget(self.theme_combo)
         theme_row.addStretch(1)
         card_layout.addLayout(theme_row)
@@ -165,7 +163,7 @@ class SettingsPage(QWidget):
         for row, (keys, description) in enumerate(KEYBOARD_SHORTCUTS):
             keys_label = QLabel(keys)
             keys_label.setTextFormat(Qt.TextFormat.PlainText)
-            keys_label.setStyleSheet("font-weight: 600;")
+            keys_label.setProperty("emphasis", "true")
             shortcuts_grid.addWidget(keys_label, row, 0)
             desc_label = QLabel(description)
             desc_label.setTextFormat(Qt.TextFormat.PlainText)

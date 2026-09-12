@@ -7,6 +7,7 @@ from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
 
 from app.design.icons import icon
+from app.design.qss import apply_style
 from app.design.tokens import Color, FontSize, Radius, Spacing
 from app.logo import get_pixmap
 
@@ -42,26 +43,17 @@ class _NavButton(QPushButton):
         self._apply_inactive_icon()
         self.setCheckable(False)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setStyleSheet(
-            f"""
-            QPushButton {{
-                text-align: left;
-                background: transparent;
-                border: none;
-                border-radius: {Radius.SIDEBAR_ITEM}px;
-                padding: {Spacing.SM}px {Spacing.MD}px;
-                color: {Color.TEXT_MUTED};
-                font-size: {FontSize.SECTION}px;
-            }}
-            QPushButton:hover {{
-                background-color: {Color.CARD_BG};
-            }}
-            QPushButton[active="true"] {{
-                background-color: {Color.ACCENT_BG_TINT};
-                color: {Color.ACCENT_TEXT};
-                font-weight: 500;
-            }}
-            """
+        apply_style(
+            self,
+            f"text-align: left; background: transparent; border: none; "
+            f"border-radius: {Radius.SIDEBAR_ITEM}px; padding: {Spacing.SM}px {Spacing.MD}px; "
+            f"color: {Color.TEXT_MUTED}; font-size: {FontSize.SECTION}px;",
+            {
+                ":hover": f"background-color: {Color.CARD_BG}; color: {Color.TEXT_PRIMARY};",
+                '[active="true"]': (
+                    f"background-color: {Color.ACCENT_BG_TINT}; color: {Color.ACCENT_TEXT}; font-weight: 500;"
+                ),
+            },
         )
 
     def _apply_inactive_icon(self) -> None:
@@ -74,17 +66,17 @@ class _NavButton(QPushButton):
         self.style().polish(self)
 
 
-class Sidebar(QWidget):
-    """Persistent left navigation. Emits nav_item_clicked(item_id) on click."""
+class Sidebar(QFrame):
+    """Persistent left navigation. Emits nav_item_clicked(item_id) on click.
+
+    A QFrame (not a plain QWidget) so the stylesheet border actually paints."""
 
     nav_item_clicked = pyqtSignal(str)
 
     def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
         self.setFixedWidth(SIDEBAR_WIDTH)
-        self.setStyleSheet(
-            f"background-color: {Color.SIDEBAR_BG}; border-right: 1px solid {Color.BORDER};"
-        )
+        apply_style(self, f"background-color: {Color.SIDEBAR_BG}; border-right: 1px solid {Color.BORDER};")
         self._nav_buttons: dict[str, _NavButton] = {}
         self._build_ui()
 
@@ -99,7 +91,7 @@ class Sidebar(QWidget):
         brand_row.addWidget(logo_label)
         brand_row.addSpacing(Spacing.SM)
         name_label = QLabel("DATO Toolkit")
-        name_label.setStyleSheet(f"color: {Color.TEXT_PRIMARY}; font-size: {FontSize.SECTION}px; font-weight: 600;")
+        apply_style(name_label, f"color: {Color.TEXT_PRIMARY}; font-size: {FontSize.SECTION}px; font-weight: 600;")
         brand_row.addWidget(name_label)
         brand_row.addStretch(1)
         layout.addLayout(brand_row)
@@ -119,7 +111,7 @@ class Sidebar(QWidget):
         # here would be redundant with the separator + bottom position doing
         # that job visually.
         settings_row = QFrame()
-        settings_row.setStyleSheet(f"border-top: 1px solid {Color.BORDER};")
+        apply_style(settings_row, f"border-top: 1px solid {Color.BORDER};")
         settings_layout = QVBoxLayout(settings_row)
         settings_layout.setContentsMargins(0, Spacing.SM, 0, 0)
         settings_layout.setSpacing(0)
@@ -129,9 +121,10 @@ class Sidebar(QWidget):
 
     def _section_label(self, text: str) -> QLabel:
         label = QLabel(text.upper())
-        label.setStyleSheet(
+        apply_style(
+            label,
             f"color: {Color.TEXT_FAINT}; font-size: {FontSize.LABEL}px; font-weight: 600; "
-            f"padding: {Spacing.SM}px {Spacing.MD}px 4px {Spacing.MD}px;"
+            f"padding: {Spacing.SM}px {Spacing.MD}px {Spacing.XS}px {Spacing.MD}px;",
         )
         return label
 

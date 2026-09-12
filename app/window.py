@@ -49,7 +49,8 @@ from app.pages.settings_page import SettingsPage
 from app.pages.settings_page import STATUS_HINT as SETTINGS_STATUS_HINT
 from app.parser import TraceFileData
 from app.project import APP_DIR_NAME, ProjectConfig, ProjectError, get_app_data_dir, load_project
-from app.design.tokens import Color, FontSize, Spacing
+from app.design.qss import apply_style
+from app.design.tokens import Color, FontSize, Radius, Spacing
 from app.updater import GITHUB_RELEASES_PAGE_URL, UpdateCheckResult, UpdateCheckWorker, format_published_at, launch_update_bat, write_update_bat
 from app.widgets.update_dialog import PENDING_KEY_DEST, PENDING_KEY_TEMP, UpdateDialog
 from app.widgets import OnboardingDialog, StepIndicator
@@ -186,7 +187,7 @@ class _UpdateIndicator(QLabel):
         self.set_color(INDICATOR_COLOR_UNKNOWN)
 
     def set_color(self, color: str) -> None:
-        self.setStyleSheet(f"background-color: {color}; border-radius: 7px;")
+        apply_style(self, f"background-color: {color}; border-radius: {Radius.INPUT}px;")
 
 
 class MainWindow(QMainWindow):
@@ -224,7 +225,7 @@ class MainWindow(QMainWindow):
     def _build_ui(self) -> None:
         central = QFrame()
         central.setObjectName("AppFrame")
-        central.setStyleSheet(f"QFrame#AppFrame {{ border: 1px solid {Color.BORDER}; }}")
+        apply_style(central, f"border: 1px solid {Color.BORDER};")
         layout = QVBoxLayout(central)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
@@ -311,7 +312,7 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(central)
 
         self.size_grip = QSizeGrip(self)
-        self.size_grip.setStyleSheet("background: transparent;")
+        apply_style(self.size_grip, "background: transparent;")
         self.size_grip.raise_()
 
         self.status_bar = self.statusBar()
@@ -322,7 +323,7 @@ class MainWindow(QMainWindow):
 
     def _build_header(self) -> QFrame:
         header = _DragHeader(self)
-        header.setStyleSheet(f"background-color: {Color.SIDEBAR_BG};")
+        apply_style(header, f"background-color: {Color.SIDEBAR_BG};")
         layout = QHBoxLayout(header)
         layout.setContentsMargins(16, 10, 16, 10)
 
@@ -337,7 +338,7 @@ class MainWindow(QMainWindow):
 
         self.update_available_label = QPushButton(UPDATE_AVAILABLE_LABEL_TEXT)
         self.update_available_label.setProperty("flat", "true")
-        self.update_available_label.setStyleSheet(f"color: {Color.WARNING}; font-size: {FontSize.LABEL}px;")
+        apply_style(self.update_available_label, f"color: {Color.WARNING}; font-size: {FontSize.LABEL}px;")
         self.update_available_label.setVisible(False)
         self.update_available_label.setCursor(Qt.CursorShape.PointingHandCursor)
         self.update_available_label.clicked.connect(self._open_update_dialog)
@@ -367,7 +368,7 @@ class MainWindow(QMainWindow):
         layout = QHBoxLayout(container)
         layout.setContentsMargins(Spacing.LG, Spacing.SM, Spacing.LG, Spacing.SM)
         self.breadcrumb_label = QLabel()
-        self.breadcrumb_label.setStyleSheet(f"color: {Color.TEXT_FAINT}; font-size: {FontSize.SMALL}px;")
+        apply_style(self.breadcrumb_label, f"color: {Color.TEXT_FAINT}; font-size: {FontSize.SMALL}px;")
         layout.addWidget(self.breadcrumb_label)
         layout.addStretch(1)
         return container
@@ -385,26 +386,19 @@ class MainWindow(QMainWindow):
     def _make_window_button(self, text: str, hover_color: str) -> QPushButton:
         button = QPushButton(text)
         button.setFixedSize(WINDOW_BUTTON_SIZE, WINDOW_BUTTON_SIZE)
-        button.setStyleSheet(
-            "QPushButton {"
-            "background-color: transparent;"
-            "border: none;"
-            "border-radius: 6px;"
-            "padding: 0px;"
-            f"font-size: {FontSize.BODY}px;"
-            f"color: {Color.TEXT_PRIMARY};"
-            "}"
-            "QPushButton:hover {"
-            f"background-color: {hover_color};"
-            "}"
+        apply_style(
+            button,
+            f"background-color: transparent; border: none; border-radius: {Radius.INPUT}px; "
+            f"padding: 0; font-size: {FontSize.BODY}px; color: {Color.TEXT_PRIMARY};",
+            {":hover": f"background-color: {hover_color};"},
         )
         return button
 
     def _build_update_banner(self) -> QFrame:
         banner = QFrame()
-        banner.setStyleSheet(
-            f"QFrame {{ background-color: {UPDATE_BANNER_BG}; "
-            f"border-left: 4px solid {UPDATE_BANNER_BORDER_COLOR}; }}"
+        apply_style(
+            banner,
+            f"background-color: {UPDATE_BANNER_BG}; border-left: {Spacing.XS}px solid {UPDATE_BANNER_BORDER_COLOR};",
         )
         banner.setMinimumHeight(0)
         banner.setMaximumHeight(0)  # collapsed until animated open
@@ -415,25 +409,26 @@ class MainWindow(QMainWindow):
         text_col = QVBoxLayout()
         text_col.setSpacing(0)
         self.update_banner_version_label = QLabel("")
-        self.update_banner_version_label.setStyleSheet(f"color: {Color.TEXT_PRIMARY}; font-weight: 600;")
+        self.update_banner_version_label.setProperty("emphasis", "true")
         text_col.addWidget(self.update_banner_version_label)
         self.update_banner_date_label = QLabel("")
-        self.update_banner_date_label.setStyleSheet(f"color: {UPDATE_BANNER_BORDER_COLOR}; font-size: {FontSize.LABEL}px;")
+        apply_style(self.update_banner_date_label, f"color: {UPDATE_BANNER_BORDER_COLOR}; font-size: {FontSize.LABEL}px;")
         text_col.addWidget(self.update_banner_date_label)
         layout.addLayout(text_col, 1)
 
         view_install_btn = QPushButton(VIEW_INSTALL_TEXT)
-        view_install_btn.setStyleSheet(
-            f"QPushButton {{ background: {Color.ACCENT}; color: white; border-radius: 4px; "
-            f"padding: 4px 12px; font-weight: 600; }}"
-            f"QPushButton:hover {{ background: {Color.ACCENT_HOVER}; }}"
+        apply_style(
+            view_install_btn,
+            f"background: {Color.ACCENT}; color: {Color.TEXT_PRIMARY}; border: none; "
+            f"border-radius: {Radius.INPUT}px; padding: {Spacing.XS}px {Spacing.MD}px; font-weight: 600;",
+            {":hover": f"background: {Color.ACCENT_HOVER};"},
         )
         view_install_btn.clicked.connect(self._open_update_dialog)
         layout.addWidget(view_install_btn)
 
         dismiss_btn = QPushButton(DISMISS_TEXT)
         dismiss_btn.setProperty("flat", "true")
-        dismiss_btn.setStyleSheet(f"color: {UPDATE_BANNER_BORDER_COLOR};")
+        apply_style(dismiss_btn, f"color: {UPDATE_BANNER_BORDER_COLOR};")
         dismiss_btn.clicked.connect(lambda: banner.setMaximumHeight(0))
         layout.addWidget(dismiss_btn)
 
@@ -441,29 +436,29 @@ class MainWindow(QMainWindow):
 
     def _build_pending_banner(self) -> QFrame:
         banner = QFrame()
-        banner.setStyleSheet(
-            f"QFrame {{ background-color: {PENDING_BANNER_BG}; border-left: 4px solid {Color.ACCENT}; }}"
-        )
+        apply_style(banner, f"background-color: {PENDING_BANNER_BG}; border-left: {Spacing.XS}px solid {Color.ACCENT};")
         banner.setFixedHeight(UPDATE_BANNER_HEIGHT)
         banner.setVisible(False)
         layout = QHBoxLayout(banner)
         layout.setContentsMargins(16, 0, 16, 0)
 
         lbl = QLabel(PENDING_BANNER_TEXT)
-        lbl.setStyleSheet(f"color: {Color.TEXT_PRIMARY};")
+        apply_style(lbl, f"color: {Color.TEXT_PRIMARY};")
         layout.addWidget(lbl, 1)
 
         install_btn = QPushButton(INSTALL_NOW_TEXT)
-        install_btn.setStyleSheet(
-            f"QPushButton {{ background: {Color.ACCENT}; color: white; border-radius: 4px; padding: 4px 12px; }}"
-            f"QPushButton:hover {{ background: {Color.ACCENT_HOVER}; }}"
+        apply_style(
+            install_btn,
+            f"background: {Color.ACCENT}; color: {Color.TEXT_PRIMARY}; border: none; "
+            f"border-radius: {Radius.INPUT}px; padding: {Spacing.XS}px {Spacing.MD}px; font-weight: 600;",
+            {":hover": f"background: {Color.ACCENT_HOVER};"},
         )
         install_btn.clicked.connect(self._install_pending_update)
         layout.addWidget(install_btn)
 
         dismiss_btn = QPushButton(DISMISS_TEXT)
         dismiss_btn.setProperty("flat", "true")
-        dismiss_btn.setStyleSheet(f"color: {Color.TEXT_MUTED};")
+        apply_style(dismiss_btn, f"color: {Color.TEXT_MUTED};")
         dismiss_btn.clicked.connect(lambda: banner.setVisible(False))
         layout.addWidget(dismiss_btn)
 
