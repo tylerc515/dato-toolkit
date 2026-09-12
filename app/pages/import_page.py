@@ -13,7 +13,6 @@ from PyQt6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QLabel,
-    QMessageBox,
     QPushButton,
     QScrollArea,
     QVBoxLayout,
@@ -27,6 +26,7 @@ from app.parser import TraceFileData, TraceParseError, parse_trace_csv
 from app.project import find_project_for_metadata, find_similar_project_for_metadata
 from app.widgets import HelpPanel
 from app.widgets.components import Card, SecondaryButton
+from app.widgets.dialogs import MessageDialog
 
 # --- UI text -------------------------------------------------------------
 
@@ -280,7 +280,7 @@ class ImportPage(QWidget):
         self.help_panel.toggle()
 
     def _show_invalid_drop_message(self) -> None:
-        QMessageBox.warning(self, "Unsupported File Type", INVALID_FILE_TYPE_MESSAGE)
+        MessageDialog.warning(self, "Unsupported File Type", INVALID_FILE_TYPE_MESSAGE)
 
     def _browse_files(self) -> None:
         paths, _ = QFileDialog.getOpenFileNames(self, "Select TRACE export files", "", "CSV Files (*.csv)")
@@ -361,13 +361,9 @@ class ImportPage(QWidget):
             return
 
         title = project_path.stem
-        reply = QMessageBox.question(
-            self,
-            PROJECT_FOUND_TITLE,
-            message.format(title=title),
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-        )
-        if reply == QMessageBox.StandardButton.Yes:
+        if MessageDialog.question(
+            self, PROJECT_FOUND_TITLE, message.format(title=title), accept_text="Load", reject_text="Not now"
+        ):
             self.project_load_requested.emit(project_path)
 
     def _emit_files_ready(self) -> None:

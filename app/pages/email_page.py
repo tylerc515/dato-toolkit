@@ -34,6 +34,7 @@ from app.email_export import EmailData, OtherItem, ScopeSection, build_email_doc
 from app.history import HistoryEntry, add_history_entry
 from app.project import ProjectConfig, ProjectError, get_projects_dir, list_projects, load_project, sanitize_filename
 from app.widgets import HelpPanel
+from app.widgets.dialogs import AppDialog
 from app.widgets.components import Card, PrimaryButton, SecondaryButton
 
 logger = logging.getLogger(__name__)
@@ -600,17 +601,16 @@ class EmailPage(QWidget):
     ) -> tuple[QDialog, QListWidget]:
         """Build the "Recent Projects" picker. Returned separately from
         exec() so the layout can be exercised in tests without blocking."""
-        dialog = QDialog(self)
-        dialog.setWindowTitle("Recent Projects")
+        dialog = AppDialog(self, "Recent Projects")
         # Resizable with a comfortable default and a floor that still fits the
         # 900x600 minimum window. Long titles are handled by eliding the list
         # items (below), so the dialog never needs to grow to fit them.
         dialog.setMinimumSize(460, 260)
-        dialog.resize(580, 340)
-        layout = QVBoxLayout(dialog)
-        layout.setSpacing(12)
+        dialog.resize(580, 360)
+        layout = dialog.body
 
         lbl = QLabel("Select a project to link:")
+        lbl.setProperty("role", "label")
         layout.addWidget(lbl)
 
         list_widget = QListWidget()
@@ -630,17 +630,10 @@ class EmailPage(QWidget):
         list_widget.doubleClicked.connect(dialog.accept)
         layout.addWidget(list_widget)
 
-        btn_row = QHBoxLayout()
-        btn_row.addStretch(1)
-        cancel_btn = QPushButton("Cancel")
-        cancel_btn.setProperty("flat", "true")
+        cancel_btn = dialog.add_button("Cancel")
         cancel_btn.clicked.connect(dialog.reject)
-        btn_row.addWidget(cancel_btn)
-        load_btn = QPushButton("Load")
-        load_btn.setProperty("accent", "true")
+        load_btn = dialog.add_button("Load", primary=True)
         load_btn.clicked.connect(dialog.accept)
-        btn_row.addWidget(load_btn)
-        layout.addLayout(btn_row)
 
         return dialog, list_widget
 

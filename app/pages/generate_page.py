@@ -18,7 +18,6 @@ from PyQt6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
-    QMessageBox,
     QProgressBar,
     QPushButton,
     QVBoxLayout,
@@ -36,6 +35,7 @@ from app.project import ProjectConfig, sanitize_filename
 from app.validation import validate_tracker_output
 from app.widgets import HelpPanel
 from app.widgets.components import Card, PrimaryButton, SecondaryButton
+from app.widgets.dialogs import MessageDialog
 
 # --- UI text -------------------------------------------------------------
 
@@ -300,12 +300,12 @@ class GeneratePage(QWidget):
 
         folder = self.folder_edit.text().strip()
         if not folder:
-            QMessageBox.warning(self, MISSING_OUTPUT_FOLDER_TITLE, MISSING_OUTPUT_FOLDER_TEXT)
+            MessageDialog.warning(self, MISSING_OUTPUT_FOLDER_TITLE, MISSING_OUTPUT_FOLDER_TEXT)
             return
 
         filename = self.filename_edit.text().strip()
         if not filename:
-            QMessageBox.warning(self, MISSING_OUTPUT_FILENAME_TITLE, MISSING_OUTPUT_FILENAME_TEXT)
+            MessageDialog.warning(self, MISSING_OUTPUT_FILENAME_TITLE, MISSING_OUTPUT_FILENAME_TEXT)
             return
         if not filename.lower().endswith(XLSX_SUFFIX):
             filename += XLSX_SUFFIX
@@ -394,7 +394,7 @@ class GeneratePage(QWidget):
         self.progress_bar.setVisible(False)
         self.generate_button.setEnabled(True)
         self.back_button.setEnabled(True)
-        QMessageBox.critical(self, GENERATION_FAILED_TITLE, message)
+        MessageDialog.critical(self, GENERATION_FAILED_TITLE, message)
 
     def _on_email_requested(self) -> None:
         if self._config is not None:

@@ -232,9 +232,49 @@ QStatusBar {{
 QToolTip {{
     background-color: {Color.CARD_BG};
     color: {Color.TEXT_PRIMARY};
-    border: 1px solid {Color.ACCENT};
+    border: 1px solid {Color.DIALOG_BORDER};
     border-radius: {Radius.INPUT}px;
     padding: {Spacing.XS}px {Spacing.SM}px;
+}}
+
+QFrame#DialogFrame {{
+    background-color: {Color.CARD_BG};
+    border: 1px solid {Color.DIALOG_BORDER};
+    border-radius: {Radius.CARD}px;
+}}
+
+QMenu {{
+    background-color: {Color.CARD_BG};
+    color: {Color.TEXT_PRIMARY};
+    border: 1px solid {Color.DIALOG_BORDER};
+    border-radius: {Radius.INPUT}px;
+    padding: {Spacing.XS}px;
+}}
+
+QMenu::item {{
+    padding: {Spacing.SM}px {Spacing.LG}px;
+    border-radius: {Radius.INPUT}px;
+}}
+
+QMenu::item:selected {{
+    background-color: {Color.ACCENT_BG_TINT};
+    color: {Color.ACCENT_TEXT};
+}}
+
+QComboBox QAbstractItemView, QListView {{
+    background-color: {Color.CARD_BG};
+    color: {Color.TEXT_PRIMARY};
+    border: 1px solid {Color.DIALOG_BORDER};
+    border-radius: {Radius.INPUT}px;
+    padding: {Spacing.XS}px;
+    outline: 0;
+    selection-background-color: {Color.ACCENT_BG_TINT};
+    selection-color: {Color.ACCENT_TEXT};
+}}
+
+QComboBox QAbstractItemView::item, QListView::item {{
+    padding: {Spacing.XS}px {Spacing.SM}px;
+    min-height: {Spacing.XXL}px;
 }}
 
 QCheckBox::indicator {{

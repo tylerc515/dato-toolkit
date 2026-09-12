@@ -10,18 +10,16 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-from PyQt6.QtCore import QSettings, Qt, QUrl
+from PyQt6.QtCore import QSettings, QUrl
 from PyQt6.QtGui import QDesktopServices
 from PyQt6.QtWidgets import (
     QApplication,
     QCheckBox,
-    QDialog,
     QFileDialog,
     QFrame,
     QHBoxLayout,
     QLabel,
     QLineEdit,
-    QMessageBox,
     QProgressBar,
     QPushButton,
     QTextBrowser,
@@ -33,6 +31,7 @@ from app.design.qss import apply_style
 from app.design.tokens import Color, FONT_FAMILY, FontSize, Radius, Spacing
 from app.logo import get_pixmap
 from app.project import APP_DIR_NAME
+from app.widgets.dialogs import AppDialog, MessageDialog
 from app.updater import (
     GITHUB_RELEASES_PAGE_URL,
     DownloadWorker,
@@ -48,6 +47,9 @@ IS_FROZEN = getattr(sys, "frozen", False)
 
 PENDING_KEY_TEMP = "pending_update/temp_path"
 PENDING_KEY_DEST = "pending_update/dest_path"
+
+DIALOG_WIDTH = 620
+DIALOG_HEIGHT = 620
 
 _DEV_MODE_MSG = (
     "Auto-update is only available when running the installed .exe. "
@@ -113,87 +115,59 @@ class _MarkdownConverter:
         return re.sub(r"\*\*(.+?)\*\*", r"<b>\1</b>", text)
 
 
-class UpdateDialog(QDialog):
+class UpdateDialog(AppDialog):
     """Modal dialog showing release notes, install options, and download progress."""
 
     def __init__(self, update_info: UpdateCheckResult, parent=None):
-        super().__init__(parent)
+        super().__init__(parent, "DATO Toolkit Update Available")
         self._info = update_info
         self._worker: Optional[DownloadWorker] = None
         self._downloaded_path: Optional[Path] = None
         self._install_dir: Optional[Path] = None
 
-        self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Dialog)
-        self.setFixedSize(620, 560)
-        apply_style(self, f"background-color: {Color.PAGE_BG};")
-        self.setModal(True)
-
-        if parent is not None:
-            g = parent.geometry()
-            self.move(g.x() + (g.width() - 620) // 2, g.y() + (g.height() - 560) // 2)
-
+        self.setFixedSize(DIALOG_WIDTH, DIALOG_HEIGHT)
         self._build_ui()
 
     def _build_ui(self) -> None:
-        root = QVBoxLayout(self)
-        root.setContentsMargins(0, 0, 0, 0)
-        root.setSpacing(0)
-        root.addWidget(self._build_header())
-        root.addWidget(self._build_notes_section(), 1)
-        root.addWidget(self._build_install_section())
-        root.addWidget(self._build_progress_section())
-        root.addWidget(self._build_action_section())
+        self.body.addWidget(self._build_header())
+        self.body.addWidget(self._build_notes_section(), 1)
+        self.body.addWidget(self._build_install_section())
+        self.body.addWidget(self._build_progress_section())
+        self.body.addWidget(self._build_action_section())
 
-    def _build_header(self) -> QFrame:
-        header = QFrame()
-        apply_style(header, f"background-color: {Color.SIDEBAR_BG}; border-bottom: 1px solid {Color.BORDER};")
-        header.setFixedHeight(80)
+    def _build_header(self) -> QWidget:
+        header = QWidget()
         layout = QHBoxLayout(header)
-        layout.setContentsMargins(16, 12, 16, 12)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(Spacing.MD)
 
         logo = QLabel()
         logo.setPixmap(get_pixmap(48, 28))
         layout.addWidget(logo)
-        layout.addSpacing(12)
-
-        info_col = QVBoxLayout()
-        title_lbl = QLabel("DATO Toolkit Update Available")
-        apply_style(title_lbl, f"font-size: {FontSize.PAGE_TITLE}px; font-weight: 600; color: {Color.TEXT_PRIMARY};")
-        info_col.addWidget(title_lbl)
 
         current = self._info.current_version or "?"
         latest = self._info.latest_version or "?"
         ver_lbl = QLabel(f"{current} → {latest}")
-        apply_style(ver_lbl, f"font-size: {FontSize.BODY}px; color: {Color.TEXT_MUTED};")
-        info_col.addWidget(ver_lbl)
+        apply_style(ver_lbl, f"font-size: {FontSize.SECTION}px; font-weight: 600; color: {Color.TEXT_PRIMARY};")
+        layout.addWidget(ver_lbl)
 
         if self._info.published_at:
             date_lbl = QLabel(f"Released {format_published_at(self._info.published_at)}")
-            apply_style(date_lbl, f"font-size: {FontSize.SMALL}px; color: {Color.TEXT_MUTED};")
-            info_col.addWidget(date_lbl)
+            date_lbl.setProperty("role", "muted")
+            layout.addWidget(date_lbl)
 
-        layout.addLayout(info_col, 1)
-
-        close_btn = QPushButton("×")
-        close_btn.setFixedSize(32, 32)
-        apply_style(
-            close_btn,
-            f"background: transparent; border: none; color: {Color.TEXT_MUTED}; font-size: {FontSize.PAGE_TITLE}px;",
-            {":hover": f"color: {Color.TEXT_PRIMARY};"},
-        )
-        close_btn.clicked.connect(self.reject)
-        layout.addWidget(close_btn, 0, Qt.AlignmentFlag.AlignTop)
+        layout.addStretch(1)
         return header
 
     def _build_notes_section(self) -> QWidget:
         container = QWidget()
         layout = QVBoxLayout(container)
-        layout.setContentsMargins(16, 12, 16, 8)
-        layout.setSpacing(6)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(Spacing.XS)
 
         latest = self._info.latest_version or "?"
         label = QLabel(f"What's New in {latest}")
-        apply_style(label, f"font-size: {FontSize.LABEL}px; font-weight: bold; color: {Color.TEXT_MUTED};")
+        apply_style(label, f"font-size: {FontSize.LABEL}px; font-weight: 600; color: {Color.TEXT_MUTED};")
         layout.addWidget(label)
 
         self._notes_browser = QTextBrowser()
@@ -213,12 +187,12 @@ class UpdateDialog(QDialog):
         card = QFrame()
         apply_style(
             card,
-            f"background-color: {Color.SIDEBAR_BG}; "
-            f"border-top: 1px solid {Color.BORDER}; border-bottom: 1px solid {Color.BORDER};",
+            f"background-color: {Color.SIDEBAR_BG}; border: 1px solid {Color.BORDER}; "
+            f"border-radius: {Radius.CARD}px;",
         )
         layout = QVBoxLayout(card)
-        layout.setContentsMargins(16, 12, 16, 12)
-        layout.setSpacing(8)
+        layout.setContentsMargins(Spacing.MD, Spacing.MD, Spacing.MD, Spacing.MD)
+        layout.setSpacing(Spacing.SM)
 
         loc_row = QHBoxLayout()
         loc_lbl = QLabel("Install Location")
@@ -269,8 +243,8 @@ class UpdateDialog(QDialog):
         self._progress_container = QWidget()
         self._progress_container.setVisible(False)
         layout = QVBoxLayout(self._progress_container)
-        layout.setContentsMargins(16, 8, 16, 4)
-        layout.setSpacing(4)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(Spacing.XS)
 
         self._progress_label = QLabel("Preparing download…")
         apply_style(self._progress_label, f"color: {Color.TEXT_PRIMARY};")
@@ -298,15 +272,15 @@ class UpdateDialog(QDialog):
     def _build_action_section(self) -> QWidget:
         container = QWidget()
         layout = QVBoxLayout(container)
-        layout.setContentsMargins(16, 12, 16, 16)
-        layout.setSpacing(8)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(Spacing.SM)
 
-        self._download_btn = QPushButton("Download & Install")
+        self._download_btn = QPushButton("Download && Install")
         self._download_btn.setProperty("accent", "true")
         self._download_btn.clicked.connect(self._on_download_clicked)
         layout.addWidget(self._download_btn)
 
-        self._install_btn = QPushButton("Install Now & Restart")
+        self._install_btn = QPushButton("Install Now && Restart")
         self._install_btn.setProperty("variant", "success")
         self._install_btn.clicked.connect(self._on_install_now)
         self._install_btn.setVisible(False)
@@ -354,13 +328,13 @@ class UpdateDialog(QDialog):
         install_dir = Path(self._folder_edit.text().strip())
 
         if not os.access(str(install_dir), os.W_OK):
-            QMessageBox.warning(self, "Cannot Write to Folder", _NOT_WRITABLE_MSG)
+            MessageDialog.warning(self, "Cannot Write to Folder", _NOT_WRITABLE_MSG)
             return
 
         stat = shutil.disk_usage(str(install_dir))
         if stat.free < 200 * 1024 * 1024:
             avail_mb = stat.free // (1024 * 1024)
-            QMessageBox.warning(
+            MessageDialog.warning(
                 self, "Low Disk Space",
                 f"Not enough disk space available in {install_dir}.\n"
                 f"Available: {avail_mb} MB. At least 200 MB is needed."
@@ -405,7 +379,7 @@ class UpdateDialog(QDialog):
         logger.error("Download failed: %s", message)
         self._progress_container.setVisible(False)
         self._download_btn.setVisible(True)
-        QMessageBox.critical(self, "Download Failed", f"Download failed:\n{message}")
+        MessageDialog.critical(self, "Download Failed", f"Download failed:\n{message}")
 
     def _on_download_cancelled(self) -> None:
         self._progress_container.setVisible(False)
@@ -425,13 +399,13 @@ class UpdateDialog(QDialog):
         current_exe = Path(sys.executable) if IS_FROZEN else Path.cwd() / "main.exe"
 
         if new_exe_dest.resolve() == current_exe.resolve() and remove_old:
-            reply = QMessageBox.question(
+            confirmed = MessageDialog.question(
                 self, "Confirm Update",
                 "The new version will replace the current file. "
                 "The old version cannot be separately removed in this case. Continue?",
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                accept_text="Continue", reject_text="Cancel",
             )
-            if reply != QMessageBox.StandardButton.Yes:
+            if not confirmed:
                 return
             remove_old = False
 
@@ -444,7 +418,7 @@ class UpdateDialog(QDialog):
             )
             launch_update_bat(bat_path)
         except Exception as exc:
-            QMessageBox.critical(self, "Error", f"Could not launch update installer:\n{exc}")
+            MessageDialog.critical(self, "Error", f"Could not launch update installer:\n{exc}")
             return
 
         logger.info(

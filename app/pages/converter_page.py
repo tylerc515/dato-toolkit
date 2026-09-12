@@ -18,7 +18,6 @@ from PyQt6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QLineEdit,
-    QMessageBox,
     QProgressBar,
     QPushButton,
     QScrollArea,
@@ -57,6 +56,7 @@ from app.design.icons import icon
 from app.design.qss import apply_style
 from app.design.tokens import Color, FontSize, Radius, Spacing
 from app.widgets import HelpPanel
+from app.widgets.dialogs import MessageDialog
 from app.widgets.components import Card, PrimaryButton, SecondaryButton, StatCard
 from app.widgets.comment_code_review_widget import CommentCodeReviewWidget
 
@@ -998,13 +998,14 @@ class ConverterPage(QWidget):
     def _confirm_overwrite(self, conflicts: list[Path]) -> bool:
         """Show a single dialog listing all conflicting files. True if user chose to overwrite."""
         names = "\n".join(f"- {p.name}" for p in conflicts)
-        box = QMessageBox(self)
-        box.setWindowTitle(OVERWRITE_TITLE)
-        box.setText(OVERWRITE_MESSAGE.format(names=names))
-        overwrite_btn = box.addButton("Overwrite", QMessageBox.ButtonRole.AcceptRole)
-        box.addButton("Cancel", QMessageBox.ButtonRole.RejectRole)
-        box.exec()
-        return box.clickedButton() is overwrite_btn
+        return MessageDialog.question(
+            self,
+            OVERWRITE_TITLE,
+            OVERWRITE_MESSAGE.format(names=names),
+            accept_text="Overwrite",
+            reject_text="Cancel",
+            tone="warning",
+        )
 
     def _on_convert(self) -> None:
         output_dir = Path(self._output_folder_edit.text())
