@@ -28,6 +28,7 @@ from PyQt6.QtWidgets import (
 )
 
 from app.design.qss import apply_style
+from app.design.tooltip import set_tooltip
 from app.design.tokens import Color, FONT_FAMILY, FontSize, Radius, Spacing
 from app.logo import get_pixmap
 from app.project import APP_DIR_NAME
@@ -201,12 +202,12 @@ class UpdateDialog(AppDialog):
         self._folder_edit = QLineEdit(self._default_install_dir())
         # The field scrolls internally, but a long path is hard to read that
         # way - keep the full path available on hover, updated as it changes.
-        self._folder_edit.setToolTip(self._folder_edit.text())
-        self._folder_edit.textChanged.connect(self._folder_edit.setToolTip)
+        set_tooltip(self._folder_edit, self._folder_edit.text())
+        self._folder_edit.textChanged.connect(lambda path: set_tooltip(self._folder_edit, path))
         loc_row.addWidget(self._folder_edit, 1)
         browse_btn = QPushButton("📁")
         browse_btn.setFixedWidth(36)
-        browse_btn.setToolTip("Choose install folder")
+        set_tooltip(browse_btn, "Choose install folder")
         browse_btn.clicked.connect(self._browse_folder)
         loc_row.addWidget(browse_btn)
         layout.addLayout(loc_row)
@@ -301,10 +302,10 @@ class UpdateDialog(AppDialog):
 
         if not IS_FROZEN:
             self._download_btn.setEnabled(False)
-            self._download_btn.setToolTip(_DEV_MODE_MSG)
+            set_tooltip(self._download_btn, _DEV_MODE_MSG)
         elif not self._info.download_url:
             self._download_btn.setEnabled(False)
-            self._download_btn.setToolTip(_NO_ASSET_MSG)
+            set_tooltip(self._download_btn, _NO_ASSET_MSG)
 
         return container
 

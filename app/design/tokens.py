@@ -72,3 +72,8 @@ class FontSize:
 
 
 FONT_FAMILY = "Segoe UI"
+
+# Tooltips longer than the threshold (characters) are wrapped to this width
+# (px) by app.design.tooltip.set_tooltip so they never run off screen.
+TOOLTIP_WRAP_THRESHOLD = 60
+TOOLTIP_WRAP_WIDTH = 380

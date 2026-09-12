@@ -8,6 +8,7 @@ from PyQt6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton, QVBoxLayou
 
 from app.design.icons import icon
 from app.design.qss import apply_style
+from app.design.tooltip import set_tooltip
 from app.design.tokens import Color, FontSize, Radius, Spacing
 from app.logo import get_pixmap
 
@@ -139,7 +140,7 @@ class Sidebar(QFrame):
         Deliberately NOT registered in `_nav_buttons`: it never emits
         `nav_item_clicked` and never receives active state."""
         btn = _NavButton("asme_calculator", "ASME Calculator", ASME_CALCULATOR_ICON)
-        btn.setToolTip("Opens in your browser")
+        set_tooltip(btn, "Opens in your browser")
         btn.clicked.connect(lambda: webbrowser.open(ASME_CALCULATOR_URL))
         self._asme_button = btn
         return btn

@@ -50,6 +50,7 @@ from app.pages.settings_page import STATUS_HINT as SETTINGS_STATUS_HINT
 from app.parser import TraceFileData
 from app.project import APP_DIR_NAME, ProjectConfig, ProjectError, get_app_data_dir, load_project
 from app.design.qss import apply_style
+from app.design.tooltip import set_tooltip
 from app.design.tokens import Color, FontSize, Radius, Spacing
 from app.updater import GITHUB_RELEASES_PAGE_URL, UpdateCheckResult, UpdateCheckWorker, format_published_at, launch_update_bat, write_update_bat
 from app.widgets.update_dialog import PENDING_KEY_DEST, PENDING_KEY_TEMP, UpdateDialog
@@ -330,7 +331,7 @@ class MainWindow(QMainWindow):
         layout.addStretch(1)
 
         self.update_indicator = _UpdateIndicator()
-        self.update_indicator.setToolTip("Checking for updates…")
+        set_tooltip(self.update_indicator, "Checking for updates…")
         layout.addWidget(self.update_indicator, 0, Qt.AlignmentFlag.AlignTop)
 
         self.update_indicator.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -347,17 +348,17 @@ class MainWindow(QMainWindow):
         layout.addSpacing(12)
 
         self.minimize_button = self._make_window_button("−", Color.BORDER_STRONG)
-        self.minimize_button.setToolTip("Minimize")
+        set_tooltip(self.minimize_button, "Minimize")
         self.minimize_button.clicked.connect(self.showMinimized)
         layout.addWidget(self.minimize_button, 0, Qt.AlignmentFlag.AlignTop)
 
         self.maximize_button = self._make_window_button("□", Color.BORDER_STRONG)
-        self.maximize_button.setToolTip("Maximize")
+        set_tooltip(self.maximize_button, "Maximize")
         self.maximize_button.clicked.connect(self._toggle_maximize_restore)
         layout.addWidget(self.maximize_button, 0, Qt.AlignmentFlag.AlignTop)
 
         self.close_button = self._make_window_button("×", WINDOW_CLOSE_HOVER)
-        self.close_button.setToolTip("Close")
+        set_tooltip(self.close_button, "Close")
         self.close_button.clicked.connect(self.close)
         layout.addWidget(self.close_button, 0, Qt.AlignmentFlag.AlignTop)
 
@@ -488,18 +489,18 @@ class MainWindow(QMainWindow):
         self._update_info = result
         if result.error:
             self.update_indicator.set_color(INDICATOR_COLOR_UNKNOWN)
-            self.update_indicator.setToolTip("Could not check for updates")
+            set_tooltip(self.update_indicator, "Could not check for updates")
             return
 
         if result.update_available:
             self.update_indicator.set_color(Color.WARNING)
-            self.update_indicator.setToolTip(f"Update available: v{result.latest_version}")
+            set_tooltip(self.update_indicator, f"Update available: v{result.latest_version}")
             self._start_pulse_animation()
             self.update_available_label.setVisible(True)
             QTimer.singleShot(UPDATE_BANNER_DELAY_MS, self._show_update_banner)
         else:
             self.update_indicator.set_color(Color.SUCCESS)
-            self.update_indicator.setToolTip("You're on the latest version")
+            set_tooltip(self.update_indicator, "You're on the latest version")
 
     def _start_pulse_animation(self) -> None:
         effect = QGraphicsOpacityEffect(self.update_indicator)
@@ -578,7 +579,7 @@ class MainWindow(QMainWindow):
             return
 
         self.tray_icon = QSystemTrayIcon(get_icon(), self)
-        self.tray_icon.setToolTip(APP_NAME)
+        set_tooltip(self.tray_icon, APP_NAME)
 
         menu = QMenu()
         show_action = QAction(TRAY_SHOW_TEXT, self)
@@ -739,11 +740,11 @@ class MainWindow(QMainWindow):
         if self.isMaximized():
             self.showNormal()
             self.maximize_button.setText("□")
-            self.maximize_button.setToolTip("Maximize")
+            set_tooltip(self.maximize_button, "Maximize")
         else:
             self.showMaximized()
             self.maximize_button.setText("❐")
-            self.maximize_button.setToolTip("Restore")
+            set_tooltip(self.maximize_button, "Restore")
 
     def resizeEvent(self, event) -> None:
         super().resizeEvent(event)

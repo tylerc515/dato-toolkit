@@ -54,6 +54,7 @@ from app.converters.tds_old_parser import (
 from app.converters.standard_format_writer import write_standard_format
 from app.design.icons import icon
 from app.design.qss import apply_style
+from app.design.tooltip import set_tooltip
 from app.design.tokens import Color, FontSize, Radius, Spacing
 from app.widgets import HelpPanel
 from app.widgets.dialogs import MessageDialog
@@ -202,7 +203,7 @@ class _AtsDropZone(QFrame):
         lbl.setProperty("role", "muted")
         layout.addWidget(lbl)
 
-        self.setToolTip(
+        set_tooltip(self, 
             tooltip
             if tooltip is not None
             else (
@@ -309,7 +310,7 @@ class _FileCard(Card):
         remove_btn = QPushButton("✕")
         remove_btn.setFixedSize(24, 24)
         remove_btn.setProperty("flat", "true")
-        remove_btn.setToolTip("Remove this file")
+        set_tooltip(remove_btn, "Remove this file")
         remove_btn.clicked.connect(lambda: self.remove_requested.emit(self._path))
         row.addWidget(remove_btn)
 
@@ -356,7 +357,7 @@ class _TeamFileCard(Card):
         section_lbl.setProperty("role", "muted")
         section_row.addWidget(section_lbl)
         self._section_edit = QLineEdit(section_name)
-        self._section_edit.setToolTip(
+        set_tooltip(self._section_edit, 
             "Boiler section for this file. Used for the header and the output "
             "filename ({section}_Standard_Format.csv). Must not be empty."
         )
@@ -371,7 +372,7 @@ class _TeamFileCard(Card):
         remove_btn = QPushButton("✕")
         remove_btn.setFixedSize(24, 24)
         remove_btn.setProperty("flat", "true")
-        remove_btn.setToolTip("Remove this file")
+        set_tooltip(remove_btn, "Remove this file")
         remove_btn.clicked.connect(lambda: self.remove_requested.emit(self._path))
         row.addWidget(remove_btn)
 
@@ -432,13 +433,13 @@ class _TdsFileCard(Card):
         self._badge = QLabel("Old" if fmt == "old" else "New")
         if fmt == "old":
             badge_bg, badge_fg = Color.WARNING, Color.PAGE_BG
-            self._badge.setToolTip(
+            set_tooltip(self._badge, 
                 "TDS pre-5.3 format. Metadata was auto-detected from cell "
                 "position - please verify before converting."
             )
         else:
             badge_bg, badge_fg = Color.ACCENT_BG_TINT, Color.ACCENT_TEXT
-            self._badge.setToolTip("TDS 5.3+ format. Metadata was read from labeled fields.")
+            set_tooltip(self._badge, "TDS 5.3+ format. Metadata was read from labeled fields.")
         apply_style(
             self._badge,
             f"background-color: {badge_bg}; color: {badge_fg}; "
@@ -463,7 +464,7 @@ class _TdsFileCard(Card):
         remove_btn = QPushButton("✕")
         remove_btn.setFixedSize(24, 24)
         remove_btn.setProperty("flat", "true")
-        remove_btn.setToolTip("Remove this file")
+        set_tooltip(remove_btn, "Remove this file")
         remove_btn.clicked.connect(lambda: self.remove_requested.emit(self._path))
         top_row.addWidget(remove_btn, 0, Qt.AlignmentFlag.AlignTop)
 
@@ -487,7 +488,7 @@ class _TdsFileCard(Card):
         prefilled = self._prefill_values(fmt, result)
         for key, label in _TDS_METADATA_FIELDS:
             edit = QLineEdit(prefilled.get(key, ""))
-            edit.setToolTip(self._field_tooltip(key))
+            set_tooltip(edit, self._field_tooltip(key))
             if key == "nde_laboratory" and fmt == "old":
                 edit.setPlaceholderText(TDS_NDE_REQUIRED_PLACEHOLDER)
                 edit.setProperty("required", "true")
@@ -630,7 +631,7 @@ class ConverterPage(QWidget):
         header_row.addStretch(1)
         help_btn = QPushButton("?")
         help_btn.setFixedSize(28, 28)
-        help_btn.setToolTip("Toggle help (F1)")
+        set_tooltip(help_btn, "Toggle help (F1)")
         help_btn.clicked.connect(self.help_panel.toggle)
         header_row.addWidget(help_btn)
         main_layout.addLayout(header_row)
@@ -720,7 +721,7 @@ class ConverterPage(QWidget):
         import_header.addStretch(1)
         self._clear_all_btn = QPushButton(CLEAR_ALL_TEXT)
         self._clear_all_btn.setProperty("flat", "true")
-        self._clear_all_btn.setToolTip("Remove every imported file and start over.")
+        set_tooltip(self._clear_all_btn, "Remove every imported file and start over.")
         self._clear_all_btn.setEnabled(False)
         self._clear_all_btn.clicked.connect(self._on_clear_all)
         import_header.addWidget(self._clear_all_btn)
@@ -755,7 +756,7 @@ class ConverterPage(QWidget):
         self._output_folder_edit = QLineEdit()
         self._output_folder_edit.setPlaceholderText("Choose output folder...")
         self._output_folder_edit.setReadOnly(True)
-        self._output_folder_edit.setToolTip(
+        set_tooltip(self._output_folder_edit, 
             "Where the converted Standard Format CSV files will be saved. "
             "Defaults to the folder of the first file you import; use Browse to change it."
         )
@@ -769,7 +770,7 @@ class ConverterPage(QWidget):
 
         self._convert_btn = PrimaryButton(CONVERT_ALL_TEXT)
         self._convert_btn.setIcon(icon("play", color=Color.TEXT_PRIMARY))
-        self._convert_btn.setToolTip(
+        set_tooltip(self._convert_btn, 
             "Convert every imported file to Standard Format CSV. Enabled once "
             "all comment codes above have been reviewed and confirmed."
         )
@@ -1116,7 +1117,7 @@ class ConverterPage(QWidget):
         import_header.addStretch(1)
         self._team_clear_all_btn = QPushButton(CLEAR_ALL_TEXT)
         self._team_clear_all_btn.setProperty("flat", "true")
-        self._team_clear_all_btn.setToolTip("Remove every imported file and start over.")
+        set_tooltip(self._team_clear_all_btn, "Remove every imported file and start over.")
         self._team_clear_all_btn.setEnabled(False)
         self._team_clear_all_btn.clicked.connect(self._on_team_clear_all)
         import_header.addWidget(self._team_clear_all_btn)
@@ -1169,14 +1170,14 @@ class ConverterPage(QWidget):
         date_row.addWidget(date_lbl)
         self._team_month_combo = QComboBox()
         self._team_month_combo.addItems(list(_MONTHS))
-        self._team_month_combo.setToolTip("Month of the inspection.")
+        set_tooltip(self._team_month_combo, "Month of the inspection.")
         date_row.addWidget(self._team_month_combo)
         self._team_year_combo = QComboBox()
         current_year = datetime.date.today().year
         for year in range(current_year + 1, current_year - 11, -1):
             self._team_year_combo.addItem(str(year))
         self._team_year_combo.setCurrentText(str(current_year))
-        self._team_year_combo.setToolTip("Year of the inspection.")
+        set_tooltip(self._team_year_combo, "Year of the inspection.")
         date_row.addWidget(self._team_year_combo)
         date_row.addStretch(1)
         meta_layout.addLayout(date_row)
@@ -1202,7 +1203,7 @@ class ConverterPage(QWidget):
         # Batch-wide toggle: include blank/unmeasured elevation positions.
         self._team_include_blank = QCheckBox("Include unmeasured elevations in output")
         self._team_include_blank.setChecked(True)
-        self._team_include_blank.setToolTip(
+        set_tooltip(self._team_include_blank, 
             "When checked, every elevation position is written to the output, "
             "including ones with no readings this inspection."
         )
@@ -1242,7 +1243,7 @@ class ConverterPage(QWidget):
         self._team_output_folder_edit = QLineEdit()
         self._team_output_folder_edit.setPlaceholderText("Choose output folder...")
         self._team_output_folder_edit.setReadOnly(True)
-        self._team_output_folder_edit.setToolTip(
+        set_tooltip(self._team_output_folder_edit, 
             "Where the converted Standard Format CSV files will be saved. "
             "Defaults to the folder of the first file you import; use Browse to change it."
         )
@@ -1256,7 +1257,7 @@ class ConverterPage(QWidget):
 
         self._team_convert_btn = PrimaryButton(CONVERT_ALL_TEXT)
         self._team_convert_btn.setIcon(icon("play", color=Color.TEXT_PRIMARY))
-        self._team_convert_btn.setToolTip(
+        set_tooltip(self._team_convert_btn, 
             "Convert every imported file to Standard Format CSV. Enabled once "
             "all inspection details and section names are filled in and any "
             "comment codes have been reviewed."
@@ -1604,7 +1605,7 @@ class ConverterPage(QWidget):
         import_header.addStretch(1)
         self._tds_clear_all_btn = QPushButton(CLEAR_ALL_TEXT)
         self._tds_clear_all_btn.setProperty("flat", "true")
-        self._tds_clear_all_btn.setToolTip("Remove every imported file and start over.")
+        set_tooltip(self._tds_clear_all_btn, "Remove every imported file and start over.")
         self._tds_clear_all_btn.setEnabled(False)
         self._tds_clear_all_btn.clicked.connect(self._on_tds_clear_all)
         import_header.addWidget(self._tds_clear_all_btn)
@@ -1642,7 +1643,7 @@ class ConverterPage(QWidget):
         # whose exports carry every possible position so it defaults CHECKED.
         self._tds_include_blank = QCheckBox("Include unmeasured elevations in output")
         self._tds_include_blank.setChecked(False)
-        self._tds_include_blank.setToolTip(
+        set_tooltip(self._tds_include_blank, 
             "When checked, every elevation position is written to the output, "
             "including ones with no readings this inspection."
         )
@@ -1683,7 +1684,7 @@ class ConverterPage(QWidget):
         self._tds_output_folder_edit = QLineEdit()
         self._tds_output_folder_edit.setPlaceholderText("Choose output folder...")
         self._tds_output_folder_edit.setReadOnly(True)
-        self._tds_output_folder_edit.setToolTip(
+        set_tooltip(self._tds_output_folder_edit, 
             "Where the converted Standard Format CSV files will be saved. "
             "Defaults to the folder of the first file you import; use Browse to change it."
         )
@@ -1697,7 +1698,7 @@ class ConverterPage(QWidget):
 
         self._tds_convert_btn = PrimaryButton(CONVERT_ALL_TEXT)
         self._tds_convert_btn.setIcon(icon("play", color=Color.TEXT_PRIMARY))
-        self._tds_convert_btn.setToolTip(
+        set_tooltip(self._tds_convert_btn, 
             "Convert every imported file to Standard Format CSV. Enabled once "
             "each file's metadata is filled in (including the NDE Laboratory for "
             "Old-format files) and any comment codes have been reviewed."

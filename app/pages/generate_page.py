@@ -27,6 +27,7 @@ from PyQt6.QtWidgets import (
 from app.builder import TrackerData, TrackerItem, TrackerSection, build_tracker
 from app.design.icons import icon
 from app.design.qss import apply_style
+from app.design.tooltip import set_tooltip
 from app.design.tokens import Color, Radius
 from app.history import HistoryEntry, add_history_entry
 from app.logo import get_pixmap
@@ -138,7 +139,7 @@ class GeneratePage(QWidget):
         header_row.addStretch(1)
         self.help_button = QPushButton("?")
         self.help_button.setFixedSize(32, 32)
-        self.help_button.setToolTip("Show help for this step")
+        set_tooltip(self.help_button, "Show help for this step")
         self.help_button.setProperty("flat", "true")
         self.help_button.clicked.connect(self._toggle_help)
         header_row.addWidget(self.help_button)
@@ -159,7 +160,7 @@ class GeneratePage(QWidget):
         content_layout.addWidget(folder_label)
         folder_row = QHBoxLayout()
         self.folder_edit = QLineEdit()
-        self.folder_edit.setToolTip("Folder where the generated tracker will be saved")
+        set_tooltip(self.folder_edit, "Folder where the generated tracker will be saved")
         folder_row.addWidget(self.folder_edit, 1)
         self.browse_button = SecondaryButton(BROWSE_TEXT)
         self.browse_button.clicked.connect(self._browse_folder)
@@ -170,11 +171,11 @@ class GeneratePage(QWidget):
         filename_label.setProperty("role", "label")
         content_layout.addWidget(filename_label)
         self.filename_edit = QLineEdit()
-        self.filename_edit.setToolTip("Name of the generated Excel file")
+        set_tooltip(self.filename_edit, "Name of the generated Excel file")
         content_layout.addWidget(self.filename_edit)
 
         self.pdf_checkbox = QCheckBox(EXPORT_PDF_LABEL)
-        self.pdf_checkbox.setToolTip("Also save a PDF copy of the generated tracker")
+        set_tooltip(self.pdf_checkbox, "Also save a PDF copy of the generated tracker")
         content_layout.addWidget(self.pdf_checkbox)
 
         self.progress_bar = QProgressBar()
@@ -217,18 +218,18 @@ class GeneratePage(QWidget):
         self.open_folder_button.clicked.connect(self._open_folder)
         success_buttons.addWidget(self.open_folder_button)
         self.email_button = SecondaryButton(EMAIL_TEXT)
-        self.email_button.setToolTip("Open your email client with the tracker details")
+        set_tooltip(self.email_button, "Open your email client with the tracker details")
         self.email_button.clicked.connect(self._email_tracker)
         success_buttons.addWidget(self.email_button)
         self.new_project_button = SecondaryButton(NEW_PROJECT_TEXT)
-        self.new_project_button.setToolTip(
+        set_tooltip(self.new_project_button, 
             "Clear the wizard and start a fresh tracker. The file you just "
             "generated stays saved on disk."
         )
         self.new_project_button.clicked.connect(self.new_project_requested.emit)
         success_buttons.addWidget(self.new_project_button)
         self.gen_email_button = PrimaryButton(GEN_EMAIL_TEXT)
-        self.gen_email_button.setToolTip("Generate a formatted status update email for this project")
+        set_tooltip(self.gen_email_button, "Generate a formatted status update email for this project")
         self.gen_email_button.clicked.connect(self._on_email_requested)
         success_buttons.addWidget(self.gen_email_button)
         success_layout.addLayout(success_buttons)
@@ -252,7 +253,7 @@ class GeneratePage(QWidget):
         button_row.addWidget(self.back_button)
         button_row.addStretch(1)
         self.generate_button = PrimaryButton(GENERATE_TEXT)
-        self.generate_button.setToolTip("Create the formatted Excel tracker")
+        set_tooltip(self.generate_button, "Create the formatted Excel tracker")
         self.generate_button.clicked.connect(self._on_generate)
         button_row.addWidget(self.generate_button)
         content_layout.addLayout(button_row)

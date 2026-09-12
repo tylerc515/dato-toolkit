@@ -29,6 +29,7 @@ from PyQt6.QtWidgets import (
 
 from app.design.icons import icon
 from app.design.qss import apply_style
+from app.design.tooltip import set_tooltip
 from app.design.tokens import Color, Radius, Spacing
 from app.email_export import EmailData, OtherItem, ScopeSection, build_email_doc
 from app.history import HistoryEntry, add_history_entry
@@ -134,12 +135,12 @@ class _FindingList(QWidget):
         self._entry.returnPressed.connect(self._add)
         entry_row.addWidget(self._entry, 1)
         add_btn = QPushButton("Add")
-        add_btn.setToolTip("Add this finding as a new bullet point in the generated document.")
+        set_tooltip(add_btn, "Add this finding as a new bullet point in the generated document.")
         add_btn.clicked.connect(self._add)
         entry_row.addWidget(add_btn)
         remove_btn = QPushButton("Remove")
         remove_btn.setProperty("flat", "true")
-        remove_btn.setToolTip("Remove the selected finding(s) from the list above.")
+        set_tooltip(remove_btn, "Remove the selected finding(s) from the list above.")
         remove_btn.clicked.connect(self._remove)
         entry_row.addWidget(remove_btn)
         layout.addLayout(entry_row)
@@ -231,12 +232,12 @@ class _OtherItemRow(QWidget):
 
         label = QLabel(description[:80] + ("…" if len(description) > 80 else ""))
         label.setWordWrap(False)
-        label.setToolTip(description)
+        set_tooltip(label, description)
         layout.addWidget(label, 1)
 
         self._status = QLineEdit(initial_status)
         self._status.setMinimumWidth(220)
-        self._status.setToolTip(
+        set_tooltip(self._status, 
             "Free-text status for this item, shown next to its description "
             "in the generated document (e.g. 'no report received', 'in progress')."
         )
@@ -291,7 +292,7 @@ class EmailPage(QWidget):
         help_btn = QPushButton("?")
         help_btn.setFixedSize(32, 32)
         help_btn.setProperty("flat", "true")
-        help_btn.setToolTip("Show or hide help for this page")
+        set_tooltip(help_btn, "Show or hide help for this page")
         help_btn.clicked.connect(self._toggle_help)
         header_row.addWidget(help_btn)
         content_wrapper_layout.addLayout(header_row)
@@ -316,7 +317,7 @@ class EmailPage(QWidget):
         link_bar_layout.addWidget(self._link_label, 1)
         unlink_btn = QPushButton(UNLINK_TEXT)
         unlink_btn.setProperty("flat", "true")
-        unlink_btn.setToolTip(
+        set_tooltip(unlink_btn, 
             "Disconnect this project. Fields pulled from it (boiler name, scope "
             "sections, auxiliary items, punchlist) will be cleared; your typed "
             "findings and summary text stay as-is."
@@ -365,7 +366,7 @@ class EmailPage(QWidget):
         row1.addWidget(QLabel("Boiler Name"))
         self._boiler_edit = QLineEdit()
         self._boiler_edit.setPlaceholderText("e.g. RECOVERY BOILER #2")
-        self._boiler_edit.setToolTip(
+        set_tooltip(self._boiler_edit, 
             "Appears in the document header and is also used to build the "
             "output filename below."
         )
@@ -378,14 +379,14 @@ class EmailPage(QWidget):
         d = date.today()
         date_str = f"{d.month}/{d.day}/{d.year}"
         self._date_edit = QLineEdit(date_str)
-        self._date_edit.setToolTip(
+        set_tooltip(self._date_edit, 
             "Defaults to today's date when this page was opened. Edit if the "
             "document needs a different date."
         )
         row2.addWidget(self._date_edit, 1)
         row2.addWidget(QLabel("Status Time"))
         self._time_edit = QLineEdit(datetime.now().strftime("%I:%M %p").lstrip("0"))
-        self._time_edit.setToolTip(
+        set_tooltip(self._time_edit, 
             "Defaults to the time this page was opened. Edit if the document "
             "needs a different time."
         )
@@ -464,11 +465,11 @@ class EmailPage(QWidget):
 
         btn_row = QHBoxLayout()
         load_file_btn = PrimaryButton(LOAD_FILE_TEXT)
-        load_file_btn.setToolTip("Browse for a saved tracker project (.json) to pre-fill this form.")
+        set_tooltip(load_file_btn, "Browse for a saved tracker project (.json) to pre-fill this form.")
         load_file_btn.clicked.connect(self._load_from_file)
         btn_row.addWidget(load_file_btn)
         browse_recent_btn = SecondaryButton(BROWSE_RECENT_TEXT)
-        browse_recent_btn.setToolTip(f"Pick from your {RECENT_PROJECTS_COUNT} most recently saved tracker projects.")
+        set_tooltip(browse_recent_btn, f"Pick from your {RECENT_PROJECTS_COUNT} most recently saved tracker projects.")
         browse_recent_btn.clicked.connect(self._browse_recent)
         btn_row.addWidget(browse_recent_btn)
         btn_row.addStretch(1)
@@ -482,7 +483,7 @@ class EmailPage(QWidget):
         fn_row = QHBoxLayout()
         fn_row.addWidget(QLabel("Filename"))
         self._filename_edit = QLineEdit()
-        self._filename_edit.setToolTip(
+        set_tooltip(self._filename_edit, 
             "Auto-generated from the boiler name and today's date. Changing "
             "the Boiler Name field above will regenerate this filename and "
             "overwrite any manual edit you made here."
@@ -493,7 +494,7 @@ class EmailPage(QWidget):
         folder_row = QHBoxLayout()
         folder_row.addWidget(QLabel("Folder"))
         self._folder_edit = QLineEdit(str(Path.home() / "Documents"))
-        self._folder_edit.setToolTip("Folder where the generated .docx file will be saved.")
+        set_tooltip(self._folder_edit, "Folder where the generated .docx file will be saved.")
         folder_row.addWidget(self._folder_edit, 1)
         browse_btn = SecondaryButton(BROWSE_TEXT)
         browse_btn.clicked.connect(self._browse_folder)
@@ -532,7 +533,7 @@ class EmailPage(QWidget):
         self._open_folder_btn.clicked.connect(self._open_folder)
         success_btns.addWidget(self._open_folder_btn)
         self._again_btn = SecondaryButton(GENERATE_ANOTHER_TEXT)
-        self._again_btn.setToolTip(
+        set_tooltip(self._again_btn, 
             "Dismiss this message so you can update the fields and generate a "
             "new document. Your current entries are kept."
         )
@@ -623,7 +624,7 @@ class EmailPage(QWidget):
             display = f"{config.title}  —  {config.date}" if config.date else config.title
             item = QListWidgetItem(display)
             item.setData(Qt.ItemDataRole.UserRole, path)
-            item.setToolTip(display)
+            set_tooltip(item, display)
             list_widget.addItem(item)
         if list_widget.count():
             list_widget.setCurrentRow(0)

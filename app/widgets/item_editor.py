@@ -19,6 +19,7 @@ from PyQt6.QtWidgets import (
 )
 
 from app.design.qss import apply_style
+from app.design.tooltip import set_tooltip
 from app.design.tokens import Color, FontSize, Radius, Spacing
 
 
@@ -38,20 +39,20 @@ class _ItemRowWidget(QWidget):
         label = QLabel(label_text)
         label.setWordWrap(False)
         if has_notes:
-            label.setToolTip("Has notes")
+            set_tooltip(label, "Has notes")
             label.setText(label.text() + "  \U0001f4ce")
         layout.addWidget(label, 1)
 
         edit_btn = QPushButton("✎")
         edit_btn.setFixedSize(28, 28)
-        edit_btn.setToolTip("Edit this item")
+        set_tooltip(edit_btn, "Edit this item")
         edit_btn.setProperty("flat", "true")
         edit_btn.clicked.connect(self.edit_clicked)
         layout.addWidget(edit_btn)
 
         remove_btn = QPushButton("×")
         remove_btn.setFixedSize(28, 28)
-        remove_btn.setToolTip("Remove this item")
+        set_tooltip(remove_btn, "Remove this item")
         remove_btn.setProperty("flat", "true")
         remove_btn.clicked.connect(self.remove_clicked)
         layout.addWidget(remove_btn)
@@ -99,7 +100,7 @@ class _EditForm(QFrame):
 
         self.notes_edit = QPlainTextEdit()
         self.notes_edit.setPlaceholderText("Enter any notes or findings for this item")
-        self.notes_edit.setToolTip("Optional. Appears in the notes cell for this item in the generated tracker.")
+        set_tooltip(self.notes_edit, "Optional. Appears in the notes cell for this item in the generated tracker.")
         self.notes_edit.setMinimumHeight(60)
         apply_style(self.notes_edit, _field_decl, _field_focus)
         layout.addWidget(self.notes_edit)
@@ -163,7 +164,7 @@ class ItemEditorWidget(QWidget):
         add_btn_row = QHBoxLayout()
         add_btn = QPushButton("+ Add Item")
         add_btn.setProperty("accent", "true")
-        add_btn.setToolTip("Add a new item to this list.")
+        set_tooltip(add_btn, "Add a new item to this list.")
         add_btn.setFixedHeight(36)
         add_btn.setMaximumWidth(200)
         add_btn.clicked.connect(self._on_add)

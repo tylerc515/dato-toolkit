@@ -10,6 +10,7 @@ from PyQt6.QtWidgets import QHBoxLayout, QLabel, QLayout, QVBoxLayout, QWidget
 
 from app.design.icons import icon
 from app.design.tokens import Color, Spacing
+from app.design.tooltip import set_tooltip
 from app.history import HistoryEntry, format_timestamp, load_history
 from app.project import ProjectConfig, list_projects
 from app.widgets.components import Card, PrimaryButton, SecondaryButton, StatCard
@@ -91,19 +92,19 @@ class DashboardPage(QWidget):
 
         self.batch_button = SecondaryButton(BATCH_GENERATE_TEXT)
         self.batch_button.setIcon(icon("table"))
-        self.batch_button.setToolTip("Generate trackers for multiple projects from a folder of CSVs")
+        set_tooltip(self.batch_button, "Generate trackers for multiple projects from a folder of CSVs")
         self.batch_button.clicked.connect(self.batch_requested.emit)
         header_row.addWidget(self.batch_button)
 
         self.email_button = SecondaryButton(GENERATE_EMAIL_TEXT)
         self.email_button.setIcon(icon("paper-plane-tilt"))
-        self.email_button.setToolTip("Generate a formatted NDE status update email document")
+        set_tooltip(self.email_button, "Generate a formatted NDE status update email document")
         self.email_button.clicked.connect(self.email_requested.emit)
         header_row.addWidget(self.email_button)
 
         self.converter_button = SecondaryButton(CONVERT_DATA_TEXT)
         self.converter_button.setIcon(icon("arrows-left-right"))
-        self.converter_button.setToolTip("Convert ATS, TEAM, or TDS inspection files to Standard Format CSV")
+        set_tooltip(self.converter_button, "Convert ATS, TEAM, or TDS inspection files to Standard Format CSV")
         self.converter_button.clicked.connect(self.converter_requested.emit)
         header_row.addWidget(self.converter_button)
         outer.addLayout(header_row)

@@ -13,6 +13,7 @@ from PyQt6.QtWidgets import (
 )
 
 from app.design.qss import apply_style
+from app.design.tooltip import set_tooltip
 from app.design.tokens import Color, FontSize, Radius, Spacing
 from app.logo import get_pixmap
 from app.widgets.dialogs import AppDialog
@@ -61,7 +62,7 @@ class StepIndicator(QWidget):
 
             button = QPushButton(f"{index + 1}. {label}")
             button.setCursor(Qt.CursorShape.PointingHandCursor)
-            button.setToolTip(f"Go to step {index + 1}: {label}")
+            set_tooltip(button, f"Go to step {index + 1}: {label}")
             button.clicked.connect(lambda _checked, i=index: self.step_clicked.emit(i))
             self._buttons.append(button)
             layout.addWidget(button)

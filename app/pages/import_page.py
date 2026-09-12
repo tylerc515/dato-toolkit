@@ -21,6 +21,7 @@ from PyQt6.QtWidgets import (
 
 from app.design.icons import icon
 from app.design.qss import apply_style
+from app.design.tooltip import set_tooltip
 from app.design.tokens import Color, FontSize, Radius, Spacing
 from app.parser import TraceFileData, TraceParseError, parse_trace_csv
 from app.project import find_project_for_metadata, find_similar_project_for_metadata
@@ -101,7 +102,7 @@ class _DropZone(QFrame):
         hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(hint)
 
-        self.setToolTip("Drop one or more TRACE export .csv files here, or click to open a file browser.")
+        set_tooltip(self, "Drop one or more TRACE export .csv files here, or click to open a file browser.")
 
     def _set_drag_active(self, active: bool) -> None:
         """Dashed accent border + tinted fill while a file is dragged over.
@@ -190,7 +191,7 @@ class _FileCard(Card):
         remove_button = QPushButton("×")
         remove_button.setProperty("flat", "true")
         remove_button.setFixedSize(32, 32)
-        remove_button.setToolTip(f"Remove {filename}")
+        set_tooltip(remove_button, f"Remove {filename}")
         remove_button.setCursor(Qt.CursorShape.PointingHandCursor)
         remove_button.clicked.connect(lambda: self.remove_requested.emit(self.path))
         row.addWidget(remove_button)
@@ -226,7 +227,7 @@ class ImportPage(QWidget):
         header_row.addStretch(1)
         self.help_button = QPushButton("?")
         self.help_button.setFixedSize(32, 32)
-        self.help_button.setToolTip("Show help for this step")
+        set_tooltip(self.help_button, "Show help for this step")
         self.help_button.setProperty("flat", "true")
         self.help_button.clicked.connect(self._toggle_help)
         header_row.addWidget(self.help_button)
@@ -259,14 +260,14 @@ class ImportPage(QWidget):
         button_row = QHBoxLayout()
         self.clear_all_button = QPushButton(CLEAR_ALL_TEXT)
         self.clear_all_button.setProperty("flat", "true")
-        self.clear_all_button.setToolTip("Remove all imported files")
+        set_tooltip(self.clear_all_button, "Remove all imported files")
         self.clear_all_button.clicked.connect(self.clear_all)
         button_row.addWidget(self.clear_all_button)
         button_row.addStretch(1)
         self.continue_button = QPushButton(CONTINUE_TEXT)
         self.continue_button.setProperty("accent", "true")
         self.continue_button.setEnabled(False)
-        self.continue_button.setToolTip("Proceed to arrange sections")
+        set_tooltip(self.continue_button, "Proceed to arrange sections")
         self.continue_button.clicked.connect(self._emit_files_ready)
         button_row.addWidget(self.continue_button)
         content_layout.addLayout(button_row)

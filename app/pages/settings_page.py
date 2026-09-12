@@ -24,6 +24,7 @@ from PyQt6.QtWidgets import (
 )
 
 from app.design.tokens import Spacing
+from app.design.tooltip import set_tooltip
 from app.settings import get_theme
 from app.styles import THEME_DARK, THEME_LIGHT
 from app.widgets import HelpPanel
@@ -96,7 +97,7 @@ class SettingsPage(QWidget):
         self.help_button = QPushButton("?")
         self.help_button.setFixedSize(32, 32)
         self.help_button.setProperty("flat", "true")
-        self.help_button.setToolTip("Show or hide help for this page")
+        set_tooltip(self.help_button, "Show or hide help for this page")
         self.help_button.clicked.connect(self._toggle_help)
         header_row.addWidget(self.help_button)
         content_layout.addLayout(header_row)
@@ -136,7 +137,7 @@ class SettingsPage(QWidget):
         # The muted disabled look comes from the global QComboBox:disabled
         # rule in app/styles.py.
         self.theme_combo.setEnabled(False)
-        self.theme_combo.setToolTip(THEME_COMING_SOON_TEXT)
+        set_tooltip(self.theme_combo, THEME_COMING_SOON_TEXT)
         theme_row.addWidget(self.theme_combo)
         theme_row.addStretch(1)
         card_layout.addLayout(theme_row)

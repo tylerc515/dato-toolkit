@@ -28,6 +28,7 @@ from PyQt6.QtWidgets import (
 )
 
 from app.design.qss import apply_style
+from app.design.tooltip import set_tooltip
 from app.design.tokens import Color, FontSize, Spacing
 
 DIALOG_FRAME_OBJECT_NAME = "DialogFrame"
@@ -72,7 +73,7 @@ class AppDialog(QDialog):
         self.title_row.addWidget(self.title_label, 1)
         self.close_button = QPushButton("×")
         self.close_button.setFixedSize(CLOSE_BUTTON_SIZE, CLOSE_BUTTON_SIZE)
-        self.close_button.setToolTip("Close")
+        set_tooltip(self.close_button, "Close")
         self.close_button.setCursor(Qt.CursorShape.PointingHandCursor)
         apply_style(
             self.close_button,

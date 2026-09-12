@@ -18,6 +18,7 @@ from PyQt6.QtWidgets import (
 )
 
 from app.design.icons import icon
+from app.design.tooltip import set_tooltip
 from app.history import HistoryEntry, format_timestamp, load_history
 from app.search import matches_search
 from app.widgets import HelpPanel
@@ -102,7 +103,7 @@ def _text_cell(text: str) -> QLabel:
 def _icon_button(icon_name: str, tooltip: str) -> SecondaryButton:
     button = SecondaryButton("")
     button.setIcon(icon(icon_name))
-    button.setToolTip(tooltip)
+    set_tooltip(button, tooltip)
     button.setFixedSize(_ACTION_BUTTON_SIZE, _ACTION_BUTTON_SIZE)
     return button
 
@@ -136,7 +137,7 @@ class HistoryPage(QWidget):
         self.help_button = QPushButton("?")
         self.help_button.setFixedSize(32, 32)
         self.help_button.setProperty("flat", "true")
-        self.help_button.setToolTip("Show or hide help for this page")
+        set_tooltip(self.help_button, "Show or hide help for this page")
         self.help_button.clicked.connect(self._toggle_help)
         header_row.addWidget(self.help_button)
         content_layout.addLayout(header_row)
@@ -226,7 +227,7 @@ class HistoryPage(QWidget):
             )
         else:
             pdf_widget = _text_cell(PDF_NONE_TEXT)
-            pdf_widget.setToolTip(PDF_ABSENT_TOOLTIP)
+            set_tooltip(pdf_widget, PDF_ABSENT_TOOLTIP)
 
         return [
             _text_cell(format_timestamp(entry.generated_at)),

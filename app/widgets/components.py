@@ -20,6 +20,7 @@ from PyQt6.QtWidgets import (
 )
 
 from app.design.qss import apply_style
+from app.design.tooltip import set_tooltip
 from app.design.tokens import Color, FontSize, Radius, Spacing
 
 _SEMANTIC_COLORS = {
@@ -70,7 +71,7 @@ class StatCard(Card):
     ):
         super().__init__(parent)
         if tooltip:
-            self.setToolTip(tooltip)
+            set_tooltip(self, tooltip)
         self._label_label = QLabel(label)
         apply_style(self._label_label, f"color: {Color.TEXT_MUTED}; font-size: {FontSize.SMALL}px;")
         self.layout().addWidget(self._label_label)
@@ -117,7 +118,7 @@ class StatusBadge(QLabel):
             f"border-radius: {Radius.PILL}px; padding: 2px {Spacing.SM}px;",
         )
         if tooltip is not None:
-            self.setToolTip(tooltip)
+            set_tooltip(self, tooltip)
 
 
 class FixedGridTable(QWidget):
@@ -156,7 +157,7 @@ class FixedGridTable(QWidget):
                 f"font-size: {FontSize.LABEL}px; font-weight: 600; padding: {Spacing.SM}px;",
             )
             if col.get("tooltip"):
-                header_cell.setToolTip(col["tooltip"])
+                set_tooltip(header_cell, col["tooltip"])
             self._grid.addWidget(header_cell, 0, col_idx)
 
         self._next_row = 1
