@@ -18,6 +18,9 @@ from app.logo import get_pixmap
 # (24px total) that needs at least 243px, so 248 leaves a small cushion.
 SIDEBAR_WIDTH = 248
 
+# Logical size of the "TC" mark in the brand row (square box the mark fits in).
+BRAND_LOGO_SIZE = 28
+
 # (item_id, label, icon name, section) - icon names confirmed to resolve
 # under the ph. prefix; see docs/superpowers/plans/2026-07-01-visual-redesign.md
 _TOOLS_ITEMS = [
@@ -86,9 +89,17 @@ class Sidebar(QFrame):
         layout.setContentsMargins(Spacing.MD, Spacing.LG, Spacing.MD, Spacing.LG)
         layout.setSpacing(Spacing.XS)
 
+        # The brand row is indented to match the nav buttons' own left padding,
+        # so the mark lines up with the nav icons instead of hugging the
+        # sidebar edge. The pixmap is rendered at the screen's device pixel
+        # ratio so it stays crisp at 125% / 150% display scaling.
         brand_row = QHBoxLayout()
+        brand_row.setContentsMargins(Spacing.MD, 0, Spacing.MD, 0)
         logo_label = QLabel()
-        logo_label.setPixmap(get_pixmap(28, 28))
+        ratio = self.devicePixelRatioF()
+        logo_pixmap = get_pixmap(round(BRAND_LOGO_SIZE * ratio), round(BRAND_LOGO_SIZE * ratio))
+        logo_pixmap.setDevicePixelRatio(ratio)
+        logo_label.setPixmap(logo_pixmap)
         brand_row.addWidget(logo_label)
         brand_row.addSpacing(Spacing.SM)
         name_label = QLabel("DATO Toolkit")

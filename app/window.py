@@ -61,8 +61,12 @@ from app.widgets.sidebar import Sidebar
 # --- UI text -------------------------------------------------------------
 
 APP_NAME = "DATO Toolkit"
-WINDOW_MIN_WIDTH = 900
-WINDOW_MIN_HEIGHT = 600
+# Smallest window at which every page is still usable: one column of content
+# beside the sidebar, nothing clipped, nothing compressed. Measured with the
+# responsive-layout checker (tests/test_responsive_layout.py) at 840x520 on
+# 2026-09-12, plus a 40 px cushion each way for real-display text metrics.
+WINDOW_MIN_WIDTH = 880
+WINDOW_MIN_HEIGHT = 560
 STEP_LABELS = ["Import Files", "Arrange Sections", "Generate Tracker"]
 ONBOARDING_FLAG_FILENAME = "onboarding_complete"
 
@@ -749,6 +753,8 @@ class MainWindow(QMainWindow):
     def resizeEvent(self, event) -> None:
         super().resizeEvent(event)
         grip_size = self.size_grip.sizeHint()
+        # Size it too: a grip left at its default size hangs past the window edge.
+        self.size_grip.resize(grip_size)
         self.size_grip.move(self.width() - grip_size.width(), self.height() - grip_size.height())
 
     def eventFilter(self, obj, event) -> bool:
