@@ -822,14 +822,18 @@ class MainWindow(QMainWindow):
         geo = QRect(self._resize_start_geometry)
         direction = self._resize_direction
 
+        # QRect.right()/bottom() are inclusive (right == left + width - 1), so
+        # the clamp subtracts one or the window lands a pixel above its minimum.
+        min_width = self.minimumWidth()
+        min_height = self.minimumHeight()
         if "left" in direction:
-            geo.setLeft(min(geo.left() + delta.x(), geo.right() - self.minimumWidth()))
+            geo.setLeft(min(geo.left() + delta.x(), geo.right() - min_width + 1))
         if "right" in direction:
-            geo.setRight(max(geo.right() + delta.x(), geo.left() + self.minimumWidth()))
+            geo.setRight(max(geo.right() + delta.x(), geo.left() + min_width - 1))
         if "top" in direction:
-            geo.setTop(min(geo.top() + delta.y(), geo.bottom() - self.minimumHeight()))
+            geo.setTop(min(geo.top() + delta.y(), geo.bottom() - min_height + 1))
         if "bottom" in direction:
-            geo.setBottom(max(geo.bottom() + delta.y(), geo.top() + self.minimumHeight()))
+            geo.setBottom(max(geo.bottom() + delta.y(), geo.top() + min_height - 1))
 
         self.setGeometry(geo)
 
