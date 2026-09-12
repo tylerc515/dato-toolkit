@@ -26,7 +26,7 @@ from app.design.tokens import Color, FontSize, Radius, Spacing
 from app.parser import TraceFileData, TraceParseError, parse_trace_csv
 from app.project import find_project_for_metadata, find_similar_project_for_metadata
 from app.widgets import HelpPanel
-from app.widgets.components import Card, SecondaryButton
+from app.widgets.components import Card, IconButton, SecondaryButton
 from app.widgets.dialogs import MessageDialog
 
 # --- UI text -------------------------------------------------------------
@@ -188,11 +188,7 @@ class _FileCard(Card):
 
         row.addLayout(info_layout, 1)
 
-        remove_button = QPushButton("×")
-        remove_button.setProperty("flat", "true")
-        remove_button.setFixedSize(32, 32)
-        set_tooltip(remove_button, f"Remove {filename}")
-        remove_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        remove_button = IconButton("×", f"Remove {filename}")
         remove_button.clicked.connect(lambda: self.remove_requested.emit(self.path))
         row.addWidget(remove_button)
 
@@ -225,10 +221,7 @@ class ImportPage(QWidget):
         title.setProperty("role", "heading")
         header_row.addWidget(title)
         header_row.addStretch(1)
-        self.help_button = QPushButton("?")
-        self.help_button.setFixedSize(32, 32)
-        set_tooltip(self.help_button, "Show help for this step")
-        self.help_button.setProperty("flat", "true")
+        self.help_button = IconButton("?", "Show help for this step")
         self.help_button.clicked.connect(self._toggle_help)
         header_row.addWidget(self.help_button)
         content_layout.addLayout(header_row)

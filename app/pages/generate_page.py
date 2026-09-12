@@ -14,12 +14,14 @@ from PyQt6.QtGui import QDesktopServices
 from PyQt6.QtWidgets import (
     QCheckBox,
     QFileDialog,
+    QFrame,
     QGraphicsOpacityEffect,
     QHBoxLayout,
     QLabel,
     QLineEdit,
     QProgressBar,
     QPushButton,
+    QScrollArea,
     QVBoxLayout,
     QWidget,
 )
@@ -28,14 +30,14 @@ from app.builder import TrackerData, TrackerItem, TrackerSection, build_tracker
 from app.design.icons import icon
 from app.design.qss import apply_style
 from app.design.tooltip import set_tooltip
-from app.design.tokens import Color, Radius
+from app.design.tokens import Color, Radius, Spacing
 from app.history import HistoryEntry, add_history_entry
 from app.logo import get_pixmap
 from app.pdf_export import export_tracker_pdf
 from app.project import ProjectConfig, sanitize_filename
 from app.validation import validate_tracker_output
 from app.widgets import HelpPanel
-from app.widgets.components import Card, PrimaryButton, SecondaryButton
+from app.widgets.components import Card, IconButton, PrimaryButton, SecondaryButton
 from app.widgets.dialogs import MessageDialog
 
 # --- UI text -------------------------------------------------------------
@@ -129,18 +131,23 @@ class GeneratePage(QWidget):
     def _build_ui(self) -> None:
         outer = QHBoxLayout(self)
 
+        column = QVBoxLayout()
+        column.setSpacing(Spacing.SM)
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
         content = QWidget()
         content_layout = QVBoxLayout(content)
+        content_layout.setContentsMargins(0, 0, Spacing.SM, 0)
+        scroll.setWidget(content)
+        column.addWidget(scroll, 1)
 
         header_row = QHBoxLayout()
         title = QLabel(TITLE_TEXT)
         title.setProperty("role", "heading")
         header_row.addWidget(title)
         header_row.addStretch(1)
-        self.help_button = QPushButton("?")
-        self.help_button.setFixedSize(32, 32)
-        set_tooltip(self.help_button, "Show help for this step")
-        self.help_button.setProperty("flat", "true")
+        self.help_button = IconButton("?", "Show help for this step")
         self.help_button.clicked.connect(self._toggle_help)
         header_row.addWidget(self.help_button)
         content_layout.addLayout(header_row)
@@ -256,9 +263,9 @@ class GeneratePage(QWidget):
         set_tooltip(self.generate_button, "Create the formatted Excel tracker")
         self.generate_button.clicked.connect(self._on_generate)
         button_row.addWidget(self.generate_button)
-        content_layout.addLayout(button_row)
+        column.addLayout(button_row)
 
-        outer.addWidget(content, 1)
+        outer.addLayout(column, 1)
 
         self.help_panel = HelpPanel(HELP_TITLE, HELP_BODY)
         outer.addWidget(self.help_panel)

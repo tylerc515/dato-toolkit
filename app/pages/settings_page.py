@@ -28,7 +28,7 @@ from app.design.tooltip import set_tooltip
 from app.settings import get_theme
 from app.styles import THEME_DARK, THEME_LIGHT
 from app.widgets import HelpPanel
-from app.widgets.components import Card, SecondaryButton
+from app.widgets.components import Card, IconButton, SecondaryButton
 
 # --- UI text -------------------------------------------------------------
 
@@ -94,10 +94,7 @@ class SettingsPage(QWidget):
         title.setProperty("role", "heading")
         header_row.addWidget(title)
         header_row.addStretch(1)
-        self.help_button = QPushButton("?")
-        self.help_button.setFixedSize(32, 32)
-        self.help_button.setProperty("flat", "true")
-        set_tooltip(self.help_button, "Show or hide help for this page")
+        self.help_button = IconButton("?", "Show or hide help for this page")
         self.help_button.clicked.connect(self._toggle_help)
         header_row.addWidget(self.help_button)
         content_layout.addLayout(header_row)

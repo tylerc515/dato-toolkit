@@ -57,6 +57,16 @@ def apply_style(widget: QWidget, declarations: str, states: Mapping[str, str] | 
     widget.setStyleSheet(build_scoped_qss(scoped_name(widget), declarations, states))
 
 
+def make_transparent(widget: QWidget) -> None:
+    """Stop a plain container widget painting the page background.
+
+    The global `QWidget { background }` rule paints every container, which
+    shows as a dark band when the container sits on a lighter surface such
+    as a card or a dialog frame.
+    """
+    apply_style(widget, "background-color: transparent;")
+
+
 def clear_style(widget: QWidget) -> None:
     """Remove any per-widget stylesheet, returning it to the global theme."""
     widget.setStyleSheet("")

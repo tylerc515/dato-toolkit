@@ -58,7 +58,14 @@ from app.design.tooltip import set_tooltip
 from app.design.tokens import Color, FontSize, Radius, Spacing
 from app.widgets import HelpPanel
 from app.widgets.dialogs import MessageDialog
-from app.widgets.components import Card, PrimaryButton, SecondaryButton, StatCard
+from app.widgets.components import (
+    ICON_BUTTON_SIZE_SMALL,
+    Card,
+    IconButton,
+    PrimaryButton,
+    SecondaryButton,
+    StatCard,
+)
 from app.widgets.comment_code_review_widget import CommentCodeReviewWidget
 
 logger = logging.getLogger(__name__)
@@ -307,10 +314,7 @@ class _FileCard(Card):
         info.addWidget(detail)
         row.addLayout(info, 1)
 
-        remove_btn = QPushButton("✕")
-        remove_btn.setFixedSize(24, 24)
-        remove_btn.setProperty("flat", "true")
-        set_tooltip(remove_btn, "Remove this file")
+        remove_btn = IconButton("×", "Remove this file", size=ICON_BUTTON_SIZE_SMALL)
         remove_btn.clicked.connect(lambda: self.remove_requested.emit(self._path))
         row.addWidget(remove_btn)
 
@@ -369,10 +373,7 @@ class _TeamFileCard(Card):
 
         row.addLayout(info, 1)
 
-        remove_btn = QPushButton("✕")
-        remove_btn.setFixedSize(24, 24)
-        remove_btn.setProperty("flat", "true")
-        set_tooltip(remove_btn, "Remove this file")
+        remove_btn = IconButton("×", "Remove this file", size=ICON_BUTTON_SIZE_SMALL)
         remove_btn.clicked.connect(lambda: self.remove_requested.emit(self._path))
         row.addWidget(remove_btn)
 
@@ -461,10 +462,7 @@ class _TdsFileCard(Card):
         info.addWidget(detail)
         top_row.addLayout(info, 1)
 
-        remove_btn = QPushButton("✕")
-        remove_btn.setFixedSize(24, 24)
-        remove_btn.setProperty("flat", "true")
-        set_tooltip(remove_btn, "Remove this file")
+        remove_btn = IconButton("×", "Remove this file", size=ICON_BUTTON_SIZE_SMALL)
         remove_btn.clicked.connect(lambda: self.remove_requested.emit(self._path))
         top_row.addWidget(remove_btn, 0, Qt.AlignmentFlag.AlignTop)
 
@@ -629,9 +627,7 @@ class ConverterPage(QWidget):
         title.setProperty("role", "heading")
         header_row.addWidget(title)
         header_row.addStretch(1)
-        help_btn = QPushButton("?")
-        help_btn.setFixedSize(28, 28)
-        set_tooltip(help_btn, "Toggle help (F1)")
+        help_btn = IconButton("?", "Toggle help (F1)")
         help_btn.clicked.connect(self.help_panel.toggle)
         header_row.addWidget(help_btn)
         main_layout.addLayout(header_row)

@@ -128,8 +128,18 @@ def _dialogs() -> list[QWidget]:
 def test_no_widget_stylesheet_can_cascade_to_children(tmp_path):
     roots = [_main_window(), *_stateful_widgets(tmp_path), *_dialogs()]
     failures: list[str] = []
-    for root in roots:
-        failures.extend(_check_widget_tree(root))
+    try:
+        for root in roots:
+            failures.extend(_check_widget_tree(root))
+    finally:
+        # A MainWindow that is still alive when the interpreter shuts down
+        # crashes inside Qt teardown (pre-existing; reproducible on main),
+        # so tear the widgets down here instead of leaving it to GC.
+        for root in roots:
+            root.close()
+            root.deleteLater()
+        roots.clear()
+        _qapp.processEvents()
     assert failures == [], "\n".join(failures)
 
 

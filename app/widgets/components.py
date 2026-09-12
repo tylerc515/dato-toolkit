@@ -19,9 +19,13 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from app.design.icons import icon
 from app.design.qss import apply_style
-from app.design.tooltip import set_tooltip
 from app.design.tokens import Color, FontSize, Radius, Spacing
+from app.design.tooltip import set_tooltip
+
+ICON_BUTTON_SIZE = 32
+ICON_BUTTON_SIZE_SMALL = 28
 
 _SEMANTIC_COLORS = {
     "success": Color.SUCCESS,
@@ -46,6 +50,32 @@ class SecondaryButton(QPushButton):
     def __init__(self, text: str, parent: QWidget | None = None):
         super().__init__(text, parent)
         self.setProperty("flat", "true")
+
+
+class IconButton(QPushButton):
+    """Square, outlined button holding one glyph or icon and nothing else.
+
+    Always carries a tooltip because there is no text label to read. The
+    `iconButton` property zeroes the global button padding, which otherwise
+    leaves no room for the glyph inside a 28-32px square."""
+
+    def __init__(
+        self,
+        glyph: str,
+        tooltip: str,
+        *,
+        icon_name: str | None = None,
+        size: int = ICON_BUTTON_SIZE,
+        parent: QWidget | None = None,
+    ):
+        super().__init__(glyph, parent)
+        if icon_name is not None:
+            self.setIcon(icon(icon_name))
+        self.setProperty("flat", "true")
+        self.setProperty("iconButton", "true")
+        self.setFixedSize(size, size)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        set_tooltip(self, tooltip)
 
 
 class Card(QFrame):

@@ -6,7 +6,7 @@ from pathlib import Path
 
 from PyQt6.QtCore import QUrl, Qt, pyqtSignal
 from PyQt6.QtGui import QDesktopServices
-from PyQt6.QtWidgets import QHBoxLayout, QLabel, QLayout, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import QFrame, QHBoxLayout, QLabel, QLayout, QScrollArea, QVBoxLayout, QWidget
 
 from app.design.icons import icon
 from app.design.tokens import Color, Spacing
@@ -161,10 +161,19 @@ class DashboardPage(QWidget):
             heading_row.addWidget(action_button)
         outer_layout.addLayout(heading_row)
 
-        rows_layout = QVBoxLayout()
+        # Rows live in a scroll area so a short window scrolls the list instead
+        # of squeezing every row until its text and buttons are clipped.
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        rows_container = QWidget()
+        rows_layout = QVBoxLayout(rows_container)
+        rows_layout.setContentsMargins(0, 0, 0, 0)
         rows_layout.setSpacing(Spacing.SM)
-        outer_layout.addLayout(rows_layout)
-        outer_layout.addStretch(1)
+        rows_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
+        scroll.setWidget(rows_container)
+        outer_layout.addWidget(scroll, 1)
 
         return card, rows_layout
 
@@ -218,6 +227,7 @@ class DashboardPage(QWidget):
             f"<span style='color:{Color.TEXT_MUTED};'>{subtitle}</span>"
         )
         info.setTextFormat(Qt.TextFormat.RichText)
+        info.setWordWrap(True)
         inner_layout.addWidget(info, 1)
 
         open_button = SecondaryButton(OPEN_TEXT)
@@ -248,6 +258,7 @@ class DashboardPage(QWidget):
             f"<span style='color:{Color.TEXT_MUTED};'>{format_timestamp(entry.generated_at)}</span>"
         )
         info.setTextFormat(Qt.TextFormat.RichText)
+        info.setWordWrap(True)
         inner_layout.addWidget(info, 1)
 
         open_file_button = SecondaryButton(OPEN_FILE_TEXT)

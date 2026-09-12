@@ -27,11 +27,12 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from app.design.qss import apply_style
+from app.design.qss import apply_style, make_transparent
 from app.design.tooltip import set_tooltip
 from app.design.tokens import Color, FONT_FAMILY, FontSize, Radius, Spacing
 from app.logo import get_pixmap
 from app.project import APP_DIR_NAME
+from app.widgets.components import IconButton
 from app.widgets.dialogs import AppDialog, MessageDialog
 from app.updater import (
     GITHUB_RELEASES_PAGE_URL,
@@ -138,6 +139,7 @@ class UpdateDialog(AppDialog):
 
     def _build_header(self) -> QWidget:
         header = QWidget()
+        make_transparent(header)
         layout = QHBoxLayout(header)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(Spacing.MD)
@@ -162,6 +164,7 @@ class UpdateDialog(AppDialog):
 
     def _build_notes_section(self) -> QWidget:
         container = QWidget()
+        make_transparent(container)
         layout = QVBoxLayout(container)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(Spacing.XS)
@@ -205,9 +208,7 @@ class UpdateDialog(AppDialog):
         set_tooltip(self._folder_edit, self._folder_edit.text())
         self._folder_edit.textChanged.connect(lambda path: set_tooltip(self._folder_edit, path))
         loc_row.addWidget(self._folder_edit, 1)
-        browse_btn = QPushButton("📁")
-        browse_btn.setFixedWidth(36)
-        set_tooltip(browse_btn, "Choose install folder")
+        browse_btn = IconButton("", "Choose install folder", icon_name="folder-open")
         browse_btn.clicked.connect(self._browse_folder)
         loc_row.addWidget(browse_btn)
         layout.addLayout(loc_row)
@@ -242,6 +243,7 @@ class UpdateDialog(AppDialog):
 
     def _build_progress_section(self) -> QWidget:
         self._progress_container = QWidget()
+        make_transparent(self._progress_container)
         self._progress_container.setVisible(False)
         layout = QVBoxLayout(self._progress_container)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -272,6 +274,7 @@ class UpdateDialog(AppDialog):
 
     def _build_action_section(self) -> QWidget:
         container = QWidget()
+        make_transparent(container)
         layout = QVBoxLayout(container)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(Spacing.SM)

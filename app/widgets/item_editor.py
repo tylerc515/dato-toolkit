@@ -19,6 +19,7 @@ from PyQt6.QtWidgets import (
 )
 
 from app.design.qss import apply_style
+from app.widgets.components import ICON_BUTTON_SIZE_SMALL, IconButton
 from app.design.tooltip import set_tooltip
 from app.design.tokens import Color, FontSize, Radius, Spacing
 
@@ -43,17 +44,11 @@ class _ItemRowWidget(QWidget):
             label.setText(label.text() + "  \U0001f4ce")
         layout.addWidget(label, 1)
 
-        edit_btn = QPushButton("✎")
-        edit_btn.setFixedSize(28, 28)
-        set_tooltip(edit_btn, "Edit this item")
-        edit_btn.setProperty("flat", "true")
+        edit_btn = IconButton("✎", "Edit this item", size=ICON_BUTTON_SIZE_SMALL)
         edit_btn.clicked.connect(self.edit_clicked)
         layout.addWidget(edit_btn)
 
-        remove_btn = QPushButton("×")
-        remove_btn.setFixedSize(28, 28)
-        set_tooltip(remove_btn, "Remove this item")
-        remove_btn.setProperty("flat", "true")
+        remove_btn = IconButton("×", "Remove this item", size=ICON_BUTTON_SIZE_SMALL)
         remove_btn.clicked.connect(self.remove_clicked)
         layout.addWidget(remove_btn)
 

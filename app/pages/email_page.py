@@ -36,7 +36,7 @@ from app.history import HistoryEntry, add_history_entry
 from app.project import ProjectConfig, ProjectError, get_projects_dir, list_projects, load_project, sanitize_filename
 from app.widgets import HelpPanel
 from app.widgets.dialogs import AppDialog
-from app.widgets.components import Card, PrimaryButton, SecondaryButton
+from app.widgets.components import Card, IconButton, PrimaryButton, SecondaryButton
 
 logger = logging.getLogger(__name__)
 
@@ -289,10 +289,7 @@ class EmailPage(QWidget):
         title.setProperty("role", "heading")
         header_row.addWidget(title)
         header_row.addStretch(1)
-        help_btn = QPushButton("?")
-        help_btn.setFixedSize(32, 32)
-        help_btn.setProperty("flat", "true")
-        set_tooltip(help_btn, "Show or hide help for this page")
+        help_btn = IconButton("?", "Show or hide help for this page")
         help_btn.clicked.connect(self._toggle_help)
         header_row.addWidget(help_btn)
         content_wrapper_layout.addLayout(header_row)

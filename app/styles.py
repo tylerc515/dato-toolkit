@@ -46,6 +46,14 @@ QMainWindow, QWidget {{
     background-color: {Color.PAGE_BG};
 }}
 
+QCheckBox {{
+    background-color: transparent;
+}}
+
+QScrollArea > QWidget, QScrollArea > QWidget > QWidget {{
+    background-color: transparent;
+}}
+
 QLabel {{
     background: transparent;
 }}
@@ -96,10 +104,19 @@ QPushButton {{
     border-radius: {Radius.BUTTON}px;
     padding: {Spacing.SM}px {Spacing.LG}px;
     font-size: {FontSize.SECTION}px;
+    outline: none;
 }}
 
 QPushButton:hover {{
     background-color: {Color.BORDER_STRONG};
+}}
+
+QPushButton:focus {{
+    border-color: {Color.ACCENT};
+}}
+
+QPushButton[iconButton="true"] {{
+    padding: 0;
 }}
 
 QPushButton:pressed {{
@@ -125,6 +142,10 @@ QPushButton[accent="true"]:hover {{
     background-color: {Color.ACCENT_HOVER};
 }}
 
+QPushButton[accent="true"]:focus {{
+    background-color: {Color.ACCENT_HOVER};
+}}
+
 QPushButton[accent="true"]:disabled {{
     background-color: {Color.BORDER_STRONG};
     color: {Color.TEXT_MUTED};
@@ -141,6 +162,10 @@ QPushButton[variant="success"] {{
 }}
 
 QPushButton[variant="success"]:hover {{
+    background-color: {Color.SUCCESS_HOVER};
+}}
+
+QPushButton[variant="success"]:focus {{
     background-color: {Color.SUCCESS_HOVER};
 }}
 
@@ -163,6 +188,11 @@ QLineEdit, QTextEdit, QComboBox {{
 
 QLineEdit:focus, QTextEdit:focus, QComboBox:focus {{
     border: 1px solid {Color.ACCENT};
+}}
+
+QLineEdit:disabled, QTextEdit:disabled {{
+    color: {Color.TEXT_MUTED};
+    background-color: {Color.CARD_BG};
 }}
 
 QComboBox:disabled {{
@@ -189,25 +219,60 @@ QListWidget::item:selected {{
     border: 1px solid {Color.ACCENT};
 }}
 
+QListWidget:focus {{
+    border-color: {Color.ACCENT};
+}}
+
+QAbstractItemView {{
+    outline: 0;
+}}
+
 QScrollArea {{
     border: none;
     background: transparent;
 }}
 
 QScrollBar:vertical {{
-    background: {Color.PAGE_BG};
+    background: transparent;
     width: {Spacing.SM}px;
-    border-radius: {Radius.INPUT}px;
+    margin: 0;
+}}
+
+QScrollBar:horizontal {{
+    background: transparent;
+    height: {Spacing.SM}px;
+    margin: 0;
 }}
 
 QScrollBar::handle:vertical {{
     background: {Color.BORDER_STRONG};
-    border-radius: {Radius.INPUT}px;
+    border-radius: {Spacing.XS}px;
     min-height: {Spacing.XXL}px;
 }}
 
-QScrollBar::handle:vertical:hover {{
+QScrollBar::handle:horizontal {{
+    background: {Color.BORDER_STRONG};
+    border-radius: {Spacing.XS}px;
+    min-width: {Spacing.XXL}px;
+}}
+
+QScrollBar::handle:vertical:hover, QScrollBar::handle:horizontal:hover {{
     background: {Color.ACCENT};
+}}
+
+QScrollBar::add-line, QScrollBar::sub-line {{
+    width: 0;
+    height: 0;
+    background: none;
+    border: none;
+}}
+
+QScrollBar::add-page, QScrollBar::sub-page {{
+    background: none;
+}}
+
+QAbstractScrollArea::corner {{
+    background: transparent;
 }}
 
 QProgressBar {{

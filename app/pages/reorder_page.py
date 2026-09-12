@@ -24,6 +24,7 @@ from app.parser import TraceFileData
 from app.project import AuxItem, ProjectConfig, ProjectSection
 from app.titlegen import generate_title
 from app.widgets import HelpPanel
+from app.widgets.components import IconButton
 from app.widgets.item_editor import ItemEditorWidget
 from app.widgets.tracker_preview import TrackerPreview
 
@@ -117,10 +118,7 @@ class ReorderPage(QWidget):
         title.setProperty("role", "heading")
         header_row.addWidget(title)
         header_row.addStretch(1)
-        self.help_button = QPushButton("?")
-        self.help_button.setFixedSize(32, 32)
-        set_tooltip(self.help_button, "Show help for this step")
-        self.help_button.setProperty("flat", "true")
+        self.help_button = IconButton("?", "Show help for this step")
         self.help_button.clicked.connect(self._toggle_help)
         header_row.addWidget(self.help_button)
         content_layout.addLayout(header_row)

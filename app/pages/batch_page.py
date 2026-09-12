@@ -27,6 +27,7 @@ from app.design.tooltip import set_tooltip
 from app.design.tokens import Color, Radius
 from app.styles import apply_card_shadow
 from app.widgets import HelpPanel
+from app.widgets.components import IconButton
 
 # --- UI text -------------------------------------------------------------
 
@@ -176,10 +177,7 @@ class BatchPage(QWidget):
         title.setProperty("role", "heading")
         header_row.addWidget(title)
         header_row.addStretch(1)
-        self.help_button = QPushButton("?")
-        self.help_button.setFixedSize(32, 32)
-        set_tooltip(self.help_button, "Show help for batch generation")
-        self.help_button.setProperty("flat", "true")
+        self.help_button = IconButton("?", "Show help for batch generation")
         self.help_button.clicked.connect(self._toggle_help)
         header_row.addWidget(self.help_button)
         content_layout.addLayout(header_row)
