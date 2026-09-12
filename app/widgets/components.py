@@ -252,3 +252,165 @@ def keep_content_height(widget: QWidget) -> None:
     policy = widget.sizePolicy()
     policy.setVerticalPolicy(QSizePolicy.Policy.Minimum)
     widget.setSizePolicy(policy)
+
+
+class FlowLayout(QLayout):
+    """Items flow left to right and wrap to the next line when the row is full.
+
+    Port of Qt's canonical FlowLayout example with two additions:
+
+    - `align_right`: each line is pushed against the right edge (for a page
+      header's action buttons, which sit opposite the title).
+    - `equal_widths`: items are laid out as a balanced grid of equal-width
+      columns instead of ragged lines - four stat cards go 4 across, then 2x2,
+      then a single column as the width shrinks. Column count is chosen so
+      every row is as full as possible (4 items never render as 3 + 1)."""
+
+    def __init__(
+        self,
+        parent: QWidget | None = None,
+        *,
+        h_spacing: int = Spacing.SM,
+        v_spacing: int = Spacing.SM,
+        align_right: bool = False,
+        equal_widths: bool = False,
+    ):
+        super().__init__(parent)
+        self._items: list[QLayoutItem] = []
+        self._h_spacing = h_spacing
+        self._v_spacing = v_spacing
+        self._align_right = align_right
+        self._equal_widths = equal_widths
+
+    # -- QLayout interface --------------------------------------------------
+
+    def addItem(self, item: QLayoutItem) -> None:
+        self._items.append(item)
+
+    def count(self) -> int:
+        return len(self._items)
+
+    def itemAt(self, index: int) -> QLayoutItem | None:
+        if 0 <= index < len(self._items):
+            return self._items[index]
+        return None
+
+    def takeAt(self, index: int) -> QLayoutItem | None:
+        if 0 <= index < len(self._items):
+            return self._items.pop(index)
+        return None
+
+    def expandingDirections(self) -> Qt.Orientation:
+        return Qt.Orientation(0)
+
+    def hasHeightForWidth(self) -> bool:
+        return True
+
+    def heightForWidth(self, width: int) -> int:
+        return self._do_layout(QRect(0, 0, width, 0), test_only=True)
+
+    def setGeometry(self, rect: QRect) -> None:
+        super().setGeometry(rect)
+        self._do_layout(rect, test_only=False)
+
+    def sizeHint(self) -> QSize:
+        return self.minimumSize()
+
+    def minimumSize(self) -> QSize:
+        size = QSize()
+        for item in self._items:
+            size = size.expandedTo(item.minimumSize())
+        margins = self.contentsMargins()
+        return size + QSize(margins.left() + margins.right(), margins.top() + margins.bottom())
+
+    # -- Layout algorithm ---------------------------------------------------
+
+    def _lines(self, width: int) -> list[list[tuple[QLayoutItem, int]]]:
+        """Group items into lines as (item, width) pairs for the given width."""
+        if self._equal_widths:
+            return self._grid_lines(width)
+        lines: list[list[tuple[QLayoutItem, int]]] = []
+        current: list[tuple[QLayoutItem, int]] = []
+        x = 0
+        for item in self._items:
+            item_width = item.sizeHint().width()
+            if current and x + item_width > width:
+                lines.append(current)
+                current, x = [], 0
+            current.append((item, item_width))
+            x += item_width + self._h_spacing
+        if current:
+            lines.append(current)
+        return lines
+
+    def _grid_lines(self, width: int) -> list[list[tuple[QLayoutItem, int]]]:
+        count = len(self._items)
+        if count == 0:
+            return []
+        widest = max(item.sizeHint().width() for item in self._items)
+        fit = max(1, (width + self._h_spacing) // (widest + self._h_spacing))
+        rows = -(-count // fit)  # ceiling division
+        columns = -(-count // rows)  # balanced: every row as full as possible
+        column_width = (width - self._h_spacing * (columns - 1)) // columns
+        return [
+            [(item, column_width) for item in self._items[start:start + columns]]
+            for start in range(0, count, columns)
+        ]
+
+    def _do_layout(self, rect: QRect, test_only: bool) -> int:
+        margins = self.contentsMargins()
+        area = rect.adjusted(margins.left(), margins.top(), -margins.right(), -margins.bottom())
+        y = area.y()
+        for line in self._lines(area.width()):
+            heights = [
+                item.heightForWidth(item_width) if item.hasHeightForWidth() else item.sizeHint().height()
+                for item, item_width in line
+            ]
+            line_height = max(heights)
+            line_width = sum(item_width for _, item_width in line) + self._h_spacing * (len(line) - 1)
+            x = area.x() + (area.width() - line_width) if self._align_right else area.x()
+            for (item, item_width), item_height in zip(line, heights):
+                if not test_only:
+                    if self._equal_widths:
+                        item.setGeometry(QRect(x, y, item_width, line_height))
+                    else:
+                        # Items of different heights sit centred on their line.
+                        item.setGeometry(QRect(x, y + (line_height - item_height) // 2, item_width, item_height))
+                x += item_width + self._h_spacing
+            y += line_height + self._v_spacing
+        if self._items:
+            y -= self._v_spacing
+        return y - area.y() + margins.top() + margins.bottom()
+
+
+class ResponsiveColumns(QWidget):
+    """N sections side by side that stack into one column when narrow.
+
+    One QBoxLayout whose direction flips at `stack_below` (the container's own
+    width, in logical px). Children keep their stretch factors either way."""
+
+    def __init__(self, stack_below: int, spacing: int = Spacing.MD, parent: QWidget | None = None):
+        super().__init__(parent)
+        self._stack_below = stack_below
+        self._box = QBoxLayout(QBoxLayout.Direction.LeftToRight, self)
+        self._box.setContentsMargins(0, 0, 0, 0)
+        self._box.setSpacing(spacing)
+
+    def add_column(self, widget: QWidget, stretch: int = 1) -> None:
+        self._box.addWidget(widget, stretch)
+
+    @property
+    def stacked(self) -> bool:
+        return self._box.direction() == QBoxLayout.Direction.TopToBottom
+
+    def resizeEvent(self, event) -> None:
+        super().resizeEvent(event)
+        self._apply_direction(event.size().width())
+
+    def _apply_direction(self, width: int) -> None:
+        wanted = (
+            QBoxLayout.Direction.TopToBottom if width < self._stack_below else QBoxLayout.Direction.LeftToRight
+        )
+        if self._box.direction() != wanted:
+            self._box.setDirection(wanted)
+            self.updateGeometry()

@@ -37,7 +37,7 @@ from app.pdf_export import export_tracker_pdf
 from app.project import ProjectConfig, sanitize_filename
 from app.validation import validate_tracker_output
 from app.widgets import HelpPanel
-from app.widgets.components import Card, IconButton, PrimaryButton, SecondaryButton
+from app.widgets.components import Card, FlowLayout, IconButton, PrimaryButton, SecondaryButton
 from app.widgets.dialogs import MessageDialog
 
 # --- UI text -------------------------------------------------------------
@@ -217,7 +217,11 @@ class GeneratePage(QWidget):
         self.validation_warning_label.setProperty("tone", "warning")
         self.validation_warning_label.setVisible(False)
         success_layout.addWidget(self.validation_warning_label)
-        success_buttons = QHBoxLayout()
+        # Five buttons: wrap onto a second line in a narrow window rather than
+        # forcing the card (and the page) wider than the viewport.
+        success_buttons_host = QWidget()
+        success_buttons = FlowLayout(success_buttons_host, h_spacing=Spacing.SM, v_spacing=Spacing.SM)
+        success_buttons.setContentsMargins(0, 0, 0, 0)
         self.open_file_button = QPushButton(OPEN_FILE_TEXT)
         self.open_file_button.clicked.connect(self._open_file)
         success_buttons.addWidget(self.open_file_button)
@@ -239,7 +243,7 @@ class GeneratePage(QWidget):
         set_tooltip(self.gen_email_button, "Generate a formatted status update email for this project")
         self.gen_email_button.clicked.connect(self._on_email_requested)
         success_buttons.addWidget(self.gen_email_button)
-        success_layout.addLayout(success_buttons)
+        success_layout.addWidget(success_buttons_host)
         self.success_card.setVisible(False)
         content_layout.addWidget(self.success_card)
 

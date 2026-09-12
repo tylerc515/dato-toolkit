@@ -61,7 +61,9 @@ from app.widgets.dialogs import MessageDialog
 from app.widgets.components import (
     ICON_BUTTON_SIZE_SMALL,
     Card,
+    FlowLayout,
     IconButton,
+    PageScrollArea,
     PrimaryButton,
     SecondaryButton,
     StatCard,
@@ -73,6 +75,9 @@ logger = logging.getLogger(__name__)
 TITLE_TEXT = "Data Converter"
 BACK_TEXT = "← Back"
 STATUS_HINT = "Tip: Import ATS inspection files to convert them to Standard Format CSV for TRACE."
+
+# Each tab's scrolling content area never shrinks below this (px).
+CONTENT_SCROLL_MIN_HEIGHT = 240
 HELP_TITLE = "Data Converter"
 HELP_BODY = """
 <p>The Data Converter transforms ATS inspection files into the Standard
@@ -609,7 +614,7 @@ class ConverterPage(QWidget):
         main = QWidget()
         main_layout = QVBoxLayout(main)
         main_layout.setContentsMargins(16, 16, 16, 16)
-        outer.addWidget(main, 1)
+        outer.addWidget(PageScrollArea(main), 1)
 
         self.help_panel = HelpPanel(HELP_TITLE, HELP_BODY)
         outer.addWidget(self.help_panel)
@@ -676,8 +681,9 @@ class ConverterPage(QWidget):
         ats_view_layout.setContentsMargins(0, 0, 0, 0)
 
         # Stat card row
-        stats_row = QHBoxLayout()
-        stats_row.setSpacing(Spacing.MD)
+        stats_grid = QWidget()
+        stats_row = FlowLayout(stats_grid, h_spacing=Spacing.MD, v_spacing=Spacing.MD, equal_widths=True)
+        stats_row.setContentsMargins(0, 0, 0, 0)
         self._stat_files = StatCard(
             "Files loaded", "0",
             tooltip="Number of ATS files currently imported and ready to convert.",
@@ -696,12 +702,15 @@ class ConverterPage(QWidget):
         stats_row.addWidget(self._stat_files)
         stats_row.addWidget(self._stat_elevations)
         stats_row.addWidget(self._stat_comment_codes)
-        ats_view_layout.addLayout(stats_row)
+        ats_view_layout.addWidget(stats_grid)
 
         # Scrollable content area
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
+        # Keeps a useful slice of the import/results cards visible; when the
+        # window is shorter than that, the whole page scrolls instead.
+        scroll.setMinimumHeight(CONTENT_SCROLL_MIN_HEIGHT)
         content = QWidget()
         self._content_layout = QVBoxLayout(content)
         self._content_layout.setSpacing(Spacing.MD)
@@ -1073,8 +1082,9 @@ class ConverterPage(QWidget):
         """Populate self._team_view_layout with the full TEAM flow, mirroring
         the ATS view's structure and reusing the shared machinery."""
         # Stat card row
-        stats_row = QHBoxLayout()
-        stats_row.setSpacing(Spacing.MD)
+        stats_grid = QWidget()
+        stats_row = FlowLayout(stats_grid, h_spacing=Spacing.MD, v_spacing=Spacing.MD, equal_widths=True)
+        stats_row.setContentsMargins(0, 0, 0, 0)
         self._team_stat_files = StatCard(
             "Files loaded", "0",
             tooltip="Number of TEAM files currently imported in this batch.",
@@ -1093,12 +1103,15 @@ class ConverterPage(QWidget):
         stats_row.addWidget(self._team_stat_files)
         stats_row.addWidget(self._team_stat_elevations)
         stats_row.addWidget(self._team_stat_comment_codes)
-        self._team_view_layout.addLayout(stats_row)
+        self._team_view_layout.addWidget(stats_grid)
 
         # Scrollable content
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
+        # Keeps a useful slice of the import/results cards visible; when the
+        # window is shorter than that, the whole page scrolls instead.
+        scroll.setMinimumHeight(CONTENT_SCROLL_MIN_HEIGHT)
         content = QWidget()
         self._team_content_layout = QVBoxLayout(content)
         self._team_content_layout.setSpacing(Spacing.MD)
@@ -1557,8 +1570,9 @@ class ConverterPage(QWidget):
         mirroring the TEAM view's structure. The convert half (blank toggle,
         comment code review, output, Convert button, conversion) is Task 6."""
         # Stat card row (files + elevations; comment code review is Task 6).
-        stats_row = QHBoxLayout()
-        stats_row.setSpacing(Spacing.MD)
+        stats_grid = QWidget()
+        stats_row = FlowLayout(stats_grid, h_spacing=Spacing.MD, v_spacing=Spacing.MD, equal_widths=True)
+        stats_row.setContentsMargins(0, 0, 0, 0)
         self._tds_stat_files = StatCard(
             "Files loaded", "0",
             tooltip="Number of TDS files currently imported.",
@@ -1580,13 +1594,15 @@ class ConverterPage(QWidget):
         stats_row.addWidget(self._tds_stat_files)
         stats_row.addWidget(self._tds_stat_elevations)
         stats_row.addWidget(self._tds_stat_comment_codes)
-        stats_row.addStretch(1)
-        self._tds_view_layout.addLayout(stats_row)
+        self._tds_view_layout.addWidget(stats_grid)
 
         # Scrollable content
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
+        # Keeps a useful slice of the import/results cards visible; when the
+        # window is shorter than that, the whole page scrolls instead.
+        scroll.setMinimumHeight(CONTENT_SCROLL_MIN_HEIGHT)
         content = QWidget()
         self._tds_content_layout = QVBoxLayout(content)
         self._tds_content_layout.setSpacing(Spacing.MD)

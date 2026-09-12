@@ -24,7 +24,7 @@ from app.parser import TraceFileData
 from app.project import AuxItem, ProjectConfig, ProjectSection
 from app.titlegen import generate_title
 from app.widgets import HelpPanel
-from app.widgets.components import IconButton
+from app.widgets.components import IconButton, PageScrollArea, ResponsiveColumns
 from app.widgets.item_editor import ItemEditorWidget
 from app.widgets.tracker_preview import TrackerPreview
 
@@ -38,6 +38,11 @@ BACK_TEXT = "← Back"
 CONTINUE_TEXT = "Continue →"
 AUTOSAVE_DELAY_MS = 600
 STATUS_HINT = "Tip: Drag sections to reorder them, or double-click to rename."
+
+# Section list | preview go side by side until the page content is narrower
+# than this (logical px), then stack. Each keeps at least SPLIT_MIN_HEIGHT.
+SPLIT_STACK_BELOW = 640
+SPLIT_MIN_HEIGHT = 220
 ADDITIONAL_SECTIONS_LABEL = "Additional Sections"
 AUX_EDITOR_TITLE = "Auxiliary Scope Items"
 PUNCH_EDITOR_TITLE = "Punchlist Items"
@@ -131,29 +136,38 @@ class ReorderPage(QWidget):
         self.title_edit.textChanged.connect(self._on_changed)
         content_layout.addWidget(self.title_edit)
 
-        split_row = QHBoxLayout()
+        # Section list | preview side by side; stacked when the page is narrow.
+        # Both keep a usable minimum height, so a short window scrolls the page
+        # instead of squeezing them.
+        self.split_columns = ResponsiveColumns(stack_below=SPLIT_STACK_BELOW, spacing=Spacing.MD)
 
-        list_column = QVBoxLayout()
+        list_column_widget = QWidget()
+        list_column = QVBoxLayout(list_column_widget)
+        list_column.setContentsMargins(0, 0, 0, 0)
         list_label = QLabel(SECTION_LIST_LABEL)
         list_label.setProperty("role", "label")
         list_column.addWidget(list_label)
         self.section_list = QListWidget()
+        self.section_list.setMinimumHeight(SPLIT_MIN_HEIGHT)
         self.section_list.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
         set_tooltip(self.section_list, "Drag to reorder, double-click to rename")
         self.section_list.setItemDelegate(_SectionCountDelegate(self.section_list))
         self.section_list.model().rowsMoved.connect(self._on_changed)
         self.section_list.itemChanged.connect(self._on_changed)
         list_column.addWidget(self.section_list, 1)
-        split_row.addLayout(list_column, 1)
+        self.split_columns.add_column(list_column_widget)
 
-        preview_column = QVBoxLayout()
+        preview_column_widget = QWidget()
+        preview_column = QVBoxLayout(preview_column_widget)
+        preview_column.setContentsMargins(0, 0, 0, 0)
         preview_label = QLabel(PREVIEW_LABEL)
         preview_column.addWidget(preview_label)
         self.preview = TrackerPreview()
+        self.preview.setMinimumHeight(SPLIT_MIN_HEIGHT)
         preview_column.addWidget(self.preview, 1)
-        split_row.addLayout(preview_column, 1)
+        self.split_columns.add_column(preview_column_widget)
 
-        content_layout.addLayout(split_row, 1)
+        content_layout.addWidget(self.split_columns, 1)
 
         content_layout.addWidget(self._build_additional_panel())
 
@@ -170,7 +184,7 @@ class ReorderPage(QWidget):
         button_row.addWidget(self.continue_button)
         content_layout.addLayout(button_row)
 
-        outer.addWidget(content, 1)
+        outer.addWidget(PageScrollArea(content), 1)
 
         self.help_panel = HelpPanel(HELP_TITLE, HELP_BODY)
         outer.addWidget(self.help_panel)

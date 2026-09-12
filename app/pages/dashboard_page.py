@@ -6,14 +6,23 @@ from pathlib import Path
 
 from PyQt6.QtCore import QUrl, Qt, pyqtSignal
 from PyQt6.QtGui import QDesktopServices
-from PyQt6.QtWidgets import QFrame, QHBoxLayout, QLabel, QLayout, QScrollArea, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import QHBoxLayout, QLabel, QLayout, QVBoxLayout, QWidget
 
 from app.design.icons import icon
 from app.design.tokens import Color, Spacing
 from app.design.tooltip import set_tooltip
 from app.history import HistoryEntry, format_timestamp, load_history
 from app.project import ProjectConfig, list_projects
-from app.widgets.components import Card, PrimaryButton, SecondaryButton, StatCard
+from app.widgets.components import (
+    Card,
+    FlowLayout,
+    PageScrollArea,
+    PrimaryButton,
+    ResponsiveColumns,
+    SecondaryButton,
+    StatCard,
+    keep_content_height,
+)
 
 # --- UI text -------------------------------------------------------------
 
@@ -40,6 +49,16 @@ STATUS_HINT = "Tip: Start a new tracker, or pick up where you left off below."
 
 RECENT_PROJECTS_LIMIT = 5
 RECENT_EXPORTS_LIMIT = 5
+
+# Thresholds are content-column widths (window minus sidebar and page margins).
+# Title block | action buttons stay on one row while the subtitle and all four
+# buttons fit side by side (about 1080 px); below that the buttons drop under
+# the title so they get the full width instead of wrapping one per line.
+HEADER_STACK_BELOW = 1080
+# Recent Projects | Recent Exports sit side by side until the content column
+# is narrower than this, then stack. Below it an export row cannot hold its
+# title plus both buttons legibly.
+LISTS_STACK_BELOW = 960
 
 
 def _clear_layout(layout: QLayout) -> None:
@@ -70,47 +89,64 @@ class DashboardPage(QWidget):
         self._build_ui()
 
     def _build_ui(self) -> None:
-        outer = QVBoxLayout(self)
+        page_layout = QVBoxLayout(self)
+        page_layout.setContentsMargins(0, 0, 0, 0)
+        content = QWidget()
+        page_layout.addWidget(PageScrollArea(content))
+
+        outer = QVBoxLayout(content)
         outer.setContentsMargins(Spacing.LG, Spacing.LG, Spacing.LG, Spacing.LG)
         outer.setSpacing(Spacing.LG)
 
-        header_row = QHBoxLayout()
-        title_column = QVBoxLayout()
+        # Title block | action buttons. When the content column is too narrow
+        # for the title and all four buttons on one line, the buttons drop
+        # below the title (full width) instead of wrapping one per line beside
+        # it; within their row they wrap right-aligned and never truncate.
+        self.header = ResponsiveColumns(stack_below=HEADER_STACK_BELOW, spacing=Spacing.SM)
+        title_block = QWidget()
+        title_column = QVBoxLayout(title_block)
+        title_column.setContentsMargins(0, 0, 0, 0)
         title = QLabel(TITLE_TEXT)
         title.setProperty("role", "heading")
         title_column.addWidget(title)
         subtitle = QLabel(SUBTITLE_TEXT)
         subtitle.setProperty("role", "muted")
         title_column.addWidget(subtitle)
-        header_row.addLayout(title_column)
-        header_row.addStretch(1)
+        self.header.add_column(title_block, stretch=0)
+
+        self.actions = QWidget()
+        actions_flow = FlowLayout(self.actions, h_spacing=Spacing.SM, v_spacing=Spacing.SM, align_right=True)
+        actions_flow.setContentsMargins(0, 0, 0, 0)
+        self.header.add_column(self.actions, stretch=1)
 
         self.new_tracker_button = PrimaryButton(NEW_TRACKER_TEXT)
         self.new_tracker_button.setIcon(icon("plus", color=Color.TEXT_PRIMARY))
         self.new_tracker_button.clicked.connect(self.new_tracker_requested.emit)
-        header_row.addWidget(self.new_tracker_button)
+        actions_flow.addWidget(self.new_tracker_button)
 
         self.batch_button = SecondaryButton(BATCH_GENERATE_TEXT)
         self.batch_button.setIcon(icon("table"))
         set_tooltip(self.batch_button, "Generate trackers for multiple projects from a folder of CSVs")
         self.batch_button.clicked.connect(self.batch_requested.emit)
-        header_row.addWidget(self.batch_button)
+        actions_flow.addWidget(self.batch_button)
 
         self.email_button = SecondaryButton(GENERATE_EMAIL_TEXT)
         self.email_button.setIcon(icon("paper-plane-tilt"))
         set_tooltip(self.email_button, "Generate a formatted NDE status update email document")
         self.email_button.clicked.connect(self.email_requested.emit)
-        header_row.addWidget(self.email_button)
+        actions_flow.addWidget(self.email_button)
 
         self.converter_button = SecondaryButton(CONVERT_DATA_TEXT)
         self.converter_button.setIcon(icon("arrows-left-right"))
         set_tooltip(self.converter_button, "Convert ATS, TEAM, or TDS inspection files to Standard Format CSV")
         self.converter_button.clicked.connect(self.converter_requested.emit)
-        header_row.addWidget(self.converter_button)
-        outer.addLayout(header_row)
+        actions_flow.addWidget(self.converter_button)
+        outer.addWidget(self.header)
 
-        self.stats_row = QHBoxLayout()
-        self.stats_row.setSpacing(Spacing.MD)
+        # Stat cards: 4 across, then 2x2, then one column as the width shrinks.
+        self.stats_grid = QWidget()
+        self.stats_row = FlowLayout(self.stats_grid, h_spacing=Spacing.MD, v_spacing=Spacing.MD, equal_widths=True)
+        self.stats_row.setContentsMargins(0, 0, 0, 0)
         self._stat_projects = StatCard(
             STAT_PROJECTS_LABEL, "0",
             tooltip="Tracker projects you've saved, including drafts you haven't generated yet.",
@@ -128,25 +164,25 @@ class DashboardPage(QWidget):
             tooltip="NDE status update email documents you've generated.",
         )
         for stat_card in (self._stat_projects, self._stat_generated, self._stat_elevations, self._stat_emails):
-            self.stats_row.addWidget(stat_card, 1)
-        outer.addLayout(self.stats_row)
+            keep_content_height(stat_card)
+            self.stats_row.addWidget(stat_card)
+        outer.addWidget(self.stats_grid)
 
-        lists_row = QHBoxLayout()
-        lists_row.setSpacing(Spacing.MD)
+        self.lists = ResponsiveColumns(stack_below=LISTS_STACK_BELOW, spacing=Spacing.MD)
         self.view_projects_button = SecondaryButton(VIEW_ALL_TEXT)
         self.view_projects_button.clicked.connect(self.view_projects_requested.emit)
         self.recent_projects_card, self.recent_projects_layout = self._build_list_card(
             RECENT_PROJECTS_TITLE, action_button=self.view_projects_button
         )
-        lists_row.addWidget(self.recent_projects_card, 1)
+        self.lists.add_column(self.recent_projects_card)
 
         self.view_history_button = SecondaryButton(VIEW_ALL_TEXT)
         self.view_history_button.clicked.connect(self.view_history_requested.emit)
         self.recent_exports_card, self.recent_exports_layout = self._build_list_card(
             RECENT_EXPORTS_TITLE, action_button=self.view_history_button
         )
-        lists_row.addWidget(self.recent_exports_card, 1)
-        outer.addLayout(lists_row, 1)
+        self.lists.add_column(self.recent_exports_card)
+        outer.addWidget(self.lists, 1)
 
     def _build_list_card(self, title_text: str, action_button: SecondaryButton | None = None) -> tuple[Card, QVBoxLayout]:
         card = Card()
@@ -161,19 +197,15 @@ class DashboardPage(QWidget):
             heading_row.addWidget(action_button)
         outer_layout.addLayout(heading_row)
 
-        # Rows live in a scroll area so a short window scrolls the list instead
-        # of squeezing every row until its text and buttons are clipped.
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setFrameShape(QFrame.Shape.NoFrame)
-        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        rows_container = QWidget()
-        rows_layout = QVBoxLayout(rows_container)
+        # Rows keep their natural (word-wrapped) height and a trailing stretch
+        # absorbs the spare space; the page scrolls when the window is short.
+        # An aligned layout (setAlignment(AlignTop)) must NOT be used here: it
+        # lays rows out at their unwrapped sizeHint, cutting wrapped titles.
+        rows_layout = QVBoxLayout()
         rows_layout.setContentsMargins(0, 0, 0, 0)
         rows_layout.setSpacing(Spacing.SM)
-        rows_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
-        scroll.setWidget(rows_container)
-        outer_layout.addWidget(scroll, 1)
+        rows_layout.addStretch(1)
+        outer_layout.addLayout(rows_layout, 1)
 
         return card, rows_layout
 
@@ -211,13 +243,13 @@ class DashboardPage(QWidget):
             empty_label = QLabel(NO_PROJECTS_TEXT)
             empty_label.setProperty("role", "muted")
             self.recent_projects_layout.addWidget(empty_label)
-            return
-
         for path, config in recent_projects:
             self.recent_projects_layout.addWidget(self._make_project_row(path, config))
+        self.recent_projects_layout.addStretch(1)
 
     def _make_project_row(self, path: Path, config: ProjectConfig) -> QWidget:
         row = Card()
+        keep_content_height(row)
         inner_layout = QHBoxLayout()
         row.layout().addLayout(inner_layout)
 
@@ -243,13 +275,13 @@ class DashboardPage(QWidget):
             empty_label = QLabel(NO_HISTORY_TEXT)
             empty_label.setProperty("role", "muted")
             self.recent_exports_layout.addWidget(empty_label)
-            return
-
         for entry in recent_exports:
             self.recent_exports_layout.addWidget(self._make_export_row(entry))
+        self.recent_exports_layout.addStretch(1)
 
     def _make_export_row(self, entry: HistoryEntry) -> QWidget:
         row = Card()
+        keep_content_height(row)
         inner_layout = QHBoxLayout()
         row.layout().addLayout(inner_layout)
 
