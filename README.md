@@ -64,8 +64,11 @@ new project directly from the app.
 
 ```bash
 pip install -r requirements.txt
+pip install pytest pytest-qt
 pytest
 ```
+
+`pytest` and `pytest-qt` are declared as the `dev` extra in `pyproject.toml`.
 
 ## License
 

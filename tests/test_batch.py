@@ -45,10 +45,14 @@ def test_scan_folder_groups_fixture_csvs():
     result = scan_folder(FIXTURES_DIR)
 
     assert result.errors == []
-    assert len(result.groups) == 1
+    # Two groups: the Excel-padded RB#2 fixtures and the ragged RB1 fixture.
+    assert len(result.groups) == 2
     group = result.groups[0]
     assert group.customer == "Example Paper"
     assert [Path(f.source_path).stem for f in group.files] == ["FLOOR", "FRONT_WALL_MLO", "FRONT_WALL_W_PORTS"]
+    ragged = result.groups[1]
+    assert ragged.equipment == "RB1"
+    assert [Path(f.source_path).stem for f in ragged.files] == ["trace_ragged_2tube"]
 
 
 def test_scan_folder_reports_unreadable_csv(tmp_path):

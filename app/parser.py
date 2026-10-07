@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
+import csv
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
-
-import pandas as pd
 
 from app.constants import (
     ELEVATION_LABEL_COL,
@@ -69,53 +68,67 @@ class TraceFileData:
     elevations: list[ElevationData] = field(default_factory=list)
 
 
-def _clean(value: object) -> Optional[str]:
-    """Strip whitespace from a cell value, returning None for blank/NaN cells."""
+Rows = list[list[str]]
+
+
+def read_ragged_csv(path: str | Path) -> Rows:
+    """
+    Read a CSV whose rows may have different field counts and return
+    every row padded to the width of the widest row. TRACE exports
+    that have not been round-tripped through Excel are ragged; pandas'
+    C engine fails on them because it fixes the column count from the
+    first line.
+    """
+    with open(path, encoding="utf-8-sig", errors="replace", newline="") as fh:
+        rows = list(csv.reader(fh))
+    width = max((len(r) for r in rows), default=0)
+    return [r + [""] * (width - len(r)) for r in rows]
+
+
+def _clean(value: Optional[str]) -> Optional[str]:
+    """Strip whitespace from a cell value, returning None for blank cells."""
     if value is None:
-        return None
-    if isinstance(value, float) and pd.isna(value):
         return None
     text = str(value).strip()
     return text or None
 
 
-def _read_metadata(df: pd.DataFrame) -> dict[str, Optional[str]]:
+def _cell(rows: Rows, row_idx: int, col: int) -> Optional[str]:
+    """Return the cleaned cell at (row_idx, col), or None when the column is absent."""
+    row = rows[row_idx]
+    if col >= len(row):
+        return None
+    return _clean(row[col])
+
+
+def _read_metadata(rows: Rows) -> dict[str, Optional[str]]:
     """Scan every row for known metadata labels and return their values."""
     metadata: dict[str, Optional[str]] = {}
-    if df.shape[1] <= max(METADATA_LABEL_COL, METADATA_VALUE_COL):
-        return metadata
-    for row_idx in range(len(df)):
-        label = _clean(df.iat[row_idx, METADATA_LABEL_COL])
+    for row_idx in range(len(rows)):
+        label = _cell(rows, row_idx, METADATA_LABEL_COL)
         if label in ALL_METADATA_LABELS:
-            metadata[label] = _clean(df.iat[row_idx, METADATA_VALUE_COL])
+            metadata[label] = _cell(rows, row_idx, METADATA_VALUE_COL)
     return metadata
 
 
-def _read_measurements(df: pd.DataFrame, row_idx: int, number_of_tubes: int) -> list[Optional[str]]:
+def _read_measurements(rows: Rows, row_idx: int, number_of_tubes: int) -> list[Optional[str]]:
     """Read `number_of_tubes` measurement cells starting at MEASUREMENT_START_COL."""
     end_col = MEASUREMENT_START_COL + number_of_tubes
-    values: list[Optional[str]] = []
-    for col in range(MEASUREMENT_START_COL, end_col):
-        if col < df.shape[1]:
-            values.append(_clean(df.iat[row_idx, col]))
-        else:
-            values.append(None)
-    return values
+    return [_cell(rows, row_idx, col) for col in range(MEASUREMENT_START_COL, end_col)]
 
 
-def _read_elevations(df: pd.DataFrame, number_of_tubes: int, filename: str) -> list[ElevationData]:
+def _read_elevations(rows: Rows, number_of_tubes: int, filename: str) -> list[ElevationData]:
     """Walk the CSV looking for 3-row elevation blocks (LEFT/CNTR/RGHT)."""
     elevations: list[ElevationData] = []
-    row_count = len(df)
+    row_count = len(rows)
     row_idx = 0
     while row_idx < row_count:
-        first_col = _clean(df.iat[row_idx, 0]) if df.shape[1] > 0 else None
-        if first_col == UT_TECH_NAME_MARKER:
+        if _cell(rows, row_idx, 0) == UT_TECH_NAME_MARKER:
             if row_idx + 2 >= row_count:
                 raise TraceParseError(
                     f"'{filename}' has an incomplete elevation block starting at row {row_idx + 1}"
                 )
-            label = _clean(df.iat[row_idx, ELEVATION_LABEL_COL]) if df.shape[1] > ELEVATION_LABEL_COL else None
+            label = _cell(rows, row_idx, ELEVATION_LABEL_COL)
             if not label:
                 raise TraceParseError(
                     f"'{filename}' has an elevation block with no label at row {row_idx + 1}"
@@ -123,9 +136,9 @@ def _read_elevations(df: pd.DataFrame, number_of_tubes: int, filename: str) -> l
             elevations.append(
                 ElevationData(
                     label=label,
-                    left=_read_measurements(df, row_idx, number_of_tubes),
-                    cntr=_read_measurements(df, row_idx + 1, number_of_tubes),
-                    rght=_read_measurements(df, row_idx + 2, number_of_tubes),
+                    left=_read_measurements(rows, row_idx, number_of_tubes),
+                    cntr=_read_measurements(rows, row_idx + 1, number_of_tubes),
+                    rght=_read_measurements(rows, row_idx + 2, number_of_tubes),
                 )
             )
             row_idx += 3
@@ -143,11 +156,11 @@ def parse_trace_csv(path: str | Path) -> TraceFileData:
     """
     path = Path(path)
     try:
-        df = pd.read_csv(path, header=None, dtype=str, keep_default_na=True)
-    except (OSError, pd.errors.ParserError, pd.errors.EmptyDataError) as exc:
+        rows = read_ragged_csv(path)
+    except (OSError, csv.Error) as exc:
         raise TraceParseError(f"Could not read '{path.name}': {exc}") from exc
 
-    metadata = _read_metadata(df)
+    metadata = _read_metadata(rows)
 
     missing = [label for label in REQUIRED_METADATA_LABELS if not metadata.get(label)]
     if missing:
@@ -163,7 +176,7 @@ def parse_trace_csv(path: str | Path) -> TraceFileData:
             f"'{path.name}' has an invalid Number of Tubes value: {raw_tube_count!r}"
         ) from exc
 
-    elevations = _read_elevations(df, number_of_tubes, path.name)
+    elevations = _read_elevations(rows, number_of_tubes, path.name)
     if not elevations:
         raise TraceParseError(f"'{path.name}' contains no elevation data blocks")
 
