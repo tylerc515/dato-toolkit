@@ -28,6 +28,14 @@ echo Creating clean build environment in %VENV%
 "%PYTHON%" -m venv --clear "%VENV%" || exit /b 1
 "%VENV%\Scripts\python.exe" -m pip install --quiet --disable-pip-version-check -r requirements.txt || exit /b 1
 
+rem Canary: numpy is not a dependency. If it imports here, the venv is not clean
+rem and the exe would bundle whatever else leaked in.
+"%VENV%\Scripts\python.exe" -c "import numpy" >nul 2>&1
+if not errorlevel 1 (
+    echo Build aborted: numpy imports inside %VENV%, so the build venv is not clean.
+    exit /b 1
+)
+
 "%VENV%\Scripts\python.exe" scripts\generate_icon.py || exit /b 1
 
 if exist "%WORK%\build" rmdir /s /q "%WORK%\build"
