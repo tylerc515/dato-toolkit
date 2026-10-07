@@ -7,7 +7,13 @@ rem resolve, so a build from the global interpreter ships whatever happens to
 rem be installed there (numpy rode along that way in v2.6.1).
 
 set PYTHON=python
-set VENV=.venv-build
+
+rem Everything the build creates lives outside the Dropbox-synced tree. Dropbox
+rem holds files open while it syncs them: a venv inside the repo cannot be
+rem cleared (WinError 32), and the exe cannot have its icon embedded
+rem (WinError 110). Only the finished exe is copied back into dist.
+set WORK=%LOCALAPPDATA%\dato-toolkit-build
+set VENV=%WORK%\venv
 
 for /f "usebackq tokens=2 delims==" %%v in (`findstr /b __version__ app\__init__.py`) do set VERSION=%%v
 set VERSION=%VERSION:"=%
@@ -24,10 +30,8 @@ echo Creating clean build environment in %VENV%
 
 "%VENV%\Scripts\python.exe" scripts\generate_icon.py || exit /b 1
 
-rem Build outside the Dropbox-synced tree. Dropbox holds the new exe open
-rem while PyInstaller embeds the icon, and the build fails with WinError 110.
-set WORK=%LOCALAPPDATA%\Temp\dato-toolkit-build
-if exist "%WORK%" rmdir /s /q "%WORK%"
+if exist "%WORK%\build" rmdir /s /q "%WORK%\build"
+if exist "%WORK%\dist" rmdir /s /q "%WORK%\dist"
 
 "%VENV%\Scripts\python.exe" -m PyInstaller ^
     --noconfirm ^
