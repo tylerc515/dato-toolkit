@@ -1,0 +1,25 @@
+,,,,This Excel file is in the 'Standard Format' for sharing the raw UT data between the labs.,,
+,,,,Best viewed if Excel's Default Font is set to either  ARIAL-size 10  or  CALIBRI-size 11.,,
+,,,,,,
+,,,,,,
+,,,,,Company Name:---->,,Example Paper
+,,,,,Mill Location:---->,,Anytown
+,,,,,Boiler Name:---->,,RB1
+,,,,,Inspection Date:---->,, October 2026
+,,,,,Boiler Section:---->,,SOOTBLOWER PASS 'A'
+,,,,,Number of Tubes:---->,,2
+,,,,,Numbering Direction:---->,,Left-to-Right
+,,,,,NDE Laboratory:---->,,
+,,,,,,
+,,,,,,
+,TUBE NUMBERS along the top.---->,,,,1,2
+,,,,,,
+UT Tech Name:,,+10' 0'',,LEFT,0.185,0.190
+,,,,CNTR,0.182,0.188
+,,,,RGHT,0.180,0.186
+UT Tech Name:,,+20' 0'',,LEFT,0.176,0.181
+,,,,CNTR,0.174,0.179
+,,,,RGHT,0.172,0.177
+UT Tech Name:,,+30' 0'',,LEFT,0.169,0.173
+,,,,CNTR,0.167,0.171
+,,,,RGHT,0.165,0.169
